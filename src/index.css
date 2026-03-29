@@ -1,3 +1,64 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body{
+  font-family: Inter, sans-serif;
+}
+@keyframes float {
+
+0%{
+transform:translateY(100vh) rotate(0deg);
+opacity:0;
+}
+
+10%{
+opacity:1;
+}
+
+100%{
+transform:translateY(-10vh) rotate(360deg);
+opacity:5;
+}
+
+}
+
+.animate-float{
+animation:float 10s linear infinite;
+}
+/* Shake animation */
+@keyframes shake {
+0%,100% { transform: translateX(0); }
+25% { transform: translateX(-5px); }
+75% { transform: translateX(5px); }
+}
+
+.animate-shake {
+animation: shake 0.3s ease;
+}
+
+/* SLOW ROTATION */
+@keyframes spinSlow {
+from { transform: rotate(0deg) scale(1); }
+to { transform: rotate(360deg) scale(0.8); }
+}
+
+.animate-spin-slow {
+animation: spinSlow 4s linear forwards;
+}
+
+/* FADE IN */
+@keyframes fadeIn {
+from { opacity: 0; transform: translateY(10px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+
+.animate-fade-in {
+animation: fadeIn 1s ease forwards;
+left: 50%;
+top: 50%;
+transform: translate(-50%, -50%);
+text-shadow: 0 0 10px rgba(255,255,255,0.7);
+text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}

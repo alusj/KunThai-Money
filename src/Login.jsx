@@ -1,21 +1,51 @@
-// src/Login.jsx
-import { Auth } from "@supabase/auth-ui-react";
-import { ThemeSupa } from "@supabase/auth-ui-shared";
-import supabase from "./supabaseClient";
+import { useState } from "react";
+import supabase from "./Backend/lib/supabaseClient";
 
 export default function Login() {
+
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function handleLogin(e) {
+    e.preventDefault();
+
+    const { error } = await supabase.auth.signInWithPassword({
+      phone,
+      password
+    });
+
+    if (error) {
+      alert(error.message);
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center mb-6 text-blue-700">
-          Welcome to UrSalone
-        </h2>
-        <Auth 
-          supabaseClient={supabase} 
-          appearance={{ theme: ThemeSupa }}
-          providers={["google", "facebook"]} // optional: add social logins
+    <div className="center-screen">
+
+      <form className="card" onSubmit={handleLogin}>
+
+        <h2>KunThai Money Login</h2>
+
+        <input
+          type="text"
+          placeholder="Phone Number"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
         />
-      </div>
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button type="submit">
+          Login
+        </button>
+
+      </form>
+
     </div>
   );
 }
