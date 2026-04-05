@@ -9,6 +9,7 @@ import CreateProfile from "../Backend/auth/CreateProfile";
 import KYC from "../Backend/auth/KYC";
 import WelcomeLoader from "../Backend/auth/WelcomeLoader";
 import KuntaiHome from "../components/KuntaiHome/KuntaiHome";
+import CardTopupCallback from "../components/KuntaiHome/wallet/CardTopupCallback";
 import ProtectedRoute from "../components/ProtectedRoute";
 import PublicRoute from "../components/PublicRoute";
 import AuthSessionRoute from "../components/AuthSessionRoute";
@@ -86,6 +87,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <KuntaiHome />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wallet/topup/callback"
+        element={
+          <ProtectedRoute>
+            <CardTopupCallback />
           </ProtectedRoute>
         }
       />

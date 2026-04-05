@@ -1,11 +1,13 @@
+import { ChevronLeft } from "lucide-react";
+
 export default function BackTab({ onBack }) {
   return (
     <button
       onClick={onBack}
-      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+      className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-transparent text-slate-950 transition hover:bg-slate-100"
+      aria-label="Go back"
     >
-      <span aria-hidden="true">{"<"}</span>
-      <span>Back</span>
+      <ChevronLeft size={34} strokeWidth={3} />
     </button>
   );
 }

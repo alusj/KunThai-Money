@@ -27,7 +27,7 @@ import Hotel from "./Services/Hotel/Hotel";
 import Supermarket from "./Services/Supermarket/supermarket";
 import Pharmacy from "./Services/Pharmacy/Pharmacy";
 
-export default function Dashboard({ account, refreshAccount, otherAccounts = [] }) {
+export default function Dashboard({ account, refreshAccount, otherAccounts = [], user }) {
   const [activeService, setActiveService] = useState(null);
 
   return (
@@ -38,7 +38,7 @@ export default function Dashboard({ account, refreshAccount, otherAccounts = [] 
             <UrBankSkeleton />
           ) : (
             <>
-              <MainAccountCard account={account} />
+              <MainAccountCard account={account} user={user} />
               <MainAccountNumber account={account} />
               <OtherAccountContainer accounts={otherAccounts} />
               <ServicesContainer setActiveService={setActiveService} />

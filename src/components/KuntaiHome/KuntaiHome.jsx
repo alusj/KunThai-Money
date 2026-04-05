@@ -148,8 +148,8 @@ export default function KunTaiHome() {
     }
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+  const handleSignOut = async (scope = "current") => {
+    await supabase.auth.signOut(scope === "all" ? { scope: "global" } : undefined);
     navigate("/login?reason=signed-out", { replace: true });
   };
 
@@ -228,6 +228,7 @@ export default function KunTaiHome() {
             account={accountLoading ? null : account}
             refreshAccount={fetchAccount}
             otherAccounts={otherAccounts}
+            user={user}
           />
         </>
       )}

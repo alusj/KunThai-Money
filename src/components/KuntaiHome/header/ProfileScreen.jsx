@@ -1,20 +1,36 @@
-import { maskPhoneNumber } from "../../../Backend/utils/maskPhoneNumber";
+import { useMemo, useState } from "react";
+import {
+  Bell,
+  ChevronRight,
+  CircleHelp,
+  CreditCard,
+  FileText,
+  Fingerprint,
+  Globe,
+  LockKeyhole,
+  LogOut,
+  MessageCircle,
+  Monitor,
+  Shield,
+  Type,
+  Wallet,
+} from "lucide-react";
 import BackTab from "./Transactions/BackTab";
 
 function getVerificationCopy(status) {
   if (!status?.hasKyc) {
-    return { label: "KYC Required", tone: "text-amber-700 bg-amber-100" };
+    return { label: "KYC Required", tone: "bg-amber-100 text-amber-700" };
   }
 
   if (status.kycStatus === "pending") {
-    return { label: "KYC Pending", tone: "text-sky-700 bg-sky-100" };
+    return { label: "KYC Pending", tone: "bg-sky-100 text-sky-700" };
   }
 
   if (status.kycStatus === "approved") {
-    return { label: "Verified", tone: "text-emerald-700 bg-emerald-100" };
+    return { label: "Verified", tone: "bg-emerald-100 text-emerald-700" };
   }
 
-  return { label: "Needs Review", tone: "text-rose-700 bg-rose-100" };
+  return { label: "Needs Review", tone: "bg-rose-100 text-rose-700" };
 }
 
 function formatLastSeen(lastLoginAt) {
@@ -28,6 +44,53 @@ function formatLastSeen(lastLoginAt) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(lastLoginAt));
+}
+
+function SectionCard({ title, children }) {
+  return (
+    <section className="rounded-[28px] bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm">
+      <p className="text-[0.72rem] font-semibold uppercase tracking-[0.32em] text-slate-400">{title}</p>
+      <div className="mt-4 space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function RowAction({ icon: Icon, title, description, end, onClick, danger = false }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-4 rounded-[22px] px-4 py-4 text-left transition ${
+        danger ? "bg-rose-50 hover:bg-rose-100" : "bg-slate-50 hover:bg-slate-100"
+      }`}
+    >
+      <span className="flex items-start gap-3">
+        <span className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-full ${danger ? "bg-white text-rose-700" : "bg-white text-slate-700"}`}>
+          <Icon size={18} />
+        </span>
+        <span>
+          <span className={`block text-sm font-semibold sm:text-base ${danger ? "text-rose-800" : "text-slate-950"}`}>{title}</span>
+          <span className={`mt-1 block text-xs leading-5 ${danger ? "text-rose-600" : "text-slate-500"}`}>{description}</span>
+        </span>
+      </span>
+      <span className="shrink-0">{end}</span>
+    </button>
+  );
+}
+
+function Toggle({ enabled, onChange }) {
+  return (
+    <button
+      onClick={onChange}
+      className={`relative h-7 w-12 rounded-full transition ${enabled ? "bg-slate-950" : "bg-slate-300"}`}
+      aria-pressed={enabled}
+    >
+      <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${enabled ? "left-6" : "left-1"}`} />
+    </button>
+  );
+}
+
+function ChevronEnd() {
+  return <ChevronRight size={18} className="text-slate-400" />;
 }
 
 export default function ProfileScreen({
@@ -47,177 +110,290 @@ export default function ProfileScreen({
   onSignOut,
 }) {
   const verification = getVerificationCopy(status);
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
+  const initials = useMemo(
+    () =>
+      name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase(),
+    [name]
+  );
+
+  const [notificationState, setNotificationState] = useState({
+    transactions: true,
+    security: true,
+    promotions: false,
+    systemUpdates: true,
+  });
+  const [settingsState, setSettingsState] = useState({
+    darkMode: false,
+    language: "English",
+    textSize: "Medium",
+  });
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef4ff_28%,#f8fafc_100%)]">
+      <div className="border-b border-white/60 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 md:px-8">
           <BackTab onBack={onBack} />
           <div className="text-center">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Profile Center
-            </p>
-            <h1 className="mt-2 text-lg font-bold text-slate-950 md:text-xl">Account & controls</h1>
-          </div>
-          <div className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
-            Active
-          </div>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-slate-400">Profile Center</p>
+           </div>
+          <div className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">Active</div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
-        <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col items-center text-center">
-            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] text-3xl font-semibold text-white shadow-[0_20px_40px_rgba(15,23,42,0.16)]">
-              {profile?.profile_image ? (
-                <img src={profile.profile_image} alt={name} className="h-full w-full object-cover" />
-              ) : (
-                initials || "U"
-              )}
-            </div>
-
-            <p className="mt-5 text-2xl font-semibold text-slate-950">{name}</p>
-            <button
-              onClick={onOpenEditProfile}
-              className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              Edit profile
-            </button>
-          </div>
-
-          <div className="mt-8 space-y-4">
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                Account Number
-              </p>
-              <p className="mt-2 text-base font-semibold text-slate-950">{account?.account_number || "Pending"}</p>
-            </div>
-
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                Phone Number
-              </p>
-              <p className="mt-2 text-base font-semibold text-slate-950">
-                {profile?.phone ? maskPhoneNumber(profile.phone) : "Phone not available"}
-              </p>
-            </div>
-
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                    Verification Status
-                  </p>
-                  <p className="mt-2 text-base font-semibold text-slate-950">{verification.label}</p>
+      <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
+        <section className="relative overflow-hidden rounded-[34px] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_48%,#eef6ff_100%)] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_22%)]" />
+          <div className="relative">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[28px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] text-3xl font-semibold text-white shadow-[0_20px_40px_rgba(15,23,42,0.16)]">
+                  {profile?.profile_image ? (
+                    <img src={profile.profile_image} alt={name} className="h-full w-full object-cover" />
+                  ) : (
+                    initials || "U"
+                  )}
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${verification.tone}`}>
-                  {verification.label}
-                </span>
+
+                <div>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 sm:text-3xl">{name}</p>
+                  <button
+                    onClick={onOpenEditProfile}
+                    className="mt-4 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Edit profile
+                  </button>
+                </div>
               </div>
-              <p className="mt-3 text-xs text-slate-500">Last seen {formatLastSeen(profile?.last_login_at)}</p>
+
+              <button
+                onClick={onOpenCreateAccount}
+                className="rounded-[22px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] px-5 py-4 text-left text-white shadow-[0_16px_36px_rgba(37,99,235,0.18)] transition hover:opacity-95 lg:min-w-[220px]"
+              >
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/64">Account</p>
+                <p className="mt-2 text-lg font-semibold">Add another account</p>
+                <p className="mt-1 text-xs text-white/72">Create an eligible service or foreign account</p>
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="rounded-[24px] bg-white/80 px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Account Number</p>
+                <p className="mt-2 break-all text-base font-semibold text-slate-950">{account?.account_number || "Pending"}</p>
+              </div>
+              <div className="rounded-[24px] bg-white/80 px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Phone Number</p>
+                <p className="mt-2 text-base font-semibold text-slate-950">{profile?.phone || "Phone not available"}</p>
+              </div>
+              <div className="rounded-[24px] bg-white/80 px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Verification</p>
+                    <p className="mt-2 text-base font-semibold text-slate-950">{verification.label}</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${verification.tone}`}>{verification.label}</span>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">Last seen {formatLastSeen(profile?.last_login_at)}</p>
+              </div>
             </div>
           </div>
+        </section>
+
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <SectionCard title="Security">
+            <RowAction
+              icon={Shield}
+              title="Change PIN"
+              description="Update the PIN used for your protected account actions."
+              end={<ChevronEnd />}
+              onClick={onOpenSecurity}
+            />
+            <RowAction
+              icon={Fingerprint}
+              title="Enable biometrics"
+              description="Prepare Face ID or fingerprint access for faster sign-in on supported devices."
+              end={<Toggle enabled={false} onChange={() => {}} />}
+              onClick={() => {}}
+            />
+            <RowAction
+              icon={LockKeyhole}
+              title="Change password"
+              description="Reserved for password-based authentication as the app expands."
+              end={<ChevronEnd />}
+              onClick={onOpenSecurity}
+            />
+          </SectionCard>
+
+          <SectionCard title="Notifications">
+            <RowAction
+              icon={Bell}
+              title="Transactions notification"
+              description="Cash in, cash out and activity alerts."
+              end={<Toggle enabled={notificationState.transactions} onChange={() => setNotificationState((current) => ({ ...current, transactions: !current.transactions }))} />}
+              onClick={onOpenNotifications}
+            />
+            <RowAction
+              icon={Shield}
+              title="Security"
+              description="Suspicious sign-in and account protection alerts."
+              end={<Toggle enabled={notificationState.security} onChange={() => setNotificationState((current) => ({ ...current, security: !current.security }))} />}
+              onClick={onOpenNotifications}
+            />
+            <RowAction
+              icon={Wallet}
+              title="Promotions"
+              description="Product offers and promotional campaigns."
+              end={<Toggle enabled={notificationState.promotions} onChange={() => setNotificationState((current) => ({ ...current, promotions: !current.promotions }))} />}
+              onClick={onOpenNotifications}
+            />
+            <RowAction
+              icon={Monitor}
+              title="System updates"
+              description="Service improvements and maintenance notices."
+              end={<Toggle enabled={notificationState.systemUpdates} onChange={() => setNotificationState((current) => ({ ...current, systemUpdates: !current.systemUpdates }))} />}
+              onClick={onOpenNotifications}
+            />
+          </SectionCard>
+
+          <SectionCard title="Settings">
+            <RowAction
+              icon={Monitor}
+              title="Appearance (Dark Mode toggle)"
+              description="Switch visual mode when dark theme is ready."
+              end={<Toggle enabled={settingsState.darkMode} onChange={() => setSettingsState((current) => ({ ...current, darkMode: !current.darkMode }))} />}
+              onClick={onOpenSettings}
+            />
+            <RowAction
+              icon={Globe}
+              title="Language"
+              description="Current language preference."
+              end={<span className="text-sm font-semibold text-slate-500">{settingsState.language}</span>}
+              onClick={onOpenSettings}
+            />
+            <RowAction
+              icon={Type}
+              title="Text size"
+              description="Adjust the reading size used throughout the app."
+              end={<span className="text-sm font-semibold text-slate-500">{settingsState.textSize}</span>}
+              onClick={onOpenSettings}
+            />
+          </SectionCard>
+
+          <SectionCard title="Terms & Conditions">
+            <RowAction
+              icon={FileText}
+              title="Privacy policy"
+              description="How user information is collected and protected."
+              end={<ChevronEnd />}
+              onClick={onOpenTerms}
+            />
+            <RowAction
+              icon={FileText}
+              title="Terms of services"
+              description="Rules guiding account and product usage."
+              end={<ChevronEnd />}
+              onClick={onOpenTerms}
+            />
+            <RowAction
+              icon={CreditCard}
+              title="Fees and charges"
+              description="Charges applied to transfers and services."
+              end={<ChevronEnd />}
+              onClick={onOpenTerms}
+            />
+            <RowAction
+              icon={Shield}
+              title="KYC / compliance rules"
+              description="Verification and compliance expectations."
+              end={<ChevronEnd />}
+              onClick={onOpenTerms}
+            />
+          </SectionCard>
+
+          <SectionCard title="Help">
+            <RowAction
+              icon={MessageCircle}
+              title="Live chat"
+              description="Reserved for future in-app live support."
+              end={<span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Future</span>}
+              onClick={onOpenHelp}
+            />
+            <RowAction
+              icon={MessageCircle}
+              title="WhatsApp support"
+              description="Fast support path for account and transfer issues."
+              end={<ChevronEnd />}
+              onClick={onOpenHelp}
+            />
+            <RowAction
+              icon={MessageCircle}
+              title="Email support"
+              description="Reach support by email for detailed follow-up."
+              end={<ChevronEnd />}
+              onClick={onOpenHelp}
+            />
+            <RowAction
+              icon={CircleHelp}
+              title="Guides & Tutorial"
+              description="Learning resources for common actions and product usage."
+              end={<ChevronEnd />}
+              onClick={onOpenHelp}
+            />
+            <RowAction
+              icon={CircleHelp}
+              title="FAQs"
+              description="Common answers before contacting support."
+              end={<ChevronEnd />}
+              onClick={onOpenHelp}
+            />
+            <RowAction
+              icon={CircleHelp}
+              title="Didn't receive money"
+              description="Troubleshooting for delayed or missing transfers."
+              end={<ChevronEnd />}
+              onClick={onOpenHelp}
+            />
+            <RowAction
+              icon={CircleHelp}
+              title="OTP not working"
+              description="Support steps when verification codes do not arrive."
+              end={<ChevronEnd />}
+              onClick={onOpenHelp}
+            />
+            <RowAction
+              icon={CircleHelp}
+              title="Account locked / suspended"
+              description="What to do when access is restricted or under review."
+              end={<ChevronEnd />}
+              onClick={onOpenHelp}
+            />
+          </SectionCard>
+
+          <SectionCard title="Logout">
+            <RowAction
+              icon={LogOut}
+              title="Logout from all devices"
+              description="Close every active session connected to this account."
+              end={<ChevronEnd />}
+              onClick={() => onSignOut?.("all")}
+              danger
+            />
+            <RowAction
+              icon={LogOut}
+              title="Logout from this device"
+              description="End only the current device session securely."
+              end={<ChevronEnd />}
+              onClick={() => onSignOut?.("current")}
+              danger
+            />
+          </SectionCard>
         </div>
-
-        <div className="my-6 border-t border-slate-200" />
-
-        <div className="space-y-3">
-          <button
-            onClick={onOpenCreateAccount}
-            className="flex w-full items-center justify-between rounded-[26px] border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-lg font-semibold text-slate-950">Create another account</span>
-              <span className="mt-1 block text-sm text-slate-500">Create an eligible service or foreign account.</span>
-            </span>
-            <span className="text-slate-400">{">"}</span>
-          </button>
-
-          <button
-            onClick={onOpenSecurity}
-            className="flex w-full items-center justify-between rounded-[26px] border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-lg font-semibold text-slate-950">Security</span>
-              <span className="mt-1 block text-sm text-slate-500">Manage PIN and account protection.</span>
-            </span>
-            <span className="text-slate-400">{">"}</span>
-          </button>
-
-          <button
-            onClick={onOpenNotifications}
-            className="flex w-full items-center justify-between rounded-[26px] border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-lg font-semibold text-slate-950">Notifications</span>
-              <span className="mt-1 block text-sm text-slate-500">Open important account and trust updates.</span>
-            </span>
-            <span className="text-slate-400">{">"}</span>
-          </button>
-
-          <button
-            onClick={onOpenSettings}
-            className="flex w-full items-center justify-between rounded-[26px] border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-lg font-semibold text-slate-950">Settings</span>
-              <span className="mt-1 block text-sm text-slate-500">Control profile and application preferences.</span>
-            </span>
-            <span className="text-slate-400">{">"}</span>
-          </button>
-
-          <button
-            onClick={onOpenTransactions}
-            className="flex w-full items-center justify-between rounded-[26px] border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-lg font-semibold text-slate-950">Transactions</span>
-              <span className="mt-1 block text-sm text-slate-500">Review full cash in and cash out history.</span>
-            </span>
-            <span className="text-slate-400">{">"}</span>
-          </button>
-
-          <button
-            onClick={onOpenTerms}
-            className="flex w-full items-center justify-between rounded-[26px] border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-lg font-semibold text-slate-950">Terms and Conditions</span>
-              <span className="mt-1 block text-sm text-slate-500">Review the terms guiding your account usage.</span>
-            </span>
-            <span className="text-slate-400">{">"}</span>
-          </button>
-
-          <button
-            onClick={onOpenHelp}
-            className="flex w-full items-center justify-between rounded-[26px] border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span>
-              <span className="block text-lg font-semibold text-slate-950">Help</span>
-              <span className="mt-1 block text-sm text-slate-500">Get support and guidance for your account.</span>
-            </span>
-            <span className="text-slate-400">{">"}</span>
-          </button>
-        </div>
-
-        <div className="my-6 border-t border-slate-200" />
-
-        <button
-          onClick={onSignOut}
-          className="w-full rounded-[26px] bg-slate-950 p-5 text-left text-white transition hover:bg-slate-800"
-        >
-          <p className="text-lg font-semibold">Logout</p>
-          <p className="mt-2 text-sm leading-6 text-white/70">Sign out of your KunThai Money session securely.</p>
-        </button>
       </div>
     </div>
   );
 }
-
