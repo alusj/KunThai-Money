@@ -11,6 +11,9 @@ export default async function handler(req, res) {
 
     const rawPhone = body?.sms?.phone || body?.user?.phone || "";
     const otp = body?.sms?.otp || "";
+    const baseUrl = process.env.INFOBIP_BASE_URL;
+    const apiKey = process.env.INFOBIP_API_KEY;
+    const sender = process.env.INFOBIP_SENDER || "InfoSMS";
 
     const phone = rawPhone.startsWith("+") ? rawPhone : `+${rawPhone}`;
     const text = `Your KunThai verification code is ${otp}`;
@@ -18,9 +21,9 @@ export default async function handler(req, res) {
     console.log("PHONE:", phone);
     console.log("OTP:", otp);
     console.log("ENV:", {
-      hasBaseUrl: !!process.env.INFOBIP_BASE_URL,
-      hasApiKey: !!process.env.INFOBIP_API_KEY,
-      sender: process.env.INFOBIP_SENDER || null,
+      hasBaseUrl: !!baseUrl,
+      hasApiKey: !!apiKey,
+      sender,
     });
 
     if (!phone || !otp) {
@@ -29,25 +32,36 @@ export default async function handler(req, res) {
       });
     }
 
+    if (!baseUrl || !apiKey) {
+      return res.status(500).json({
+        error: {
+          http_code: 500,
+          message: "Infobip environment is missing INFOBIP_BASE_URL or INFOBIP_API_KEY",
+        },
+      });
+    }
+
     const payload = {
       messages: [
         {
+          sender,
           destinations: [{ to: phone }],
-          from: process.env.INFOBIP_SENDER || "InfoSMS",
-          text,
+          content: {
+            text,
+          },
         },
       ],
     };
 
-    console.log("INFOBIP URL:", `${process.env.INFOBIP_BASE_URL}/sms/3/messages`);
+    console.log("INFOBIP URL:", `${baseUrl}/sms/3/messages`);
     console.log("INFOBIP PAYLOAD:", JSON.stringify(payload, null, 2));
 
     const infobipRes = await fetch(
-      `${process.env.INFOBIP_BASE_URL}/sms/3/messages`,
+      `${baseUrl}/sms/3/messages`,
       {
         method: "POST",
         headers: {
-          Authorization: `App ${process.env.INFOBIP_API_KEY}`,
+          Authorization: `App ${apiKey}`,
           "Content-Type": "application/json",
           Accept: "application/json",
         },
