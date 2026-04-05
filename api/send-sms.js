@@ -15,17 +15,32 @@ export default async function handler(req, res) {
     const phone = rawPhone.startsWith("+") ? rawPhone : `+${rawPhone}`;
     const text = `Your KunThai verification code is ${otp}`;
 
-    console.log("FORMATTED PHONE:", phone);
-    console.log("OTP PRESENT:", !!otp);
+    console.log("PHONE:", phone);
+    console.log("OTP:", otp);
+    console.log("ENV:", {
+      hasBaseUrl: !!process.env.INFOBIP_BASE_URL,
+      hasApiKey: !!process.env.INFOBIP_API_KEY,
+      sender: process.env.INFOBIP_SENDER || null,
+    });
 
     if (!phone || !otp) {
       return res.status(400).json({
-        error: {
-          http_code: 400,
-          message: "Missing phone or otp",
-        },
+        error: { http_code: 400, message: "Missing phone or otp" },
       });
     }
+
+    const payload = {
+      messages: [
+        {
+          destinations: [{ to: phone }],
+          from: process.env.INFOBIP_SENDER || "InfoSMS",
+          text,
+        },
+      ],
+    };
+
+    console.log("INFOBIP URL:", `${process.env.INFOBIP_BASE_URL}/sms/3/messages`);
+    console.log("INFOBIP PAYLOAD:", JSON.stringify(payload, null, 2));
 
     const infobipRes = await fetch(
       `${process.env.INFOBIP_BASE_URL}/sms/3/messages`,
@@ -36,19 +51,12 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          messages: [
-            {
-              destinations: [{ to: phone }],
-              from: "InfoSMS",
-              text,
-            },
-          ],
-        }),
+        body: JSON.stringify(payload),
       }
     );
 
     const rawResponse = await infobipRes.text();
+
     console.log("INFOBIP STATUS:", infobipRes.status);
     console.log("INFOBIP RESPONSE:", rawResponse);
 
