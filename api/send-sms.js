@@ -1,35 +1,27 @@
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: { http_code: 405, message: "Method not allowed" },
-    });
-  }
-
   try {
     const body = req.body || {};
-    console.log("HOOK BODY:", JSON.stringify(body, null, 2));
+    console.log("HOOK BODY:", body);
 
-    const phone = body?.user?.phone || "";
-    const otp = body?.sms?.otp || "";
+    const phone =
+      body?.user?.phone ||
+      body?.phone ||
+      "";
 
-    console.log("PHONE:", phone);
-    console.log("OTP PRESENT:", !!otp);
-    console.log("ENV CHECK:", {
-      hasBaseUrl: !!process.env.INFOBIP_BASE_URL,
-      hasApiKey: !!process.env.INFOBIP_API_KEY,
-      hasSender: !!process.env.INFOBIP_SENDER,
-    });
+    const otp =
+      body?.sms?.otp ||
+      body?.otp ||
+      "";
 
-    if (!phone || !otp) {
+    const message =
+      body?.sms?.message ||
+      `Your KunThai verification code is ${otp}`;
+
+    if (!phone || !message) {
       return res.status(400).json({
-        error: {
-          http_code: 400,
-          message: "Missing phone or otp",
-        },
+        error: "Missing phone or message",
       });
     }
-
-    const text = `Your KunThai verification code is ${otp}`;
 
     const infobipRes = await fetch(
       `${process.env.INFOBIP_BASE_URL}/sms/3/messages`,
@@ -38,41 +30,29 @@ export default async function handler(req, res) {
         headers: {
           Authorization: `App ${process.env.INFOBIP_API_KEY}`,
           "Content-Type": "application/json",
-          Accept: "application/json",
         },
         body: JSON.stringify({
           messages: [
             {
+              from: "InfoSMS",
               destinations: [{ to: phone }],
-              from: process.env.INFOBIP_SENDER || "KunThai",
-              text,
+              text: message,
             },
           ],
         }),
       }
     );
 
-    const rawText = await infobipRes.text();
-    console.log("INFOBIP STATUS:", infobipRes.status);
-    console.log("INFOBIP RESPONSE:", rawText);
+    const data = await infobipRes.json();
+    console.log("INFOBIP RESPONSE:", data);
 
     if (!infobipRes.ok) {
-      return res.status(500).json({
-        error: {
-          http_code: 500,
-          message: `Infobip failed: ${rawText}`,
-        },
-      });
+      return res.status(500).json({ error: data });
     }
 
     return res.status(200).end();
-  } catch (error) {
-    console.error("SEND SMS HOOK ERROR:", error);
-    return res.status(500).json({
-      error: {
-        http_code: 500,
-        message: error?.message || "Internal server error",
-      },
-    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
   }
 }
