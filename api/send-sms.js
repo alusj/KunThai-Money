@@ -7,71 +7,61 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
+    console.log("Supabase Send SMS Hook payload:", JSON.stringify(body, null, 2));
 
-    console.log("HOOK PAYLOAD:", body);
+    const phone = body?.user?.phone || "";
+    const otp = body?.sms?.otp || "";
 
-    const phone =
-      body?.user?.phone ||
-      body?.sms?.phone ||
-      body?.phone ||
-      "";
-
-    const message =
-      body?.sms?.message ||
-      body?.message ||
-      "";
-
-    if (!phone || !message) {
+    if (!phone || !otp) {
+      console.error("Invalid hook payload:", body);
       return res.status(400).json({
         error: {
           http_code: 400,
-          message: "Missing phone or message",
+          message: "Missing phone or otp",
         },
       });
     }
 
-    const response = await fetch(
+    const text = `Your KunThai verification code is ${otp}`;
+
+    const infobipRes = await fetch(
       `${process.env.INFOBIP_BASE_URL}/sms/3/messages`,
       {
         method: "POST",
         headers: {
           Authorization: `App ${process.env.INFOBIP_API_KEY}`,
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
           messages: [
             {
               destinations: [{ to: phone }],
-              from: process.env.INFOBIP_SENDER,
-              text: message,
+              from: process.env.INFOBIP_SENDER || "KunThai",
+              text,
             },
           ],
         }),
       }
     );
 
-    const data = await response.json();
+    const data = await infobipRes.json();
+    console.log("Infobip response:", JSON.stringify(data, null, 2));
 
-    if (!response.ok) {
-      console.error("Infobip error:", data);
+    if (!infobipRes.ok) {
+      console.error("Infobip send failed:", data);
       return res.status(500).json({
         error: {
           http_code: 500,
-          message: "Infobip failed",
+          message: "Infobip SMS send failed",
         },
       });
     }
 
-    // ✅ THIS IS THE FIX
-    return res.status(200).json({
-      data: {
-        message_id:
-          data?.messages?.[0]?.messageId || "sent-successfully",
-      },
-    });
-
-  } catch (err) {
-    console.error(err);
+    // Supabase Send SMS Hook does not require a response body.
+    return res.status(200).end();
+  } catch (error) {
+    console.error("Send SMS hook error:", error);
     return res.status(500).json({
       error: {
         http_code: 500,
