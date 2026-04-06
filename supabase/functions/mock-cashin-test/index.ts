@@ -15,7 +15,18 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SB_ANON_KEY")!;
+    const anonKey =
+      Deno.env.get("SUPABASE_ANON_KEY") ??
+      Deno.env.get("SB_ANON_KEY");
+
+    if (!anonKey) {
+      return new Response(
+        JSON.stringify({
+          error: "Missing SUPABASE_ANON_KEY secret for mock-cashin-test",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -40,7 +51,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "Unauthorized user",
-          details: userError,
+          details: userError?.message ?? userError,
         }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

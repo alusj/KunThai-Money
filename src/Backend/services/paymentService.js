@@ -1,14 +1,6 @@
 import supabase from "../lib/supabaseClient";
 
-function getSupabaseFunctionUrl(functionName) {
-  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (!baseUrl) {
-    throw new Error("Missing VITE_SUPABASE_URL in frontend environment.");
-  }
-  return `${baseUrl}/functions/v1/${functionName}`;
-}
-
-async function getAccessToken() {
+async function ensureFreshSession({ forceRefresh = false } = {}) {
   const {
     data: { session },
     error,
@@ -18,33 +10,50 @@ async function getAccessToken() {
     throw new Error(error.message || "Unable to get current session.");
   }
 
-  if (!session?.access_token) {
-    throw new Error("You are not logged in.");
+  if (!session) {
+    throw new Error("Your session has expired. Please sign in again.");
   }
 
-  return session.access_token;
+  const expiresAtMs = Number(session.expires_at || 0) * 1000;
+  const needsRefresh =
+    forceRefresh || !session.access_token || (expiresAtMs && expiresAtMs - Date.now() < 60_000);
+
+  if (!needsRefresh) {
+    return session;
+  }
+
+  const {
+    data: refreshData,
+    error: refreshError,
+  } = await supabase.auth.refreshSession();
+
+  if (refreshError || !refreshData?.session) {
+    throw new Error("Your session has expired. Please sign in again and retry.");
+  }
+
+  return refreshData.session;
 }
 
-async function parseFunctionResponse(response, fallbackMessage) {
-  let result = {};
-
-  try {
-    result = await response.json();
-  } catch {
-    result = {};
+function extractFunctionError(error, fallbackMessage) {
+  if (!error) {
+    return fallbackMessage;
   }
 
-  if (!response.ok) {
-    throw new Error(
-      result?.error ||
-        result?.message ||
-        result?.details?.message ||
-        JSON.stringify(result?.details) ||
-        fallbackMessage
-    );
+  if (typeof error === "string") {
+    return error;
   }
 
-  return result;
+  if (error instanceof Error) {
+    return error.message || fallbackMessage;
+  }
+
+  return (
+    error.error ||
+    error.message ||
+    error.details?.message ||
+    (typeof error.details === "string" ? error.details : "") ||
+    fallbackMessage
+  );
 }
 
 export async function runMockCashInTest({
@@ -54,22 +63,37 @@ export async function runMockCashInTest({
   cardCategory,
   receiptEmail,
 }) {
-  const accessToken = await getAccessToken();
+  const payload = {
+    accountId,
+    amount,
+    currency,
+    cardCategory,
+    receiptEmail,
+  };
 
-  const response = await fetch(getSupabaseFunctionUrl("mock-cashin-test"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      accountId,
-      amount,
-      currency,
-      cardCategory,
-      receiptEmail,
-    }),
-  });
+  const invokeMockFunction = async () => {
+    const { data, error } = await supabase.functions.invoke("mock-cashin-test", {
+      body: payload,
+    });
 
-  return parseFunctionResponse(response, "Mock cash in failed.");
+    if (error) {
+      throw new Error(extractFunctionError(error, "Mock cash in failed."));
+    }
+
+    return data;
+  };
+
+  try {
+    await ensureFreshSession();
+    return await invokeMockFunction();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (!/jwt|auth/i.test(message)) {
+      throw error;
+    }
+
+    await ensureFreshSession({ forceRefresh: true });
+    return invokeMockFunction();
+  }
 }

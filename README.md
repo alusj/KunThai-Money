@@ -27,13 +27,12 @@ Set these in Vercel before deploying the frontend:
 - `INFOBIP_API_KEY`
 - `INFOBIP_SENDER`
 
-Set these in Supabase Edge Function secrets for `flutterwave-verify-payment`:
+Set these in Supabase Edge Function secrets for `mock-cashin-test`:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `FLW_SECRET_KEY`
 
 ## Payment flow note
 
-`kuntai_payment_intents` is created before Flutterwave checkout opens. The other payment tables only populate after Flutterwave completes successfully and the Supabase verify function runs.
+In the current mock cash-in setup, the frontend calls the authenticated `mock-cashin-test` Supabase Edge Function. That function creates the payment intent, writes the payment event, verifies the intent, and credits the wallet through the secure RPC.
