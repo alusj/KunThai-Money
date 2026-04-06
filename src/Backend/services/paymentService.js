@@ -46,7 +46,7 @@ function getSupabaseFunctionUrl(functionName) {
   return `${baseUrl}/functions/v1/${functionName}`;
 }
 
-async function getAccessToken() {
+async function getAccessToken({ forceRefresh = false } = {}) {
   const {
     data: { session },
     error,
@@ -56,11 +56,28 @@ async function getAccessToken() {
     throw new Error(error.message || "Unable to get current session.");
   }
 
-  if (!session?.access_token) {
-    throw new Error("You are not logged in.");
+  if (!session) {
+    throw new Error("Your session has expired. Please sign in again.");
   }
 
-  return session.access_token;
+  const expiresAtMs = Number(session.expires_at || 0) * 1000;
+  const isExpiringSoon =
+    forceRefresh || !session.access_token || (expiresAtMs && expiresAtMs - Date.now() < 60_000);
+
+  if (!isExpiringSoon) {
+    return session.access_token;
+  }
+
+  const {
+    data: refreshData,
+    error: refreshError,
+  } = await supabase.auth.refreshSession();
+
+  if (refreshError || !refreshData?.session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again and retry.");
+  }
+
+  return refreshData.session.access_token;
 }
 
 async function parseFunctionResponse(response) {
@@ -163,21 +180,37 @@ export async function verifyCardCashIn({
     throw new Error("Missing payment reference.");
   }
 
-  const accessToken = await getAccessToken();
   const functionUrl = getSupabaseFunctionUrl("flutterwave-verify-payment");
+  const payload = {
+    paymentIntentId,
+    txRef,
+    mockSuccess,
+  };
 
-  const response = await fetch(functionUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      paymentIntentId,
-      txRef,
-      mockSuccess,
-    }),
-  });
+  const sendVerifyRequest = async (accessToken) => {
+    const response = await fetch(functionUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-  return parseFunctionResponse(response);
+    return parseFunctionResponse(response);
+  };
+
+  try {
+    const accessToken = await getAccessToken();
+    return await sendVerifyRequest(accessToken);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (!/invalid jwt/i.test(message)) {
+      throw error;
+    }
+
+    const refreshedAccessToken = await getAccessToken({ forceRefresh: true });
+    return sendVerifyRequest(refreshedAccessToken);
+  }
 }
