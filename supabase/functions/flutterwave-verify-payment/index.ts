@@ -149,22 +149,33 @@ serve(async (req) => {
       }
     }
 
-    await supabase
-      .from("kuntai_payment_events")
-      .upsert(
-        {
-          payment_intent_id: paymentIntent.id,
-          provider: "flutterwave",
-          provider_event_id: providerEventId,
-          event_type: mockSuccess ? "mock_verify_success" : "verify_by_reference",
-          payload_json: verifyJson,
-          signature_verified: true,
-          processed_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "provider,provider_event_id",
-        }
-      );
+const { error: paymentEventError } = await supabase
+  .from("kuntai_payment_events")
+  .upsert(
+    {
+      payment_intent_id: paymentIntent.id,
+      provider: "flutterwave",
+      provider_event_id: providerEventId,
+      event_type: mockSuccess ? "mock_verify_success" : "verify_by_reference",
+      payload_json: verifyJson,
+      signature_verified: true,
+      processed_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "provider,provider_event_id",
+    }
+  );
+
+if (paymentEventError) {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: "Failed to write payment event",
+      details: paymentEventError,
+    }),
+    { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
 
     const paidAmount = Number(flwData.amount ?? 0);
     const expectedAmount = Number(paymentIntent.amount ?? 0);
