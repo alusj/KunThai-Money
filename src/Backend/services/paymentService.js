@@ -1,52 +1,14 @@
 import supabase from "../lib/supabaseClient";
 
-function normalizeAmount(amount) {
-  const parsed = Number(amount);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error("Enter a valid amount.");
-  }
-  return Number(parsed.toFixed(2));
-}
-
-function resolveUserEmail(user) {
-  return (
-    user?.email ||
-    user?.user_metadata?.email ||
-    user?.raw_user_meta_data?.email ||
-    ""
-  );
-}
-
-function resolveUserPhone(user) {
-  return (
-    user?.phone ||
-    user?.user_metadata?.phone ||
-    user?.raw_user_meta_data?.phone ||
-    ""
-  );
-}
-
-function resolveUserName(user) {
-  return (
-    user?.user_metadata?.full_name ||
-    user?.raw_user_meta_data?.full_name ||
-    user?.user_metadata?.name ||
-    user?.raw_user_meta_data?.name ||
-    "KunTai User"
-  );
-}
-
 function getSupabaseFunctionUrl(functionName) {
   const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-
   if (!baseUrl) {
     throw new Error("Missing VITE_SUPABASE_URL in frontend environment.");
   }
-
   return `${baseUrl}/functions/v1/${functionName}`;
 }
 
-async function getAccessToken({ forceRefresh = false } = {}) {
+async function getAccessToken() {
   const {
     data: { session },
     error,
@@ -56,31 +18,14 @@ async function getAccessToken({ forceRefresh = false } = {}) {
     throw new Error(error.message || "Unable to get current session.");
   }
 
-  if (!session) {
-    throw new Error("Your session has expired. Please sign in again.");
+  if (!session?.access_token) {
+    throw new Error("You are not logged in.");
   }
 
-  const expiresAtMs = Number(session.expires_at || 0) * 1000;
-  const isExpiringSoon =
-    forceRefresh || !session.access_token || (expiresAtMs && expiresAtMs - Date.now() < 60_000);
-
-  if (!isExpiringSoon) {
-    return session.access_token;
-  }
-
-  const {
-    data: refreshData,
-    error: refreshError,
-  } = await supabase.auth.refreshSession();
-
-  if (refreshError || !refreshData?.session?.access_token) {
-    throw new Error("Your session has expired. Please sign in again and retry.");
-  }
-
-  return refreshData.session.access_token;
+  return session.access_token;
 }
 
-async function parseFunctionResponse(response) {
+async function parseFunctionResponse(response, fallbackMessage) {
   let result = {};
 
   try {
@@ -95,122 +40,36 @@ async function parseFunctionResponse(response) {
         result?.message ||
         result?.details?.message ||
         JSON.stringify(result?.details) ||
-        JSON.stringify(result) ||
-        "Payment verification failed."
+        fallbackMessage
     );
   }
 
   return result;
 }
 
-export async function createCardCashInIntent({
+export async function runMockCashInTest({
   accountId,
   amount,
   currency = "SLL",
   cardCategory,
+  receiptEmail,
 }) {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const accessToken = await getAccessToken();
 
-  if (authError || !user) {
-    throw new Error("You must be signed in to continue.");
-  }
-
-  if (!accountId) {
-    throw new Error("Missing wallet account.");
-  }
-
-  const safeAmount = normalizeAmount(amount);
-
-  const txRef = `kuntai-cashin-${user.id}-${Date.now()}`;
-  const idempotencyKey =
-    globalThis.crypto?.randomUUID?.() ||
-    `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-  const payload = {
-    user_id: user.id,
-    account_id: accountId,
-    provider: "flutterwave",
-    amount: safeAmount,
-    currency,
-    fee_amount: 0,
-    status: "created",
-    risk_status: "clear",
-    idempotency_key: idempotencyKey,
-    client_reference: txRef,
-    metadata: {
-      flow: "cash_in_card",
-      card_category: cardCategory,
+  const response = await fetch(getSupabaseFunctionUrl("mock-cashin-test"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
     },
-  };
+    body: JSON.stringify({
+      accountId,
+      amount,
+      currency,
+      cardCategory,
+      receiptEmail,
+    }),
+  });
 
-  const { data, error } = await supabase
-    .from("kuntai_payment_intents")
-    .insert(payload)
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(error.message || "Unable to create payment intent.");
-  }
-
-  return {
-    paymentIntent: data,
-    txRef,
-    customer: {
-      name: resolveUserName(user),
-      email: resolveUserEmail(user),
-      phone: resolveUserPhone(user),
-    },
-  };
-}
-
-export async function verifyCardCashIn({
-  paymentIntentId,
-  txRef,
-  mockSuccess = false,
-}) {
-  if (!paymentIntentId) {
-    throw new Error("Missing payment intent ID.");
-  }
-
-  if (!txRef) {
-    throw new Error("Missing payment reference.");
-  }
-
-  const functionUrl = getSupabaseFunctionUrl("flutterwave-verify-payment");
-  const payload = {
-    paymentIntentId,
-    txRef,
-    mockSuccess,
-  };
-
-  const sendVerifyRequest = async (accessToken) => {
-    const response = await fetch(functionUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    return parseFunctionResponse(response);
-  };
-
-  try {
-    const accessToken = await getAccessToken();
-    return await sendVerifyRequest(accessToken);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    if (!/invalid jwt/i.test(message)) {
-      throw error;
-    }
-
-    const refreshedAccessToken = await getAccessToken({ forceRefresh: true });
-    return sendVerifyRequest(refreshedAccessToken);
-  }
+  return parseFunctionResponse(response, "Mock cash in failed.");
 }

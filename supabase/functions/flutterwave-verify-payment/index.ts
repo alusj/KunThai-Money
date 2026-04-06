@@ -14,9 +14,8 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SB_ANON_KEY")!;
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const flutterwaveSecretKey = Deno.env.get("FLW_SECRET_KEY")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SB_ANON_KEY")!;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -26,9 +25,9 @@ serve(async (req) => {
       );
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.replace("Bearer ", "").trim();
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
 
@@ -39,207 +38,163 @@ serve(async (req) => {
 
     if (userError || !user) {
       return new Response(
-        JSON.stringify({ error: "Unauthorized user" }),
+        JSON.stringify({
+          error: "Unauthorized user",
+          details: userError,
+        }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const body = await req.json();
-    const { paymentIntentId, txRef, mockSuccess = false } = body;
+    const {
+      accountId,
+      amount,
+      currency = "SLL",
+      cardCategory = "Debit Card",
+      receiptEmail = "",
+    } = body ?? {};
 
-    if (!paymentIntentId || !txRef) {
+    const numericAmount = Number(amount);
+
+    if (!accountId) {
       return new Response(
-        JSON.stringify({ error: "paymentIntentId and txRef are required" }),
+        JSON.stringify({ error: "Missing accountId" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const { data: paymentIntent, error: paymentIntentError } = await supabase
-      .from("kuntai_payment_intents")
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return new Response(
+        JSON.stringify({ error: "Invalid amount" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: account, error: accountError } = await supabase
+      .from("kuntai_accounts")
       .select("*")
-      .eq("id", paymentIntentId)
+      .eq("id", accountId)
       .eq("user_id", user.id)
       .single();
 
-    if (paymentIntentError || !paymentIntent) {
+    if (accountError || !account) {
       return new Response(
-        JSON.stringify({ error: "Payment intent not found" }),
+        JSON.stringify({
+          error: "Account not found or not owned by user",
+          details: accountError,
+        }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (paymentIntent.status === "credited") {
+    const txRef = `mock-cashin-${user.id}-${Date.now()}`;
+    const idempotencyKey =
+      globalThis.crypto?.randomUUID?.() ||
+      `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const { data: paymentIntent, error: intentError } = await supabase
+      .from("kuntai_payment_intents")
+      .insert({
+        user_id: user.id,
+        account_id: account.id,
+        provider: "flutterwave",
+        amount: Number(numericAmount.toFixed(2)),
+        currency,
+        fee_amount: 0,
+        status: "created",
+        risk_status: "clear",
+        idempotency_key: idempotencyKey,
+        client_reference: txRef,
+        metadata: {
+          flow: "cash_in_card_mock",
+          card_category: cardCategory,
+          receipt_email: receiptEmail,
+        },
+      })
+      .select()
+      .single();
+
+    if (intentError || !paymentIntent) {
       return new Response(
         JSON.stringify({
-          success: true,
-          alreadyCredited: true,
-          message: "Payment already credited",
-          paymentIntent,
+          error: "Failed to create payment intent",
+          details: intentError,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    let verifyJson: any = null;
-    let flwData: any = null;
-    let providerEventId = txRef;
+    const mockProviderPaymentId = `mock-${paymentIntent.id}`;
+    const mockFlwRef = `mock-flw-ref-${paymentIntent.id}`;
 
-    if (mockSuccess) {
-      flwData = {
-        id: `mock-${paymentIntent.id}`,
-        tx_ref: txRef,
-        flw_ref: `mock-flw-ref-${paymentIntent.id}`,
-        amount: Number(paymentIntent.amount),
-        currency: paymentIntent.currency,
-        status: "successful",
-        processor_response: "Approved by mock test mode",
-        card: {
-          type: "MASTERCARD",
-          first_6digits: "553188",
-        },
-      };
-
-      verifyJson = {
-        status: "success",
-        message: "Mock verification successful",
-        data: flwData,
-      };
-
-      providerEventId = flwData.id;
-    } else {
-      const verifyResponse = await fetch(
-        `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(txRef)}`,
+    const { error: eventError } = await supabase
+      .from("kuntai_payment_events")
+      .upsert(
         {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${flutterwaveSecretKey}`,
-            "Content-Type": "application/json",
+          payment_intent_id: paymentIntent.id,
+          provider: "flutterwave",
+          provider_event_id: mockProviderPaymentId,
+          event_type: "mock_verify_success",
+          payload_json: {
+            status: "success",
+            message: "Mock verification successful",
+            data: {
+              id: mockProviderPaymentId,
+              tx_ref: txRef,
+              flw_ref: mockFlwRef,
+              amount: paymentIntent.amount,
+              currency: paymentIntent.currency,
+              status: "successful",
+              processor_response: "Approved by secure mock mode",
+              card: {
+                type: "MOCK_CARD",
+                first_6digits: "553188",
+              },
+            },
           },
+          signature_verified: true,
+          processed_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "provider,provider_event_id",
         }
       );
 
-      verifyJson = await verifyResponse.json();
-      flwData = verifyJson?.data ?? null;
-      providerEventId = flwData?.id?.toString() || flwData?.flw_ref || txRef;
-
-      if (!verifyResponse.ok || !flwData) {
-        await supabase
-          .from("kuntai_payment_intents")
-          .update({
-            status: "failed",
-            failure_reason: "Flutterwave verification failed",
-            updated_at: new Date().toISOString(),
-            metadata: {
-              ...(paymentIntent.metadata || {}),
-              flutterwave_verify_response: verifyJson,
-            },
-          })
-          .eq("id", paymentIntent.id);
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Flutterwave verification failed",
-            providerResponse: verifyJson,
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-const { error: paymentEventError } = await supabase
-  .from("kuntai_payment_events")
-  .upsert(
-    {
-      payment_intent_id: paymentIntent.id,
-      provider: "flutterwave",
-      provider_event_id: providerEventId,
-      event_type: mockSuccess ? "mock_verify_success" : "verify_by_reference",
-      payload_json: verifyJson,
-      signature_verified: true,
-      processed_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "provider,provider_event_id",
-    }
-  );
-
-if (paymentEventError) {
-  return new Response(
-    JSON.stringify({
-      success: false,
-      error: "Failed to write payment event",
-      details: paymentEventError,
-    }),
-    { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-}
-
-    const paidAmount = Number(flwData.amount ?? 0);
-    const expectedAmount = Number(paymentIntent.amount ?? 0);
-    const paidCurrency = String(flwData.currency ?? "").toUpperCase();
-    const expectedCurrency = String(paymentIntent.currency ?? "").toUpperCase();
-    const statusOk = String(flwData.status ?? "").toLowerCase() === "successful";
-
-    const passesChecks =
-      statusOk &&
-      paidAmount >= expectedAmount &&
-      paidCurrency === expectedCurrency;
-
-    if (!passesChecks) {
-      await supabase
-        .from("kuntai_payment_intents")
-        .update({
-          status: "failed",
-          failure_reason: "Payment failed verification checks",
-          provider_payment_id: flwData?.id?.toString() ?? paymentIntent.provider_payment_id,
-          updated_at: new Date().toISOString(),
-          metadata: {
-            ...(paymentIntent.metadata || {}),
-            flutterwave_verify_response: verifyJson,
-          },
-        })
-        .eq("id", paymentIntent.id);
-
+    if (eventError) {
       return new Response(
         JSON.stringify({
-          success: false,
-          error: "Payment did not pass verification checks",
-          providerResponse: verifyJson,
+          error: "Failed to write payment event",
+          details: eventError,
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const { error: updateIntentError } = await supabase
+    const { error: verifyUpdateError } = await supabase
       .from("kuntai_payment_intents")
       .update({
-        provider_payment_id: flwData.id?.toString() ?? paymentIntent.provider_payment_id,
+        provider_payment_id: mockProviderPaymentId,
         status: "verified",
         verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         metadata: {
           ...(paymentIntent.metadata || {}),
+          verification_mode: "mock_secure",
           flutterwave_tx_ref: txRef,
-          flutterwave_flw_ref: flwData.flw_ref ?? null,
-          flutterwave_verify_response: verifyJson,
-          flutterwave_processor_response: flwData.processor_response ?? null,
-          flutterwave_card_type: flwData.card?.type ?? null,
-          flutterwave_card_brand: flwData.card?.first_6digits ?? null,
-          verification_mode: mockSuccess ? "mock" : "live_flutterwave",
+          flutterwave_flw_ref: mockFlwRef,
         },
       })
       .eq("id", paymentIntent.id)
       .neq("status", "credited");
 
-    if (updateIntentError) {
+    if (verifyUpdateError) {
       return new Response(
         JSON.stringify({
-          success: false,
-          error: "Failed to update payment intent",
-          details: updateIntentError,
+          error: "Failed to mark payment intent as verified",
+          details: verifyUpdateError,
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -253,8 +208,7 @@ if (paymentEventError) {
     if (creditError) {
       return new Response(
         JSON.stringify({
-          success: false,
-          error: "Payment verified but wallet credit failed",
+          error: "Wallet credit failed",
           details: creditError,
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -264,9 +218,7 @@ if (paymentEventError) {
     return new Response(
       JSON.stringify({
         success: true,
-        message: mockSuccess
-          ? "Mock payment verified and wallet funded successfully"
-          : "Wallet funded successfully",
+        message: "Mock cash in completed successfully",
         paymentIntent: creditedIntent,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -274,7 +226,6 @@ if (paymentEventError) {
   } catch (error) {
     return new Response(
       JSON.stringify({
-        success: false,
         error: error instanceof Error ? error.message : "Unknown server error",
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

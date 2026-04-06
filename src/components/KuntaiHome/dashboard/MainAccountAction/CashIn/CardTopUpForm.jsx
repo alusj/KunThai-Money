@@ -1,12 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, CreditCard, ShieldCheck, FlaskConical } from "lucide-react";
-import { closePaymentModal, useFlutterwave } from "flutterwave-react-v3";
-
 import AuthNotice from "../../../../auth/AuthNotice";
-import {
-  createCardCashInIntent,
-  verifyCardCashIn,
-} from "../../../../../Backend/services/paymentService";
+import { runMockCashInTest } from "../../../../../Backend/services/paymentService";
 
 const CARD_CATEGORIES = [
   "Debit Card",
@@ -61,86 +56,28 @@ export default function CardTopUpForm({ account, user, onBack }) {
       return;
     }
 
+    if (!mockEnabled) {
+      setError("Mock mode is not enabled.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { paymentIntent, txRef, customer } = await createCardCashInIntent({
+      const result = await runMockCashInTest({
         accountId: account.id,
         amount: numericAmount,
         currency: account.currency || "SLL",
         cardCategory,
+        receiptEmail: receiptEmail.trim(),
       });
 
-      if (mockEnabled) {
-        const verifyResult = await verifyCardCashIn({
-          paymentIntentId: paymentIntent.id,
-          txRef,
-          mockSuccess: true,
-        });
-
-        setSuccessMessage(
-          verifyResult?.message || "Mock wallet funding completed successfully."
-        );
-        setError("");
-        setLoading(false);
-        return;
-      }
-
-      const flutterwavePublicKey = import.meta.env.VITE_FLW_PUBLIC_KEY;
-      if (!flutterwavePublicKey) {
-        throw new Error("Flutterwave public key is missing in the frontend environment.");
-      }
-
-      const flutterwaveConfig = {
-        public_key: flutterwavePublicKey,
-        tx_ref: txRef,
-        amount: numericAmount,
-        currency: account.currency || "SLL",
-        payment_options: "card",
-        customer: {
-          email: receiptEmail.trim(),
-          phonenumber: customer.phone || "",
-          name: customer.name || "KunTai User",
-        },
-        customizations: {
-          title: "KunThaiMoney Cash In",
-          description: "Fund your wallet securely with card",
-          logo: "/logo.png",
-        },
-      };
-
-      const startPayment = useFlutterwave(flutterwaveConfig);
-
-      startPayment({
-        callback: async function (response) {
-          try {
-            const verifyResult = await verifyCardCashIn({
-              paymentIntentId: paymentIntent.id,
-              txRef: response?.tx_ref || txRef,
-              mockSuccess: false,
-            });
-
-            setSuccessMessage(
-              verifyResult?.message || "Wallet funded successfully."
-            );
-            setError("");
-          } catch (verifyError) {
-            setError(
-              verifyError.message ||
-                "Payment was started, but verification failed. Please contact support if your card was charged."
-            );
-          } finally {
-            closePaymentModal();
-            setLoading(false);
-          }
-        },
-        onClose: function () {
-          setLoading(false);
-          setError("Flutterwave checkout was closed or did not complete.");
-        },
-      });
+      setSuccessMessage(
+        result?.message || "Mock cash in completed successfully."
+      );
     } catch (submitError) {
-      setError(submitError.message || "Unable to continue to card payment.");
+      setError(submitError.message || "Mock cash in failed.");
+    } finally {
       setLoading(false);
     }
   };
@@ -163,26 +100,24 @@ export default function CardTopUpForm({ account, user, onBack }) {
         <div>
           <p className="text-sm font-semibold text-slate-900">Cash in with card</p>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Use your card to securely fund your wallet through Flutterwave.
+            Use your card to securely fund your wallet.
           </p>
         </div>
       </div>
 
-      {mockEnabled ? (
-        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 text-amber-600">
-              <FlaskConical size={18} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-amber-900">Mock test mode enabled</p>
-              <p className="mt-1 text-xs leading-5 text-amber-800">
-                Flutterwave popup is bypassed temporarily. This will test your backend verification, wallet credit, ledger entry, and transaction flow directly.
-              </p>
-            </div>
+      <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 text-amber-600">
+            <FlaskConical size={18} />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Mock test mode enabled</p>
+            <p className="mt-1 text-xs leading-5 text-amber-800">
+              This securely tests your backend verification, wallet credit, ledger entry, and transaction flow without Flutterwave checkout.
+            </p>
           </div>
         </div>
-      ) : null}
+      </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <label className="block">
@@ -241,9 +176,9 @@ export default function CardTopUpForm({ account, user, onBack }) {
               <ShieldCheck size={18} />
             </span>
             <div>
-              <p className="text-sm font-semibold text-slate-900">Secure card checkout</p>
+              <p className="text-sm font-semibold text-slate-900">Secure test flow</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Card number, expiry date, and CVV are collected in Flutterwave’s secure payment flow. KunThaiMoney does not store raw card details.
+                This mock route still uses authenticated backend logic and your real wallet-credit RPC. Frontend never credits the wallet directly.
               </p>
             </div>
           </div>
@@ -269,10 +204,8 @@ export default function CardTopUpForm({ account, user, onBack }) {
           }`}
         >
           {loading
-            ? mockEnabled
-              ? "Testing wallet funding..."
-              : "Processing card payment..."
-            : `${mockEnabled ? "Run Mock Cash In Test" : "Continue to Cash In"}${numericAmount ? ` ${account?.currency || "SLL"} ${numericAmount.toFixed(2)}` : ""}`}
+            ? "Running secure mock cash in..."
+            : `Run Mock Cash In Test${numericAmount ? ` ${account?.currency || "SLL"} ${numericAmount.toFixed(2)}` : ""}`}
         </button>
       </form>
     </div>
