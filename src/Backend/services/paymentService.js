@@ -58,21 +58,21 @@ export async function createCardCashInIntent({
     `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   const payload = {
-  user_id: user.id,
-  account_id: accountId,
-  provider: "flutterwave",
-  amount: safeAmount,
-  currency,
-  fee_amount: 0,
-  status: "created",
-  risk_status: "clear",
-  idempotency_key: idempotencyKey,
-  client_reference: txRef,
-  metadata: {
-    flow: "cash_in_card",
-    card_category: cardCategory,
-  },
-};
+    user_id: user.id,
+    account_id: accountId,
+    provider: "flutterwave",
+    amount: safeAmount,
+    currency,
+    fee_amount: 0,
+    status: "created",
+    risk_status: "clear",
+    idempotency_key: idempotencyKey,
+    client_reference: txRef,
+    metadata: {
+      flow: "cash_in_card",
+      card_category: cardCategory,
+    },
+  };
 
   const { data, error } = await supabase
     .from("kuntai_payment_intents")
@@ -95,7 +95,7 @@ export async function createCardCashInIntent({
   };
 }
 
-export async function verifyCardCashIn({ paymentIntentId, txRef }) {
+export async function verifyCardCashIn({ paymentIntentId, txRef, mockSuccess = false }) {
   const {
     data: { session },
     error: sessionError,
@@ -116,6 +116,7 @@ export async function verifyCardCashIn({ paymentIntentId, txRef }) {
     body: JSON.stringify({
       paymentIntentId,
       txRef,
+      mockSuccess,
     }),
   });
 

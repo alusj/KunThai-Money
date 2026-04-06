@@ -139,7 +139,11 @@ export default function SecuritySetup() {
       });
 
       if (error) {
-        if (error.message?.includes("function public.set_user_pin")) {
+        if (
+          error.message?.includes("function public.set_user_pin") ||
+          error.message?.includes("gen_salt") ||
+          error.message?.toLowerCase?.().includes("pgcrypto")
+        ) {
           throw new Error("PIN setup requires the new server function. Run the Supabase hardening SQL first.");
         }
 

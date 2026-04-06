@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, CreditCard, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowLeft, CreditCard, ShieldCheck, FlaskConical } from "lucide-react";
 import { closePaymentModal, useFlutterwave } from "flutterwave-react-v3";
 
 import AuthNotice from "../../../../auth/AuthNotice";
@@ -27,7 +27,7 @@ function resolveReceiptEmail(user) {
 
 export default function CardTopUpForm({ account, user, onBack }) {
   const defaultEmail = useMemo(() => resolveReceiptEmail(user), [user]);
-  const launchedTxRefRef = useRef("");
+  const mockEnabled = String(import.meta.env.VITE_ENABLE_FLW_MOCK).toLowerCase() === "true";
 
   const [amount, setAmount] = useState("");
   const [receiptEmail, setReceiptEmail] = useState(defaultEmail);
@@ -35,80 +35,11 @@ export default function CardTopUpForm({ account, user, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [checkoutSession, setCheckoutSession] = useState(null);
 
   const numericAmount = useMemo(() => {
     const parsed = Number(amount);
     return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(2)) : 0;
   }, [amount]);
-
-  const flutterwaveConfig = useMemo(
-    () => ({
-      public_key: import.meta.env.VITE_FLW_PUBLIC_KEY || "",
-      tx_ref: checkoutSession?.txRef || "kuntai-cashin-preview",
-      amount: checkoutSession?.amount ?? numericAmount,
-      currency: checkoutSession?.currency || account?.currency || "SLL",
-      payment_options: "card",
-      customer: {
-        email:
-          checkoutSession?.receiptEmail ||
-          receiptEmail.trim() ||
-          defaultEmail ||
-          "customer@example.com",
-        phone_number: checkoutSession?.customer?.phone || "",
-        name: checkoutSession?.customer?.name || "KunTai User",
-      },
-      customizations: {
-        title: "KunThaiMoney Cash In",
-        description: "Fund your wallet securely with card",
-        logo: "/logo.png",
-      },
-    }),
-    [account?.currency, checkoutSession, defaultEmail, numericAmount, receiptEmail]
-  );
-
-  const startPayment = useFlutterwave(flutterwaveConfig);
-
-  useEffect(() => {
-    if (!checkoutSession?.txRef) {
-      return;
-    }
-
-    if (launchedTxRefRef.current === checkoutSession.txRef) {
-      return;
-    }
-
-    launchedTxRefRef.current = checkoutSession.txRef;
-
-    startPayment({
-      callback: async function () {
-        try {
-          const verifyResult = await verifyCardCashIn({
-            paymentIntentId: checkoutSession.paymentIntent.id,
-            txRef: checkoutSession.txRef,
-          });
-
-          setSuccessMessage(
-            verifyResult?.message || "Wallet funded successfully."
-          );
-          setError("");
-        } catch (verifyError) {
-          setError(
-            verifyError.message ||
-              "Payment was started, but verification failed. Please contact support if your card was charged."
-          );
-        } finally {
-          closePaymentModal();
-          setCheckoutSession(null);
-          setLoading(false);
-        }
-      },
-      onClose: function () {
-        setCheckoutSession(null);
-        setLoading(false);
-      },
-    });
-  }, [checkoutSession, startPayment]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -130,11 +61,6 @@ export default function CardTopUpForm({ account, user, onBack }) {
       return;
     }
 
-    if (!import.meta.env.VITE_FLW_PUBLIC_KEY) {
-      setError("Flutterwave public key is missing in the frontend environment.");
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -144,13 +70,74 @@ export default function CardTopUpForm({ account, user, onBack }) {
         currency: account.currency || "SLL",
         cardCategory,
       });
-      setCheckoutSession({
-        paymentIntent,
-        txRef,
+
+      if (mockEnabled) {
+        const verifyResult = await verifyCardCashIn({
+          paymentIntentId: paymentIntent.id,
+          txRef,
+          mockSuccess: true,
+        });
+
+        setSuccessMessage(
+          verifyResult?.message || "Mock wallet funding completed successfully."
+        );
+        setError("");
+        setLoading(false);
+        return;
+      }
+
+      const flutterwavePublicKey = import.meta.env.VITE_FLW_PUBLIC_KEY;
+      if (!flutterwavePublicKey) {
+        throw new Error("Flutterwave public key is missing in the frontend environment.");
+      }
+
+      const flutterwaveConfig = {
+        public_key: flutterwavePublicKey,
+        tx_ref: txRef,
         amount: numericAmount,
         currency: account.currency || "SLL",
-        receiptEmail: receiptEmail.trim(),
-        customer,
+        payment_options: "card",
+        customer: {
+          email: receiptEmail.trim(),
+          phonenumber: customer.phone || "",
+          name: customer.name || "KunTai User",
+        },
+        customizations: {
+          title: "KunThaiMoney Cash In",
+          description: "Fund your wallet securely with card",
+          logo: "/logo.png",
+        },
+      };
+
+      const startPayment = useFlutterwave(flutterwaveConfig);
+
+      startPayment({
+        callback: async function (response) {
+          try {
+            const verifyResult = await verifyCardCashIn({
+              paymentIntentId: paymentIntent.id,
+              txRef: response?.tx_ref || txRef,
+              mockSuccess: false,
+            });
+
+            setSuccessMessage(
+              verifyResult?.message || "Wallet funded successfully."
+            );
+            setError("");
+          } catch (verifyError) {
+            setError(
+              verifyError.message ||
+                "Payment was started, but verification failed. Please contact support if your card was charged."
+            );
+          } finally {
+            closePaymentModal();
+            setLoading(false);
+          }
+        },
+        onClose: function () {
+          setLoading(false);
+          setError("Flutterwave checkout was closed or did not complete.");
+        },
       });
     } catch (submitError) {
       setError(submitError.message || "Unable to continue to card payment.");
@@ -180,6 +167,22 @@ export default function CardTopUpForm({ account, user, onBack }) {
           </p>
         </div>
       </div>
+
+      {mockEnabled ? (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 text-amber-600">
+              <FlaskConical size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Mock test mode enabled</p>
+              <p className="mt-1 text-xs leading-5 text-amber-800">
+                Flutterwave popup is bypassed temporarily. This will test your backend verification, wallet credit, ledger entry, and transaction flow directly.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <label className="block">
@@ -266,8 +269,10 @@ export default function CardTopUpForm({ account, user, onBack }) {
           }`}
         >
           {loading
-            ? "Processing card payment..."
-            : `Continue to Cash In${numericAmount ? ` ${account?.currency || "SLL"} ${numericAmount.toFixed(2)}` : ""}`}
+            ? mockEnabled
+              ? "Testing wallet funding..."
+              : "Processing card payment..."
+            : `${mockEnabled ? "Run Mock Cash In Test" : "Continue to Cash In"}${numericAmount ? ` ${account?.currency || "SLL"} ${numericAmount.toFixed(2)}` : ""}`}
         </button>
       </form>
     </div>

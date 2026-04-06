@@ -3,6 +3,8 @@
 
 begin;
 
+create extension if not exists pgcrypto;
+
 -- Keep KYC files private.
 insert into storage.buckets (id, name, public)
 values ('kyc', 'kyc', false)

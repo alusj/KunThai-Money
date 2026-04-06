@@ -47,7 +47,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const body = await req.json();
-    const { paymentIntentId, txRef } = body;
+    const { paymentIntentId, txRef, mockSuccess = false } = body;
 
     if (!paymentIntentId || !txRef) {
       return new Response(
@@ -82,24 +82,72 @@ serve(async (req) => {
       );
     }
 
-    const verifyResponse = await fetch(
-      `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(txRef)}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${flutterwaveSecretKey}`,
-          "Content-Type": "application/json",
+    let verifyJson: any = null;
+    let flwData: any = null;
+    let providerEventId = txRef;
+
+    if (mockSuccess) {
+      flwData = {
+        id: `mock-${paymentIntent.id}`,
+        tx_ref: txRef,
+        flw_ref: `mock-flw-ref-${paymentIntent.id}`,
+        amount: Number(paymentIntent.amount),
+        currency: paymentIntent.currency,
+        status: "successful",
+        processor_response: "Approved by mock test mode",
+        card: {
+          type: "MASTERCARD",
+          first_6digits: "553188",
         },
+      };
+
+      verifyJson = {
+        status: "success",
+        message: "Mock verification successful",
+        data: flwData,
+      };
+
+      providerEventId = flwData.id;
+    } else {
+      const verifyResponse = await fetch(
+        `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(txRef)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${flutterwaveSecretKey}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      verifyJson = await verifyResponse.json();
+      flwData = verifyJson?.data ?? null;
+      providerEventId = flwData?.id?.toString() || flwData?.flw_ref || txRef;
+
+      if (!verifyResponse.ok || !flwData) {
+        await supabase
+          .from("kuntai_payment_intents")
+          .update({
+            status: "failed",
+            failure_reason: "Flutterwave verification failed",
+            updated_at: new Date().toISOString(),
+            metadata: {
+              ...(paymentIntent.metadata || {}),
+              flutterwave_verify_response: verifyJson,
+            },
+          })
+          .eq("id", paymentIntent.id);
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Flutterwave verification failed",
+            providerResponse: verifyJson,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    );
-
-    const verifyJson = await verifyResponse.json();
-    const flwData = verifyJson?.data ?? null;
-
-    const providerEventId =
-      flwData?.id?.toString() ||
-      flwData?.flw_ref ||
-      txRef;
+    }
 
     await supabase
       .from("kuntai_payment_events")
@@ -108,7 +156,7 @@ serve(async (req) => {
           payment_intent_id: paymentIntent.id,
           provider: "flutterwave",
           provider_event_id: providerEventId,
-          event_type: "verify_by_reference",
+          event_type: mockSuccess ? "mock_verify_success" : "verify_by_reference",
           payload_json: verifyJson,
           signature_verified: true,
           processed_at: new Date().toISOString(),
@@ -117,30 +165,6 @@ serve(async (req) => {
           onConflict: "provider,provider_event_id",
         }
       );
-
-    if (!verifyResponse.ok || !flwData) {
-      await supabase
-        .from("kuntai_payment_intents")
-        .update({
-          status: "failed",
-          failure_reason: "Flutterwave verification failed",
-          updated_at: new Date().toISOString(),
-          metadata: {
-            ...(paymentIntent.metadata || {}),
-            flutterwave_verify_response: verifyJson,
-          },
-        })
-        .eq("id", paymentIntent.id);
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Flutterwave verification failed",
-          providerResponse: verifyJson,
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     const paidAmount = Number(flwData.amount ?? 0);
     const expectedAmount = Number(paymentIntent.amount ?? 0);
@@ -178,9 +202,6 @@ serve(async (req) => {
       );
     }
 
-    const feeAmount = Number(paymentIntent.fee_amount ?? 0);
-    const safeNetAmount = paidAmount - feeAmount;
-
     const { error: updateIntentError } = await supabase
       .from("kuntai_payment_intents")
       .update({
@@ -196,6 +217,7 @@ serve(async (req) => {
           flutterwave_processor_response: flwData.processor_response ?? null,
           flutterwave_card_type: flwData.card?.type ?? null,
           flutterwave_card_brand: flwData.card?.first_6digits ?? null,
+          verification_mode: mockSuccess ? "mock" : "live_flutterwave",
         },
       })
       .eq("id", paymentIntent.id)
@@ -231,7 +253,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Wallet funded successfully",
+        message: mockSuccess
+          ? "Mock payment verified and wallet funded successfully"
+          : "Wallet funded successfully",
         paymentIntent: creditedIntent,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
