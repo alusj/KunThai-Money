@@ -34,13 +34,47 @@ async function ensureFreshSession({ forceRefresh = false } = {}) {
   return refreshData.session;
 }
 
-function extractFunctionError(error, fallbackMessage) {
+async function extractFunctionError(error, fallbackMessage) {
   if (!error) {
     return fallbackMessage;
   }
 
   if (typeof error === "string") {
     return error;
+  }
+
+  const responseContext = error.context;
+
+  if (responseContext) {
+    try {
+      const parsed =
+        typeof responseContext.json === "function"
+          ? await responseContext.json()
+          : null;
+
+      if (parsed) {
+        return (
+          parsed.error ||
+          parsed.message ||
+          parsed.details?.message ||
+          (typeof parsed.details === "string" ? parsed.details : "") ||
+          fallbackMessage
+        );
+      }
+    } catch {
+      try {
+        const text =
+          typeof responseContext.text === "function"
+            ? await responseContext.text()
+            : "";
+
+        if (text) {
+          return text;
+        }
+      } catch {
+        // Fall back to the generic error below.
+      }
+    }
   }
 
   if (error instanceof Error) {
@@ -77,7 +111,7 @@ export async function runMockCashInTest({
     });
 
     if (error) {
-      throw new Error(extractFunctionError(error, "Mock cash in failed."));
+      throw new Error(await extractFunctionError(error, "Mock cash in failed."));
     }
 
     return data;
