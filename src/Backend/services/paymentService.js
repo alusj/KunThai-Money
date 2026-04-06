@@ -1,6 +1,24 @@
 import supabase from "../lib/supabaseClient";
 
-async function ensureFreshSession({ forceRefresh = false } = {}) {
+function extractErrorMessage(payload, fallbackMessage) {
+  if (!payload) {
+    return fallbackMessage;
+  }
+
+  if (typeof payload === "string") {
+    return payload;
+  }
+
+  return (
+    payload.error ||
+    payload.message ||
+    payload.details?.message ||
+    (typeof payload.details === "string" ? payload.details : "") ||
+    fallbackMessage
+  );
+}
+
+async function ensureFreshAccessToken({ forceRefresh = false } = {}) {
   const {
     data: { session },
     error,
@@ -15,11 +33,11 @@ async function ensureFreshSession({ forceRefresh = false } = {}) {
   }
 
   const expiresAtMs = Number(session.expires_at || 0) * 1000;
-  const needsRefresh =
+  const shouldRefresh =
     forceRefresh || !session.access_token || (expiresAtMs && expiresAtMs - Date.now() < 60_000);
 
-  if (!needsRefresh) {
-    return session;
+  if (!shouldRefresh) {
+    return session.access_token;
   }
 
   const {
@@ -27,107 +45,52 @@ async function ensureFreshSession({ forceRefresh = false } = {}) {
     error: refreshError,
   } = await supabase.auth.refreshSession();
 
-  if (refreshError || !refreshData?.session) {
+  if (refreshError || !refreshData?.session?.access_token) {
     throw new Error("Your session has expired. Please sign in again and retry.");
   }
 
-  return refreshData.session;
+  return refreshData.session.access_token;
 }
 
-async function extractFunctionError(error, fallbackMessage) {
-  if (!error) {
-    return fallbackMessage;
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  const responseContext = error.context;
-
-  if (responseContext) {
-    try {
-      const parsed =
-        typeof responseContext.json === "function"
-          ? await responseContext.json()
-          : null;
-
-      if (parsed) {
-        return (
-          parsed.error ||
-          parsed.message ||
-          parsed.details?.message ||
-          (typeof parsed.details === "string" ? parsed.details : "") ||
-          fallbackMessage
-        );
-      }
-    } catch {
-      try {
-        const text =
-          typeof responseContext.text === "function"
-            ? await responseContext.text()
-            : "";
-
-        if (text) {
-          return text;
-        }
-      } catch {
-        // Fall back to the generic error below.
-      }
-    }
-  }
-
-  if (error instanceof Error) {
-    return error.message || fallbackMessage;
-  }
-
-  return (
-    error.error ||
-    error.message ||
-    error.details?.message ||
-    (typeof error.details === "string" ? error.details : "") ||
-    fallbackMessage
-  );
-}
-
-export async function runMockCashInTest({
-  accountId,
-  amount,
-  currency = "SLL",
-  cardCategory,
-  receiptEmail,
-}) {
-  const payload = {
-    accountId,
-    amount,
-    currency,
-    cardCategory,
-    receiptEmail,
-  };
-
-  const invokeMockFunction = async () => {
-    const { data, error } = await supabase.functions.invoke("mock-cashin-test", {
-      body: payload,
+async function callAuthorizedApi(path, payload) {
+  const send = async (accessToken) => {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (error) {
-      throw new Error(await extractFunctionError(error, "Mock cash in failed."));
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(extractErrorMessage(result, "Payment request failed."));
     }
 
-    return data;
+    return result;
   };
 
   try {
-    await ensureFreshSession();
-    return await invokeMockFunction();
+    const accessToken = await ensureFreshAccessToken();
+    return await send(accessToken);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
-    if (!/jwt|auth/i.test(message)) {
+    if (!/jwt|token|session/i.test(message)) {
       throw error;
     }
 
-    await ensureFreshSession({ forceRefresh: true });
-    return invokeMockFunction();
+    const refreshedToken = await ensureFreshAccessToken({ forceRefresh: true });
+    return send(refreshedToken);
   }
+}
+
+export async function createCardTopupIntent(payload) {
+  return callAuthorizedApi("/api/card-topup-intent", payload);
+}
+
+export async function verifyCardTopup(payload) {
+  return callAuthorizedApi("/api/card-topup-verify", payload);
 }

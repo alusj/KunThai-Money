@@ -1,7 +1,12 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, CreditCard, ShieldCheck, FlaskConical } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, CreditCard, ShieldCheck } from "lucide-react";
+import { closePaymentModal, useFlutterwave } from "flutterwave-react-v3";
+
 import AuthNotice from "../../../../auth/AuthNotice";
-import { runMockCashInTest } from "../../../../../Backend/services/paymentService";
+import {
+  createCardTopupIntent,
+  verifyCardTopup,
+} from "../../../../../Backend/services/paymentService";
 
 const CARD_CATEGORIES = [
   "Debit Card",
@@ -14,15 +19,18 @@ function resolveReceiptEmail(user) {
   return (
     user?.email ||
     user?.user_metadata?.email ||
-    user?.user_metadata?.receipt_email ||
     user?.raw_user_meta_data?.email ||
     ""
   );
 }
 
+function resolveCurrency(account) {
+  return account?.currency || "SLL";
+}
+
 export default function CardTopUpForm({ account, user, onBack }) {
   const defaultEmail = useMemo(() => resolveReceiptEmail(user), [user]);
-  const mockEnabled = String(import.meta.env.VITE_ENABLE_FLW_MOCK).toLowerCase() === "true";
+  const flutterwavePublicKey = import.meta.env.VITE_FLW_PUBLIC_KEY;
 
   const [amount, setAmount] = useState("");
   const [receiptEmail, setReceiptEmail] = useState(defaultEmail);
@@ -30,19 +38,117 @@ export default function CardTopUpForm({ account, user, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [pendingCheckout, setPendingCheckout] = useState(null);
+  const launchedCheckoutRef = useRef(null);
 
   const numericAmount = useMemo(() => {
     const parsed = Number(amount);
     return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(2)) : 0;
   }, [amount]);
 
+  const flutterwaveConfig = useMemo(
+    () => ({
+      public_key: flutterwavePublicKey || "",
+      tx_ref: pendingCheckout?.txRef || "preview-kuntai-card-topup",
+      amount: pendingCheckout?.amount || numericAmount || 1,
+      currency: resolveCurrency(account),
+      payment_options: "card",
+      customer: {
+        email:
+          pendingCheckout?.customer?.email ||
+          receiptEmail.trim() ||
+          defaultEmail ||
+          "customer@example.com",
+        phonenumber:
+          pendingCheckout?.customer?.phone ||
+          user?.phone ||
+          user?.user_metadata?.phone ||
+          user?.raw_user_meta_data?.phone ||
+          "",
+        name:
+          pendingCheckout?.customer?.name ||
+          user?.user_metadata?.full_name ||
+          user?.raw_user_meta_data?.full_name ||
+          "KunThai User",
+      },
+      customizations: {
+        title: "KunThaiMoney Cash In",
+        description: "Fund your wallet securely with card",
+      },
+    }),
+    [
+      account,
+      defaultEmail,
+      flutterwavePublicKey,
+      numericAmount,
+      pendingCheckout,
+      receiptEmail,
+      user,
+    ]
+  );
+
+  const startFlutterwavePayment = useFlutterwave(flutterwaveConfig);
+
+  useEffect(() => {
+    if (!pendingCheckout) {
+      launchedCheckoutRef.current = null;
+      return;
+    }
+
+    if (launchedCheckoutRef.current === pendingCheckout.txRef) {
+      return;
+    }
+
+    launchedCheckoutRef.current = pendingCheckout.txRef;
+
+    startFlutterwavePayment({
+      callback: async (response) => {
+        try {
+          const status = String(response?.status || "").toLowerCase();
+          const returnedTxRef = response?.tx_ref || pendingCheckout.txRef;
+
+          if (status && status !== "successful") {
+            throw new Error("Flutterwave did not mark the card payment as successful.");
+          }
+
+          const verifyResult = await verifyCardTopup({
+            paymentIntentId: pendingCheckout.paymentIntentId,
+            txRef: returnedTxRef,
+          });
+
+          setSuccessMessage(verifyResult?.message || "Wallet funded successfully.");
+          setError("");
+        } catch (verifyError) {
+          setError(
+            verifyError instanceof Error
+              ? verifyError.message
+              : "Payment completed, but verification failed."
+          );
+        } finally {
+          closePaymentModal();
+          setPendingCheckout(null);
+          setLoading(false);
+        }
+      },
+      onClose: () => {
+        setPendingCheckout(null);
+        setLoading(false);
+      },
+    });
+  }, [pendingCheckout, startFlutterwavePayment]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
     setSuccessMessage("");
 
+    if (!flutterwavePublicKey) {
+      setError("Missing VITE_FLW_PUBLIC_KEY in your Vercel frontend environment.");
+      return;
+    }
+
     if (!account?.id) {
-      setError("Your account is still loading. Please try again in a moment.");
+      setError("Your wallet account is still loading. Please try again in a moment.");
       return;
     }
 
@@ -56,28 +162,41 @@ export default function CardTopUpForm({ account, user, onBack }) {
       return;
     }
 
-    if (!mockEnabled) {
-      setError("Mock mode is not enabled.");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const result = await runMockCashInTest({
+      const intentResult = await createCardTopupIntent({
         accountId: account.id,
         amount: numericAmount,
-        currency: account.currency || "SLL",
+        currency: resolveCurrency(account),
         cardCategory,
         receiptEmail: receiptEmail.trim(),
       });
 
-      setSuccessMessage(
-        result?.message || "Mock cash in completed successfully."
-      );
+      const txRef = intentResult?.txRef;
+      const paymentIntentId = intentResult?.paymentIntentId;
+      const customer = intentResult?.customer || {};
+
+      if (!txRef || !paymentIntentId) {
+        throw new Error("Backend did not return a payment reference.");
+      }
+
+      setPendingCheckout({
+        paymentIntentId,
+        txRef,
+        amount: numericAmount,
+        customer: {
+          email: receiptEmail.trim(),
+          phone: customer.phone || "",
+          name: customer.name || "KunThai User",
+        },
+      });
     } catch (submitError) {
-      setError(submitError.message || "Mock cash in failed.");
-    } finally {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Unable to continue to card payment."
+      );
       setLoading(false);
     }
   };
@@ -100,22 +219,8 @@ export default function CardTopUpForm({ account, user, onBack }) {
         <div>
           <p className="text-sm font-semibold text-slate-900">Cash in with card</p>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Use your card to securely fund your wallet.
+            Use Flutterwave to fund your wallet with a debit, credit, or prepaid card.
           </p>
-        </div>
-      </div>
-
-      <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-amber-600">
-            <FlaskConical size={18} />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-amber-900">Mock test mode enabled</p>
-            <p className="mt-1 text-xs leading-5 text-amber-800">
-              This securely tests your backend verification, wallet credit, ledger entry, and transaction flow without Flutterwave checkout.
-            </p>
-          </div>
         </div>
       </div>
 
@@ -125,9 +230,7 @@ export default function CardTopUpForm({ account, user, onBack }) {
             Amount
           </span>
           <div className="flex items-center rounded-2xl border border-slate-200 bg-white px-4">
-            <span className="text-sm font-semibold text-slate-500">
-              {account?.currency || "SLL"}
-            </span>
+            <span className="text-sm font-semibold text-slate-500">{resolveCurrency(account)}</span>
             <input
               type="number"
               min="1"
@@ -176,9 +279,9 @@ export default function CardTopUpForm({ account, user, onBack }) {
               <ShieldCheck size={18} />
             </span>
             <div>
-              <p className="text-sm font-semibold text-slate-900">Secure test flow</p>
+              <p className="text-sm font-semibold text-slate-900">Secure card checkout</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                This mock route still uses authenticated backend logic and your real wallet-credit RPC. Frontend never credits the wallet directly.
+                Card details stay inside Flutterwave checkout. KunThaiMoney only verifies the payment result and credits your wallet after server-side checks pass.
               </p>
             </div>
           </div>
@@ -204,8 +307,8 @@ export default function CardTopUpForm({ account, user, onBack }) {
           }`}
         >
           {loading
-            ? "Running secure mock cash in..."
-            : `Run Mock Cash In Test${numericAmount ? ` ${account?.currency || "SLL"} ${numericAmount.toFixed(2)}` : ""}`}
+            ? "Processing card payment..."
+            : `Continue to Cash In${numericAmount ? ` ${resolveCurrency(account)} ${numericAmount.toFixed(2)}` : ""}`}
         </button>
       </form>
     </div>
