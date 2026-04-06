@@ -120,11 +120,21 @@ export async function verifyCardCashIn({ paymentIntentId, txRef, mockSuccess = f
     }),
   });
 
-  const result = await response.json();
+ let result = {};
+try {
+  result = await response.json();
+} catch (_) {
+  result = {};
+}
 
-  if (!response.ok) {
-    throw new Error(result?.error || "Payment verification failed.");
-  }
-
+if (!response.ok) {
+  throw new Error(
+    result?.error ||
+    result?.details?.message ||
+    JSON.stringify(result?.details) ||
+    JSON.stringify(result) ||
+    "Payment verification failed."
+  );
+}
   return result;
 }
