@@ -49,9 +49,14 @@ export default async function handler(req, res) {
       cardCategory = "Debit Card",
       receiptEmail = "",
     } = req.body || {};
+    const flutterwaveSecretKey = process.env.FLW_SECRET_KEY;
 
     if (!accountId) {
       return res.status(400).json({ error: "Missing accountId." });
+    }
+
+    if (!flutterwaveSecretKey) {
+      return res.status(500).json({ error: "Missing FLW_SECRET_KEY environment variable." });
     }
 
     const normalizedAmount = normalizeAmount(amount);
@@ -103,10 +108,68 @@ export default async function handler(req, res) {
       });
     }
 
+    const forwardedProto = req.headers["x-forwarded-proto"] || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const redirectUrl =
+      `${forwardedProto}://${host}/wallet/topup/callback` +
+      `?payment_intent_id=${encodeURIComponent(paymentIntent.id)}`;
+
+    const flutterwaveResponse = await fetch("https://api.flutterwave.com/v3/payments", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${flutterwaveSecretKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tx_ref: txRef,
+        amount: normalizedAmount,
+        currency: paymentIntent.currency,
+        redirect_url: redirectUrl,
+        customer: {
+          email: receiptEmail || user.email || "",
+          name: resolveUserName(user),
+          phonenumber: resolveUserPhone(user),
+        },
+        customizations: {
+          title: "KunThaiMoney Cash In",
+          description: "Fund your wallet with card using Flutterwave hosted checkout",
+        },
+        meta: {
+          payment_intent_id: paymentIntent.id,
+          account_id: account.id,
+          card_category: cardCategory,
+        },
+      }),
+    });
+
+    const flutterwaveJson = await flutterwaveResponse.json().catch(() => ({}));
+    const paymentLink = flutterwaveJson?.data?.link || flutterwaveJson?.data?.checkout_url || "";
+
+    if (!flutterwaveResponse.ok || !paymentLink) {
+      await serviceClient
+        .from("kuntai_payment_intents")
+        .update({
+          status: "failed",
+          failure_reason: "Flutterwave payment-link creation failed",
+          updated_at: new Date().toISOString(),
+          metadata: {
+            ...(paymentIntent.metadata || {}),
+            flutterwave_create_payment_response: flutterwaveJson,
+          },
+        })
+        .eq("id", paymentIntent.id);
+
+      return res.status(400).json({
+        error: "Flutterwave could not create a hosted payment link.",
+        details: flutterwaveJson?.message || flutterwaveJson,
+      });
+    }
+
     return res.status(200).json({
       success: true,
       paymentIntentId: paymentIntent.id,
       txRef,
+      paymentLink,
       currency: paymentIntent.currency,
       amount: paymentIntent.amount,
       customer: {

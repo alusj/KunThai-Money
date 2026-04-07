@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, CreditCard, ShieldCheck } from "lucide-react";
-import { closePaymentModal, useFlutterwave } from "flutterwave-react-v3";
 
 import AuthNotice from "../../../../auth/AuthNotice";
 import {
   createCardTopupIntent,
-  verifyCardTopup,
 } from "../../../../../Backend/services/paymentService";
 
 const CARD_CATEGORIES = [
@@ -30,7 +28,6 @@ function resolveCurrency(account) {
 
 export default function CardTopUpForm({ account, user, onBack }) {
   const defaultEmail = useMemo(() => resolveReceiptEmail(user), [user]);
-  const flutterwavePublicKey = import.meta.env.VITE_FLW_PUBLIC_KEY;
 
   const [amount, setAmount] = useState("");
   const [receiptEmail, setReceiptEmail] = useState(defaultEmail);
@@ -38,114 +35,16 @@ export default function CardTopUpForm({ account, user, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [pendingCheckout, setPendingCheckout] = useState(null);
-  const launchedCheckoutRef = useRef(null);
 
   const numericAmount = useMemo(() => {
     const parsed = Number(amount);
     return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(2)) : 0;
   }, [amount]);
 
-  const flutterwaveConfig = useMemo(
-    () => ({
-      public_key: flutterwavePublicKey || "",
-      tx_ref: pendingCheckout?.txRef || "preview-kuntai-card-topup",
-      amount: pendingCheckout?.amount || numericAmount || 1,
-      currency: resolveCurrency(account),
-      payment_options: "card",
-      customer: {
-        email:
-          pendingCheckout?.customer?.email ||
-          receiptEmail.trim() ||
-          defaultEmail ||
-          "customer@example.com",
-        phonenumber:
-          pendingCheckout?.customer?.phone ||
-          user?.phone ||
-          user?.user_metadata?.phone ||
-          user?.raw_user_meta_data?.phone ||
-          "",
-        name:
-          pendingCheckout?.customer?.name ||
-          user?.user_metadata?.full_name ||
-          user?.raw_user_meta_data?.full_name ||
-          "KunThai User",
-      },
-      customizations: {
-        title: "KunThaiMoney Cash In",
-        description: "Fund your wallet securely with card",
-      },
-    }),
-    [
-      account,
-      defaultEmail,
-      flutterwavePublicKey,
-      numericAmount,
-      pendingCheckout,
-      receiptEmail,
-      user,
-    ]
-  );
-
-  const startFlutterwavePayment = useFlutterwave(flutterwaveConfig);
-
-  useEffect(() => {
-    if (!pendingCheckout) {
-      launchedCheckoutRef.current = null;
-      return;
-    }
-
-    if (launchedCheckoutRef.current === pendingCheckout.txRef) {
-      return;
-    }
-
-    launchedCheckoutRef.current = pendingCheckout.txRef;
-
-    startFlutterwavePayment({
-      callback: async (response) => {
-        try {
-          const status = String(response?.status || "").toLowerCase();
-          const returnedTxRef = response?.tx_ref || pendingCheckout.txRef;
-
-          if (status && status !== "successful") {
-            throw new Error("Flutterwave did not mark the card payment as successful.");
-          }
-
-          const verifyResult = await verifyCardTopup({
-            paymentIntentId: pendingCheckout.paymentIntentId,
-            txRef: returnedTxRef,
-          });
-
-          setSuccessMessage(verifyResult?.message || "Wallet funded successfully.");
-          setError("");
-        } catch (verifyError) {
-          setError(
-            verifyError instanceof Error
-              ? verifyError.message
-              : "Payment completed, but verification failed."
-          );
-        } finally {
-          closePaymentModal();
-          setPendingCheckout(null);
-          setLoading(false);
-        }
-      },
-      onClose: () => {
-        setPendingCheckout(null);
-        setLoading(false);
-      },
-    });
-  }, [pendingCheckout, startFlutterwavePayment]);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
     setSuccessMessage("");
-
-    if (!flutterwavePublicKey) {
-      setError("Missing VITE_FLW_PUBLIC_KEY in your Vercel frontend environment.");
-      return;
-    }
 
     if (!account?.id) {
       setError("Your wallet account is still loading. Please try again in a moment.");
@@ -174,23 +73,13 @@ export default function CardTopUpForm({ account, user, onBack }) {
       });
 
       const txRef = intentResult?.txRef;
-      const paymentIntentId = intentResult?.paymentIntentId;
-      const customer = intentResult?.customer || {};
+      const paymentLink = intentResult?.paymentLink;
 
-      if (!txRef || !paymentIntentId) {
-        throw new Error("Backend did not return a payment reference.");
+      if (!txRef || !paymentLink) {
+        throw new Error("Backend did not return a hosted payment link.");
       }
 
-      setPendingCheckout({
-        paymentIntentId,
-        txRef,
-        amount: numericAmount,
-        customer: {
-          email: receiptEmail.trim(),
-          phone: customer.phone || "",
-          name: customer.name || "KunThai User",
-        },
-      });
+      window.location.assign(paymentLink);
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -281,7 +170,7 @@ export default function CardTopUpForm({ account, user, onBack }) {
             <div>
               <p className="text-sm font-semibold text-slate-900">Secure card checkout</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Card details stay inside Flutterwave checkout. KunThaiMoney only verifies the payment result and credits your wallet after server-side checks pass.
+                You will continue to a Flutterwave-hosted payment page. KunThaiMoney only credits your wallet after server-side verification succeeds.
               </p>
             </div>
           </div>
@@ -307,7 +196,7 @@ export default function CardTopUpForm({ account, user, onBack }) {
           }`}
         >
           {loading
-            ? "Processing card payment..."
+            ? "Opening Flutterwave checkout..."
             : `Continue to Cash In${numericAmount ? ` ${resolveCurrency(account)} ${numericAmount.toFixed(2)}` : ""}`}
         </button>
       </form>
