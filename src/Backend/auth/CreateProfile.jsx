@@ -4,7 +4,6 @@ import Cropper from "react-easy-crop";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import { countryMap } from "../utils/countryMap";
-import { generateAccountNumber } from "../utils/generateAccountNumber";
 import { clearOnboardingPhone, getOnboardingPhone } from "../utils/onboardingStorage";
 import { maskPhoneNumber } from "../utils/maskPhoneNumber";
 import { buildFullName } from "../utils/profileName";
@@ -248,59 +247,15 @@ export default function CreateProfile() {
       }
 
       const { country, currency } = countryData;
-      let accountCreated = false;
-      let retries = 0;
-      let lastAccountError = null;
+      const { error: accountError } = await supabase.rpc("create_kuntai_account", {
+        p_phone: phone,
+        p_country_code: countryCode,
+        p_country: country,
+        p_currency: currency,
+      });
 
-      while (!accountCreated && retries < 3) {
-        const { data: lastAccount } = await supabase
-          .from("kuntai_accounts")
-          .select("account_number")
-          .eq("country_code", countryCode)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        let lastNumber = 0;
-
-        if (lastAccount?.account_number) {
-          lastNumber = Number.parseInt(lastAccount.account_number.slice(-8), 10);
-        }
-
-        const accountNumber = generateAccountNumber(countryCode, lastNumber);
-        const { error: accountError } = await supabase.from("kuntai_accounts").insert([
-          {
-            user_id: user.id,
-            phone,
-            country_code: countryCode,
-            country,
-            account_number: accountNumber,
-            currency,
-            balance: 0,
-          },
-        ]);
-
-        if (!accountError) {
-          accountCreated = true;
-        } else {
-          lastAccountError = accountError;
-          const accountErrorMessage = accountError.message?.toLowerCase?.() || "";
-
-          if (
-            accountErrorMessage.includes("duplicate key") ||
-            accountErrorMessage.includes("already exists") ||
-            accountErrorMessage.includes("account_number")
-          ) {
-            retries += 1;
-            continue;
-          }
-
-          throw accountError;
-        }
-      }
-
-      if (!accountCreated) {
-        throw new Error(lastAccountError?.message || "Failed to create account. Try again.");
+      if (accountError) {
+        throw accountError;
       }
 
       clearOnboardingPhone();
