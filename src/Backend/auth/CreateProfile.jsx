@@ -250,6 +250,7 @@ export default function CreateProfile() {
       const { country, currency } = countryData;
       let accountCreated = false;
       let retries = 0;
+      let lastAccountError = null;
 
       while (!accountCreated && retries < 3) {
         const { data: lastAccount } = await supabase
@@ -282,12 +283,24 @@ export default function CreateProfile() {
         if (!accountError) {
           accountCreated = true;
         } else {
-          retries += 1;
+          lastAccountError = accountError;
+          const accountErrorMessage = accountError.message?.toLowerCase?.() || "";
+
+          if (
+            accountErrorMessage.includes("duplicate key") ||
+            accountErrorMessage.includes("already exists") ||
+            accountErrorMessage.includes("account_number")
+          ) {
+            retries += 1;
+            continue;
+          }
+
+          throw accountError;
         }
       }
 
       if (!accountCreated) {
-        throw new Error("Failed to create account. Try again.");
+        throw new Error(lastAccountError?.message || "Failed to create account. Try again.");
       }
 
       clearOnboardingPhone();
