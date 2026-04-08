@@ -29,6 +29,17 @@ function resolveUserPhone(user) {
   );
 }
 
+function normalizeFlutterwaveHostedLink(link) {
+  if (!link) {
+    return "";
+  }
+
+  return link
+    .replace("https://checkout-v2.dev-flutterwave.com", "https://checkout.flutterwave.com")
+    .replace("https://checkout-v3.dev-flutterwave.com", "https://checkout.flutterwave.com")
+    .replace("https://out-v2.dev-flutterwave.com", "https://checkout.flutterwave.com");
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed." });
@@ -143,7 +154,9 @@ export default async function handler(req, res) {
     });
 
     const flutterwaveJson = await flutterwaveResponse.json().catch(() => ({}));
-    const paymentLink = flutterwaveJson?.data?.link || flutterwaveJson?.data?.checkout_url || "";
+    const paymentLink = normalizeFlutterwaveHostedLink(
+      flutterwaveJson?.data?.link || flutterwaveJson?.data?.checkout_url || ""
+    );
 
     if (!flutterwaveResponse.ok || !paymentLink) {
       await serviceClient
