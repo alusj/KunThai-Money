@@ -17,6 +17,7 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [showCrop, setShowCrop] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -276,13 +277,21 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
           )}
 
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] text-3xl font-semibold text-white">
+            <button
+              type="button"
+              onClick={() => {
+                if (avatarPreview) {
+                  setShowImageViewer(true);
+                }
+              }}
+              className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] text-3xl font-semibold text-white"
+            >
               {avatarPreview ? (
                 <img src={avatarPreview} alt="Profile preview" className="h-full w-full object-cover" />
               ) : (
                 (firstName[0] || user?.email?.[0] || "U").toUpperCase()
               )}
-            </div>
+            </button>
 
             <label className="mt-4 cursor-pointer rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
               Upload profile picture
@@ -384,6 +393,23 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
               Done
             </button>
           </div>
+        </div>
+      )}
+
+      {showImageViewer && avatarPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <button
+            type="button"
+            onClick={() => setShowImageViewer(false)}
+            className="absolute right-5 top-5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white"
+          >
+            Close
+          </button>
+          <img
+            src={avatarPreview}
+            alt="Profile"
+            className="max-h-[85vh] max-w-full rounded-3xl object-contain shadow-2xl"
+          />
         </div>
       )}
     </div>

@@ -150,6 +150,13 @@ export default function SecuritySetup() {
         throw error;
       }
 
+      const returnTo = location.state?.returnTo;
+
+      if (returnTo) {
+        navigate(returnTo, { replace: true });
+        return;
+      }
+
       navigate("/create-profile", { replace: true });
     } catch (err) {
       setErrorMessage(err.message || "Failed to secure your PIN");

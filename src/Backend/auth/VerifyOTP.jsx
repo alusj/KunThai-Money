@@ -122,8 +122,11 @@ export default function VerifyOTP() {
         setSuccess(true);
 
         window.setTimeout(() => {
-          if (intent === "login") {
-            navigate("/welcome-loader", { replace: true });
+          if (intent === "reset-password") {
+            navigate("/reset-password", {
+              replace: true,
+              state: { phone },
+            });
             return;
           }
 
@@ -160,7 +163,7 @@ export default function VerifyOTP() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         phone,
-        options: intent === "login" ? { shouldCreateUser: false } : undefined,
+        options: intent === "reset-password" ? { shouldCreateUser: false } : undefined,
       });
 
       if (error) {
@@ -185,7 +188,7 @@ export default function VerifyOTP() {
   return (
     <PageTransition>
       <AuthShell
-        eyebrow={intent === "login" ? "Secure Sign In" : "Verify Identity"}
+        eyebrow={intent === "reset-password" ? "Password Recovery" : "Verify Identity"}
         title="Enter your secure code"
         subtitle={`We sent a 6-digit code to ${maskPhoneNumber(phone)}. Enter it below to continue securely.`}
       >

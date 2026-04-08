@@ -194,16 +194,21 @@ export default function CreateProfile() {
         avatarUrl = publicData.publicUrl;
       }
 
-      const { error: profileError } = await supabase.from("kuntai_profiles").upsert({
-        user_id: user.id,
-        first_name: cleanFirstName,
-        middle_name: cleanMiddleName || null,
-        last_name: cleanLastName,
-        email: email || null,
-        phone,
-        profile_image: avatarUrl,
-        is_profile_complete: true,
-      });
+      const { error: profileError } = await supabase
+        .from("kuntai_profiles")
+        .upsert(
+          {
+            user_id: user.id,
+            first_name: cleanFirstName,
+            middle_name: cleanMiddleName || null,
+            last_name: cleanLastName,
+            email: email || null,
+            phone,
+            profile_image: avatarUrl,
+            is_profile_complete: true,
+          },
+          { onConflict: "user_id" }
+        );
 
       if (profileError) {
         throw profileError;

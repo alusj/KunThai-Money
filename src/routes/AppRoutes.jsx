@@ -3,6 +3,8 @@ import { Routes, Route } from "react-router-dom";
 import Welcome from "../components/Welcome";
 import Login from "../Backend/auth/Login";
 import Register from "../Backend/auth/Register";
+import ForgotPassword from "../Backend/auth/ForgotPassword";
+import ResetPassword from "../Backend/auth/ResetPassword";
 import VerifyOTP from "../Backend/auth/VerifyOTP";
 import SecuritySetup from "../Backend/auth/SecuritySetup";
 import CreateProfile from "../Backend/auth/CreateProfile";
@@ -41,11 +43,20 @@ export default function AppRoutes() {
           </PublicRoute>
         }
       />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
       <Route path="/verify" element={<VerifyOTP />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/security"
         element={
-          <AuthSessionRoute stage="security">
+          <AuthSessionRoute>
             <SecuritySetup />
           </AuthSessionRoute>
         }
@@ -53,7 +64,7 @@ export default function AppRoutes() {
       <Route
         path="/security-setup"
         element={
-          <AuthSessionRoute stage="security">
+          <AuthSessionRoute>
             <SecuritySetup />
           </AuthSessionRoute>
         }
@@ -61,7 +72,7 @@ export default function AppRoutes() {
       <Route
         path="/create-profile"
         element={
-          <AuthSessionRoute stage="profile">
+          <AuthSessionRoute>
             <CreateProfile />
           </AuthSessionRoute>
         }
@@ -69,7 +80,7 @@ export default function AppRoutes() {
       <Route
         path="/kyc"
         element={
-          <AuthSessionRoute stage="kyc">
+          <AuthSessionRoute>
             <KYC />
           </AuthSessionRoute>
         }
@@ -77,7 +88,7 @@ export default function AppRoutes() {
       <Route
         path="/welcome-loader"
         element={
-          <AuthSessionRoute stage="transitional">
+          <AuthSessionRoute>
             <WelcomeLoader />
           </AuthSessionRoute>
         }

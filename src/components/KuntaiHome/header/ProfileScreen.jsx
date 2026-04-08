@@ -101,7 +101,8 @@ export default function ProfileScreen({
   onBack,
   onOpenEditProfile,
   onOpenCreateAccount,
-  onOpenSecurity,
+  onOpenChangePin,
+  onOpenChangePassword,
   onOpenTransactions,
   onOpenNotifications,
   onOpenSettings,
@@ -211,7 +212,7 @@ export default function ProfileScreen({
               title="Change PIN"
               description="Update the PIN used for your protected account actions."
               end={<ChevronEnd />}
-              onClick={onOpenSecurity}
+              onClick={onOpenChangePin}
             />
             <RowAction
               icon={Fingerprint}
@@ -223,9 +224,9 @@ export default function ProfileScreen({
             <RowAction
               icon={LockKeyhole}
               title="Change password"
-              description="Reserved for password-based authentication as the app expands."
+              description="Verify your current password, then choose a new one."
               end={<ChevronEnd />}
-              onClick={onOpenSecurity}
+              onClick={onOpenChangePassword}
             />
           </SectionCard>
 

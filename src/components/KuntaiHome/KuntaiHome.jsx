@@ -12,6 +12,8 @@ import AuthNotice from "../auth/AuthNotice";
 import Header from "./header/Header";
 import Dashboard from "./dashboard/Dashboard";
 import CreateAnotherAccountScreen from "./header/CreateAnotherAccountScreen";
+import ChangePasswordScreen from "./header/ChangePasswordScreen";
+import ChangePinScreen from "./header/ChangePinScreen";
 import EditProfileScreen from "./header/EditProfileScreen";
 import NotificationScreen from "./header/NotificationScreen";
 import ProfileScreen from "./header/ProfileScreen";
@@ -263,7 +265,8 @@ export default function KunTaiHome() {
           onBack={() => setActiveScreen("dashboard")}
           onOpenEditProfile={() => setActiveScreen("edit-profile")}
           onOpenCreateAccount={() => setActiveScreen("create-account")}
-          onOpenSecurity={() => navigate("/security-setup")}
+          onOpenChangePin={() => setActiveScreen("change-pin")}
+          onOpenChangePassword={() => setActiveScreen("change-password")}
           onOpenTransactions={() => setActiveScreen("transactions")}
           onOpenNotifications={() => setActiveScreen("notifications")}
           onOpenSettings={() => setActiveScreen("dashboard")}
@@ -298,6 +301,14 @@ export default function KunTaiHome() {
             }
           }}
         />
+      )}
+
+      {activeScreen === "change-pin" && (
+        <ChangePinScreen user={user} onBack={() => setActiveScreen("profile")} />
+      )}
+
+      {activeScreen === "change-password" && (
+        <ChangePasswordScreen user={user} onBack={() => setActiveScreen("profile")} />
       )}
 
       {activeScreen === "search" && (

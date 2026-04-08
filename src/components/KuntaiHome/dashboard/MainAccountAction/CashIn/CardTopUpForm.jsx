@@ -26,17 +26,6 @@ function resolveCurrency(account) {
   return account?.currency || "SLL";
 }
 
-function resolveCheckoutCurrency(account) {
-  const configuredCurrency = import.meta.env.VITE_FLW_CHECKOUT_CURRENCY;
-
-  if (configuredCurrency) {
-    return configuredCurrency.toUpperCase();
-  }
-
-  const walletCurrency = resolveCurrency(account).toUpperCase();
-  return walletCurrency === "SLL" ? "USD" : walletCurrency;
-}
-
 export default function CardTopUpForm({ account, user, onBack }) {
   const defaultEmail = useMemo(() => resolveReceiptEmail(user), [user]);
 
@@ -51,8 +40,6 @@ export default function CardTopUpForm({ account, user, onBack }) {
     const parsed = Number(amount);
     return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(2)) : 0;
   }, [amount]);
-  const walletCurrency = resolveCurrency(account);
-  const checkoutCurrency = resolveCheckoutCurrency(account);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -80,7 +67,7 @@ export default function CardTopUpForm({ account, user, onBack }) {
       const intentResult = await createCardTopupIntent({
         accountId: account.id,
         amount: numericAmount,
-        currency: checkoutCurrency,
+        currency: resolveCurrency(account),
         cardCategory,
         receiptEmail: receiptEmail.trim(),
       });
@@ -185,11 +172,6 @@ export default function CardTopUpForm({ account, user, onBack }) {
               <p className="mt-1 text-xs leading-5 text-slate-500">
                 You will continue to a Flutterwave-hosted payment page. KunThaiMoney only credits your wallet after server-side verification succeeds.
               </p>
-              {checkoutCurrency !== walletCurrency ? (
-                <p className="mt-2 text-xs leading-5 text-amber-700">
-                  Temporary test mode: wallet is denominated in {walletCurrency}, but Flutterwave checkout is being opened in {checkoutCurrency} to confirm whether SLL card checkout is the current blocker.
-                </p>
-              ) : null}
             </div>
           </div>
         </div>

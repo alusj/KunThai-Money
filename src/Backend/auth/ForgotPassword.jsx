@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 
@@ -17,16 +17,14 @@ import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
 import FlagIcon from "../../components/FlagIcon";
 
-export default function Login() {
+export default function ForgotPassword() {
   const navigate = useNavigate();
   const location = useLocation();
   const [selected, setSelected] = useState(ecowasCountries[0]);
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [passwordHint, setPasswordHint] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const prefillPhone = location.state?.phone;
@@ -44,42 +42,14 @@ export default function Login() {
     }
   }, [location.state]);
 
-  const notice = useMemo(() => {
-    const reason = new URLSearchParams(location.search).get("reason");
-
-    if (reason === "signed-out") {
-      return {
-        tone: "info",
-        title: "Signed out securely",
-        body: "Your session has ended successfully. Sign in again whenever you're ready.",
-      };
-    }
-
-    if (reason === "session-expired") {
-      return {
-        tone: "warning",
-        title: "Session expired",
-        body: "For your security, your session ended. Sign in again to continue.",
-      };
-    }
-
-    return null;
-  }, [location.search]);
-
-  const handleLogin = async (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
-    setPasswordHint("");
 
     const validation = validateNationalPhone(selected, phone);
 
     if (!validation.valid) {
       setError(validation.reason);
-      return;
-    }
-
-    if (!password.trim()) {
-      setError("Enter your password.");
       return;
     }
 
@@ -90,49 +60,35 @@ export default function Login() {
       const phoneStatus = await getPhoneAuthStatus(fullPhone);
 
       if (!phoneStatus?.is_registered) {
-        setError("We couldn't find an account for this phone number. Please create your account first.");
+        setError("We couldn't find an account for this phone number.");
         return;
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: otpError } = await supabase.auth.signInWithOtp({
         phone: fullPhone,
-        password,
+        options: {
+          shouldCreateUser: false,
+        },
       });
 
-      if (signInError) {
-        const normalizedMessage = signInError.message?.toLowerCase?.() || "";
-
-        if (
-          normalizedMessage.includes("invalid login credentials") ||
-          normalizedMessage.includes("invalid credentials")
-        ) {
-          setError("Incorrect phone number or password.");
-          setPasswordHint(
-            "If this account was created before password sign-in was added, tap 'Forgot password?' to create a password with OTP."
-          );
-          return;
-        }
-
-        if (
-          normalizedMessage.includes("email not confirmed") ||
-          normalizedMessage.includes("phone not confirmed")
-        ) {
-          setError("Your phone number is not verified yet. Complete OTP verification first.");
-          return;
-        }
-
-        throw signInError;
+      if (otpError) {
+        throw otpError;
       }
 
       setOnboardingPhone(fullPhone);
-      navigate("/welcome-loader", { replace: true });
+      navigate("/verify", {
+        state: {
+          phone: fullPhone,
+          intent: "reset-password",
+        },
+      });
     } catch (err) {
-      const normalizedMessage = err.message?.toLowerCase?.() || "";
+      const message = err.message?.toLowerCase?.() || "";
 
-      if (normalizedMessage.includes("get_phone_auth_status")) {
-        setError("The phone-check SQL is not installed yet. Run `auth_phone_guard.sql` in Supabase first.");
+      if (message.includes("rate limit")) {
+        setError("OTP sending is temporarily rate-limited. Please wait a moment and try again.");
       } else {
-        setError(err.message || "Failed to sign in");
+        setError(err.message || "Unable to send reset OTP.");
       }
     } finally {
       setLoading(false);
@@ -142,26 +98,17 @@ export default function Login() {
   return (
     <PageTransition>
       <AuthShell
-        eyebrow="Returning Customer"
-        title="Sign in to KunThai Money"
-        subtitle="Use your registered phone number and password to continue securely to your account."
+        eyebrow="Password Recovery"
+        title="Forgot your password?"
+        subtitle="Enter your registered phone number and we will send you a secure OTP to reset your password."
         footer={
-          <>
-            Don&apos;t have an account?{" "}
-            <button className="font-semibold text-cyan-200" onClick={() => navigate("/register")}>
-              Create one now
-            </button>
-          </>
+          <button className="font-semibold text-cyan-200" onClick={() => navigate("/login")}>
+            Return to sign in
+          </button>
         }
       >
         <div className="space-y-5">
-          {notice && (
-            <AuthNotice tone={notice.tone} title={notice.title}>
-              {notice.body}
-            </AuthNotice>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="flex w-full items-center gap-2">
               <div className="relative flex-shrink-0">
                 <button
@@ -210,28 +157,11 @@ export default function Login() {
               />
             </div>
 
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                setError("");
-              }}
-              placeholder="Password"
-              className="h-12 w-full rounded-lg border px-3 text-sm focus:outline-none sm:text-base"
-            />
-
             {error && (
               <AuthNotice tone="danger" title="Unable to continue">
-              {error}
-            </AuthNotice>
-          )}
-
-          {passwordHint ? (
-            <AuthNotice tone="info" title="Need to create a password first?">
-              {passwordHint}
-            </AuthNotice>
-          ) : null}
+                {error}
+              </AuthNotice>
+            )}
 
             <button
               type="submit"
@@ -240,22 +170,7 @@ export default function Login() {
                 loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
               }`}
             >
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                navigate("/forgot-password", {
-                  state: {
-                    phone,
-                    countryCode: selected.code,
-                  },
-                })
-              }
-              className="w-full text-sm font-semibold text-slate-600 transition hover:text-slate-900"
-            >
-              Forgot password?
+              {loading ? "Sending OTP..." : "Send reset OTP"}
             </button>
           </form>
         </div>

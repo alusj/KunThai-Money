@@ -1,0 +1,135 @@
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
+import supabase from "../../Backend/lib/supabaseClient";
+import { maskPhoneNumber } from "../utils/maskPhoneNumber";
+import { getOnboardingPhone } from "../utils/onboardingStorage";
+import PageTransition from "../../components/animations/PageTransition";
+import AuthNotice from "../../components/auth/AuthNotice";
+import AuthShell from "../../components/auth/AuthShell";
+
+export default function ResetPassword() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const phone = useMemo(
+    () => location.state?.phone || getOnboardingPhone() || "",
+    [location.state?.phone]
+  );
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (newPassword.length < 8) {
+      setError("Your new password must be at least 8 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("New password and confirmation do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("Your reset session expired. Request another OTP and try again.");
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setSuccess("Password updated successfully. Redirecting you to sign in...");
+
+      window.setTimeout(async () => {
+        await supabase.auth.signOut();
+        navigate("/login", {
+          replace: true,
+          state: phone ? { phone } : undefined,
+        });
+      }, 900);
+    } catch (err) {
+      setError(err.message || "Unable to reset your password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <PageTransition>
+      <AuthShell
+        eyebrow="Password Recovery"
+        title="Create a new password"
+        subtitle={
+          phone
+            ? `Your identity has been verified for ${maskPhoneNumber(phone)}. Create a new password to continue.`
+            : "Your identity has been verified. Create a new password to continue."
+        }
+      >
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <AuthNotice tone="danger" title="Reset incomplete">
+              {error}
+            </AuthNotice>
+          )}
+
+          {success && (
+            <AuthNotice tone="success" title="Password updated">
+              {success}
+            </AuthNotice>
+          )}
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              New Password
+            </span>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Confirm New Password
+            </span>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
+              loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+            }`}
+          >
+            {loading ? "Saving new password..." : "Save new password"}
+          </button>
+        </form>
+      </AuthShell>
+    </PageTransition>
+  );
+}
