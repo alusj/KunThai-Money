@@ -4,7 +4,7 @@ export const ecowasCountries = [
     flag: "SL",
     code: "+232",
     format: "00 000 000",
-    currency: "SLE",
+    currency: "SLL",
     nationalNumberRegex: /^\d{8}$/,
     readiness: "frontend-ready",
   },

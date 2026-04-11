@@ -8,7 +8,7 @@
 import MainAccountContainer from "./MainAccountContainer/MainAccountContainer";
 import MainAccountAction from "./MainAccountAction/MainAccountAction";
 
-export default function MainAccountCard({ account, user }) {
+export default function MainAccountCard({ account, user, refreshAccount }) {
   return (
     <section className="mb-5 w-full">
       <div
@@ -43,7 +43,7 @@ export default function MainAccountCard({ account, user }) {
           </div>
 
           <div className="w-full md:w-auto md:shrink-0">
-            <MainAccountAction account={account} user={user} />
+            <MainAccountAction account={account} user={user} refreshAccount={refreshAccount} />
           </div>
         </div>
       </div>

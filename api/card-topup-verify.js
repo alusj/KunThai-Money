@@ -1,4 +1,5 @@
 import { createServiceClient, requireAuthorizedUser } from "./_lib/supabaseServer.js";
+import { normalizeCurrencyCode } from "./_lib/currency.js";
 
 function buildFailureResponse(message, details) {
   return {
@@ -125,8 +126,8 @@ export default async function handler(req, res) {
 
     const paidAmount = Number(flwData.amount ?? 0);
     const expectedAmount = Number(paymentIntent.amount ?? 0);
-    const paidCurrency = String(flwData.currency ?? "").toUpperCase();
-    const expectedCurrency = String(paymentIntent.currency ?? "").toUpperCase();
+    const paidCurrency = normalizeCurrencyCode(flwData.currency);
+    const expectedCurrency = normalizeCurrencyCode(paymentIntent.currency);
     const paymentStatus = String(flwData.status ?? "").toLowerCase();
     const passesChecks =
       paymentStatus === "successful" &&

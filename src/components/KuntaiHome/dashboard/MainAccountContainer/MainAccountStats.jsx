@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { normalizeCurrencyCode } from "../../../../Backend/utils/currency";
 
 function maskAmount(amountText = "") {
   return amountText.replace(/[0-9]/g, "*");
@@ -20,10 +21,11 @@ export default function MainAccountStats({ account }) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(account.balance || 0);
+  const displayCurrency = normalizeCurrencyCode(account.currency) || "SLL";
 
   const concealedBalance = useMemo(
-    () => `${account.currency} ${maskAmount(formattedBalance)}`,
-    [account.currency, formattedBalance]
+    () => `${displayCurrency} ${maskAmount(formattedBalance)}`,
+    [displayCurrency, formattedBalance]
   );
 
   return (
@@ -40,7 +42,7 @@ export default function MainAccountStats({ account }) {
       </div>
 
       <h2 className="text-3xl font-bold tracking-wide text-emerald-700 sm:text-4xl">
-        {isVisible ? `${account.currency} ${formattedBalance}` : concealedBalance}
+        {isVisible ? `${displayCurrency} ${formattedBalance}` : concealedBalance}
       </h2>
     </div>
   );

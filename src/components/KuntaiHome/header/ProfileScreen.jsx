@@ -16,6 +16,7 @@ import {
   Wallet,
 } from "lucide-react";
 import BackTab from "./Transactions/BackTab";
+import AuthNotice from "../../auth/AuthNotice";
 
 function getVerificationCopy(status) {
   if (!status?.hasKyc) {
@@ -77,11 +78,17 @@ function RowAction({ icon: Icon, title, description, end, onClick, danger = fals
   );
 }
 
-function Toggle({ enabled, onChange }) {
+function Toggle({ enabled, onChange, disabled = false }) {
   return (
     <button
-      onClick={onChange}
-      className={`relative h-7 w-12 rounded-full transition ${enabled ? "bg-slate-950" : "bg-slate-300"}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onChange?.();
+      }}
+      disabled={disabled}
+      className={`relative h-7 w-12 rounded-full transition ${
+        disabled ? "cursor-not-allowed opacity-60" : ""
+      } ${enabled ? "bg-slate-950" : "bg-slate-300"}`}
       aria-pressed={enabled}
     >
       <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${enabled ? "left-6" : "left-1"}`} />
@@ -105,10 +112,13 @@ export default function ProfileScreen({
   onOpenChangePassword,
   onOpenTransactions,
   onOpenNotifications,
-  onOpenSettings,
   onOpenTerms,
   onOpenHelp,
   onSignOut,
+  biometrics,
+  onToggleBiometrics,
+  appearance,
+  onToggleAppearance,
 }) {
   const verification = getVerificationCopy(status);
   const initials = useMemo(
@@ -129,8 +139,7 @@ export default function ProfileScreen({
     promotions: false,
     systemUpdates: true,
   });
-  const [settingsState, setSettingsState] = useState({
-    darkMode: false,
+  const [settingsState] = useState({
     language: "English",
     textSize: "Medium",
   });
@@ -207,6 +216,11 @@ export default function ProfileScreen({
 
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <SectionCard title="Security">
+            {biometrics?.message ? (
+              <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
+                {biometrics.message}
+              </AuthNotice>
+            ) : null}
             <RowAction
               icon={Shield}
               title="Change PIN"
@@ -217,9 +231,19 @@ export default function ProfileScreen({
             <RowAction
               icon={Fingerprint}
               title="Enable biometrics"
-              description="Prepare Face ID or fingerprint access for faster sign-in on supported devices."
-              end={<Toggle enabled={false} onChange={() => {}} />}
-              onClick={() => {}}
+              description={
+                biometrics?.supported
+                  ? "Use Face ID or fingerprint on this device before opening sensitive security actions."
+                  : "This browser or device does not currently support platform biometrics for the app."
+              }
+              end={
+                <Toggle
+                  enabled={Boolean(biometrics?.enabled)}
+                  disabled={Boolean(biometrics?.busy || !biometrics?.supported)}
+                  onChange={onToggleBiometrics}
+                />
+              }
+              onClick={onToggleBiometrics}
             />
             <RowAction
               icon={LockKeyhole}
@@ -264,24 +288,28 @@ export default function ProfileScreen({
           <SectionCard title="Settings">
             <RowAction
               icon={Monitor}
-              title="Appearance (Dark Mode toggle)"
-              description="Switch visual mode when dark theme is ready."
-              end={<Toggle enabled={settingsState.darkMode} onChange={() => setSettingsState((current) => ({ ...current, darkMode: !current.darkMode }))} />}
-              onClick={onOpenSettings}
+              title="Appearance"
+              description={
+                appearance?.isDarkMode
+                  ? "Dark mode is active across the app on this device."
+                  : "Light mode is active across the app on this device."
+              }
+              end={<Toggle enabled={Boolean(appearance?.isDarkMode)} onChange={onToggleAppearance} />}
+              onClick={onToggleAppearance}
             />
             <RowAction
               icon={Globe}
               title="Language"
               description="Current language preference."
               end={<span className="text-sm font-semibold text-slate-500">{settingsState.language}</span>}
-              onClick={onOpenSettings}
+              onClick={() => {}}
             />
             <RowAction
               icon={Type}
               title="Text size"
               description="Adjust the reading size used throughout the app."
               end={<span className="text-sm font-semibold text-slate-500">{settingsState.textSize}</span>}
-              onClick={onOpenSettings}
+              onClick={() => {}}
             />
           </SectionCard>
 

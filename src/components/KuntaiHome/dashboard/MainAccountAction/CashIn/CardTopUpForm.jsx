@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, CreditCard, ShieldCheck } from "lucide-react";
 
 import AuthNotice from "../../../../auth/AuthNotice";
+import { normalizeCurrencyCode } from "../../../../../Backend/utils/currency";
 import {
   createCardTopupIntent,
 } from "../../../../../Backend/services/paymentService";
@@ -23,7 +24,7 @@ function resolveReceiptEmail(user) {
 }
 
 function resolveCurrency(account) {
-  return account?.currency || "SLL";
+  return normalizeCurrencyCode(account?.currency) || "SLL";
 }
 
 export default function CardTopUpForm({ account, user, onBack }) {

@@ -6,8 +6,17 @@ import { useAuth } from "../../Backend/hooks/useAuth";
 import { useOnboardingStatus } from "../../Backend/hooks/useOnboardingStatus";
 import { createOtherAccount, getOtherAccounts } from "../../Backend/services/otherAccountService";
 import { getTransactions } from "../../Backend/services/transactionService";
+import {
+  canUseBiometrics,
+  clearStoredBiometrics,
+  getBiometricStatus,
+  registerBiometrics,
+  verifyBiometrics,
+} from "../../Backend/utils/biometricAuth";
+import { normalizeCurrencyRecord } from "../../Backend/utils/currency";
 import { buildHeaderNotifications } from "../../Backend/utils/headerNotifications";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
+import { useAppearance } from "../AppearanceProvider";
 import AuthNotice from "../auth/AuthNotice";
 import Header from "./header/Header";
 import Dashboard from "./dashboard/Dashboard";
@@ -31,6 +40,7 @@ function withImageVersion(url) {
 
 export default function KunTaiHome() {
   const navigate = useNavigate();
+  const { isDarkMode, toggleTheme } = useAppearance();
   const { user } = useAuth();
   const { status, loading: statusLoading } = useOnboardingStatus(user?.id);
   const [activeScreen, setActiveScreen] = useState("dashboard");
@@ -39,6 +49,14 @@ export default function KunTaiHome() {
   const [profile, setProfile] = useState(null);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [otherAccounts, setOtherAccounts] = useState([]);
+  const [biometricState, setBiometricState] = useState({
+    supported: false,
+    enabled: false,
+    busy: true,
+    message: "",
+    messageTitle: "",
+    messageTone: "info",
+  });
   const [accountLoading, setAccountLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
@@ -48,6 +66,15 @@ export default function KunTaiHome() {
     account,
     transactions: recentTransactions,
   });
+
+  const updateBiometricBanner = (messageTitle, message, messageTone = "info") => {
+    setBiometricState((current) => ({
+      ...current,
+      messageTitle,
+      message,
+      messageTone,
+    }));
+  };
 
   const fetchAccount = async () => {
     setAccountLoading(true);
@@ -73,7 +100,7 @@ export default function KunTaiHome() {
       return;
     }
 
-    setAccount(accountData);
+    setAccount(normalizeCurrencyRecord(accountData));
     setAccountLoading(false);
   };
 
@@ -150,6 +177,115 @@ export default function KunTaiHome() {
     }
   };
 
+  const refreshWalletData = async () => {
+    await Promise.all([fetchAccount(), fetchRecentTransactions()]);
+  };
+
+  const refreshBiometrics = async () => {
+    if (!user?.id) {
+      setBiometricState({
+        supported: false,
+        enabled: false,
+        busy: false,
+        message: "",
+        messageTitle: "",
+        messageTone: "info",
+      });
+      return;
+    }
+
+    const supported = await canUseBiometrics();
+    const statusForUser = getBiometricStatus(user.id);
+
+    setBiometricState((current) => ({
+      ...current,
+      supported,
+      enabled: supported && statusForUser.enabled,
+      busy: false,
+    }));
+  };
+
+  const handleToggleBiometrics = async () => {
+    if (!user?.id || biometricState.busy) {
+      return;
+    }
+
+    setBiometricState((current) => ({ ...current, busy: true }));
+
+    try {
+      if (!biometricState.enabled) {
+        await registerBiometrics({
+          userId: user.id,
+          displayName: profileName,
+          phone: profile?.phone || user.phone || "",
+        });
+
+        setBiometricState((current) => ({
+          ...current,
+          enabled: true,
+          busy: false,
+        }));
+        updateBiometricBanner(
+          "Biometrics enabled",
+          "Face ID or fingerprint is now active on this device for protected security screens.",
+          "success"
+        );
+        return;
+      }
+
+      clearStoredBiometrics(user.id);
+      setBiometricState((current) => ({
+        ...current,
+        enabled: false,
+        busy: false,
+      }));
+      updateBiometricBanner(
+        "Biometrics disabled",
+        "Biometric protection has been turned off for this device.",
+        "info"
+      );
+    } catch (error) {
+      setBiometricState((current) => ({
+        ...current,
+        busy: false,
+      }));
+      updateBiometricBanner(
+        "Biometrics not changed",
+        error instanceof Error ? error.message : "Biometric setup could not be completed.",
+        "danger"
+      );
+    }
+  };
+
+  const openProtectedSecurityScreen = async (nextScreen) => {
+    if (!biometricState.enabled || !user?.id) {
+      setActiveScreen(nextScreen);
+      return;
+    }
+
+    setBiometricState((current) => ({ ...current, busy: true }));
+
+    try {
+      await verifyBiometrics(user.id);
+      setBiometricState((current) => ({ ...current, busy: false }));
+      updateBiometricBanner(
+        "Biometric check passed",
+        "Identity confirmed on this device.",
+        "success"
+      );
+      setActiveScreen(nextScreen);
+    } catch (error) {
+      setBiometricState((current) => ({ ...current, busy: false }));
+      updateBiometricBanner(
+        "Verification required",
+        error instanceof Error
+          ? error.message
+          : "Biometric verification was not completed, so the security screen stayed locked.",
+        "warning"
+      );
+    }
+  };
+
   const handleSignOut = async (scope = "current") => {
     await supabase.auth.signOut(scope === "all" ? { scope: "global" } : undefined);
     navigate("/login?reason=signed-out", { replace: true });
@@ -160,6 +296,10 @@ export default function KunTaiHome() {
     fetchProfile();
     fetchRecentTransactions();
     fetchOtherAccounts();
+  }, [user?.id]);
+
+  useEffect(() => {
+    refreshBiometrics();
   }, [user?.id]);
 
   const renderKycNotice = () => {
@@ -228,7 +368,7 @@ export default function KunTaiHome() {
 
           <Dashboard
             account={accountLoading ? null : account}
-            refreshAccount={fetchAccount}
+            refreshAccount={refreshWalletData}
             otherAccounts={otherAccounts}
             user={user}
           />
@@ -265,14 +405,17 @@ export default function KunTaiHome() {
           onBack={() => setActiveScreen("dashboard")}
           onOpenEditProfile={() => setActiveScreen("edit-profile")}
           onOpenCreateAccount={() => setActiveScreen("create-account")}
-          onOpenChangePin={() => setActiveScreen("change-pin")}
-          onOpenChangePassword={() => setActiveScreen("change-password")}
+          onOpenChangePin={() => openProtectedSecurityScreen("change-pin")}
+          onOpenChangePassword={() => openProtectedSecurityScreen("change-password")}
           onOpenTransactions={() => setActiveScreen("transactions")}
           onOpenNotifications={() => setActiveScreen("notifications")}
-          onOpenSettings={() => setActiveScreen("dashboard")}
           onOpenTerms={() => setActiveScreen("dashboard")}
           onOpenHelp={() => setActiveScreen("dashboard")}
           onSignOut={handleSignOut}
+          biometrics={biometricState}
+          onToggleBiometrics={handleToggleBiometrics}
+          appearance={{ isDarkMode }}
+          onToggleAppearance={toggleTheme}
         />
       )}
 

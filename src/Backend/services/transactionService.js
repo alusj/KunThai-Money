@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { normalizeCurrencyRecord } from "../utils/currency";
 
 export async function getTransactions({ userId, direction = "all", limit, search = "" } = {}) {
   let resolvedUserId = userId;
@@ -38,12 +39,14 @@ export async function getTransactions({ userId, direction = "all", limit, search
   }
 
   if (!search.trim()) {
-    return data || [];
+    return (data || []).map(normalizeCurrencyRecord);
   }
 
   const searchTerm = search.trim().toLowerCase();
 
-  return (data || []).filter((transaction) =>
+  return (data || [])
+    .map(normalizeCurrencyRecord)
+    .filter((transaction) =>
     [
       transaction.transaction_type,
       transaction.description,
@@ -53,7 +56,7 @@ export async function getTransactions({ userId, direction = "all", limit, search
     ]
       .filter(Boolean)
       .some((value) => value.toLowerCase().includes(searchTerm))
-  );
+    );
 }
 
 export function summarizeTransactions(transactions = []) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import supabase from "../lib/supabaseClient";
+import { normalizeCurrencyRecord } from "../utils/currency";
 
 export function resolveOnboardingPath(status) {
   if (!status?.hasSecurity) {
@@ -55,7 +56,7 @@ export async function fetchOnboardingStatus(userId) {
     hasCompletedKyc,
     kycStatus: kycResponse.data?.kyc_status ?? "missing",
     profile: profileResponse.data ?? null,
-    account: accountResponse.data ?? null,
+    account: normalizeCurrencyRecord(accountResponse.data ?? null),
     recommendedPath: "",
   };
 

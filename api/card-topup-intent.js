@@ -1,4 +1,5 @@
 import { createServiceClient, requireAuthorizedUser } from "./_lib/supabaseServer.js";
+import { normalizeCurrencyCode } from "./_lib/currency.js";
 
 function normalizeAmount(amount) {
   const parsed = Number(amount);
@@ -93,7 +94,7 @@ export default async function handler(req, res) {
       account_id: account.id,
       provider: "flutterwave",
       amount: normalizedAmount,
-      currency: currency || account.currency || "SLL",
+      currency: normalizeCurrencyCode(currency || account.currency) || "SLL",
       fee_amount: 0,
       status: "created",
       risk_status: "clear",
@@ -134,7 +135,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         tx_ref: txRef,
         amount: normalizedAmount,
-        currency: paymentIntent.currency,
+        currency: normalizeCurrencyCode(paymentIntent.currency) || "SLL",
         redirect_url: redirectUrl,
         customer: {
           email: receiptEmail || user.email || "",
@@ -183,7 +184,7 @@ export default async function handler(req, res) {
       paymentIntentId: paymentIntent.id,
       txRef,
       paymentLink,
-      currency: paymentIntent.currency,
+      currency: normalizeCurrencyCode(paymentIntent.currency) || "SLL",
       amount: paymentIntent.amount,
       customer: {
         name: resolveUserName(user),

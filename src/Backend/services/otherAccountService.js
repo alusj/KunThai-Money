@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { normalizeCurrencyRecord } from "../utils/currency";
 
 export async function getOtherAccounts(userId) {
   let resolvedUserId = userId;
@@ -32,7 +33,7 @@ export async function getOtherAccounts(userId) {
     throw error;
   }
 
-  return data || [];
+  return (data || []).map(normalizeCurrencyRecord);
 }
 
 export async function createOtherAccount(payload) {

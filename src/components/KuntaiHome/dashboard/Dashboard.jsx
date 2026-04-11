@@ -38,7 +38,7 @@ export default function Dashboard({ account, refreshAccount, otherAccounts = [],
             <UrBankSkeleton />
           ) : (
             <>
-              <MainAccountCard account={account} user={user} />
+              <MainAccountCard account={account} user={user} refreshAccount={refreshAccount} />
               <MainAccountNumber account={account} />
               <OtherAccountContainer accounts={otherAccounts} />
               <ServicesContainer setActiveService={setActiveService} />

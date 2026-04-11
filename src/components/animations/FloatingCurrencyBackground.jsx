@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-const currencies = ["₦","₵","SLE","CFA","L$"]
+const currencies = ["₦","₵","SLL","CFA","L$"]
 
 export default function FloatingCurrencyBackground(){
 
