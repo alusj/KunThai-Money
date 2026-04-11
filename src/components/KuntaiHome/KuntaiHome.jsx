@@ -362,6 +362,7 @@ export default function KunTaiHome() {
             loading={accountLoading || profileLoading || transactionsLoading || otherAccountsLoading}
             profile={profile}
             notificationCount={notifications.length}
+            transactionCount={recentTransactions.length}
           />
 
           {renderKycNotice()}
@@ -376,7 +377,7 @@ export default function KunTaiHome() {
       )}
 
       {activeScreen === "transactions" && (
-        <TransactionsScreen setActiveScreen={setActiveScreen} account={account} />
+        <TransactionsScreen setActiveScreen={setActiveScreen} account={account} profile={profile} />
       )}
 
       {activeScreen === "notifications" && (

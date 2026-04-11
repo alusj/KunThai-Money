@@ -9,6 +9,7 @@ export default function Header({
   loading = false,
   profile,
   notificationCount = 0,
+  transactionCount = 0,
 }) {
   if (loading) {
     return (
@@ -35,7 +36,7 @@ export default function Header({
         </p>
 
         <div className="flex items-center gap-3">
-          <Transactions setActiveScreen={setActiveScreen} />
+          <Transactions setActiveScreen={setActiveScreen} count={transactionCount} />
           <Search onClick={() => setActiveScreen("search")} />
           <Notification count={notificationCount} onClick={() => setActiveScreen("notifications")} />
           <Profile name={displayName} profile={profile} onClick={() => setActiveScreen("profile")} />
