@@ -38,6 +38,28 @@ function paymentMethodLabel(accountType) {
   }
 }
 
+function resolveErrorMessage(error, fallback) {
+  if (!error) {
+    return fallback;
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  if (typeof error === "string") {
+    return error || fallback;
+  }
+
+  const message = error.message || error.error_description || error.details || fallback;
+
+  if (/function\s+crypt\(text,\s*text\)\s+does\s+not\s+exist/i.test(message)) {
+    return "Transaction PIN verification is not ready in this database yet. Run the PIN security SQL fix in Supabase, then try again.";
+  }
+
+  return message;
+}
+
 function initialsFromName(name = "") {
   return (
     name
@@ -254,11 +276,7 @@ export default function AccountNumber({ account, onClose, refreshAccount }) {
       setStep("receipt");
       setPin("");
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "The transfer could not be completed."
-      );
+      setError(resolveErrorMessage(submitError, "The transfer could not be completed."));
     } finally {
       setIsSubmitting(false);
     }

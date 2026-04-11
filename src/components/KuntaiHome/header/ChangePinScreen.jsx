@@ -3,6 +3,28 @@ import { useState } from "react";
 import supabase from "../../../Backend/lib/supabaseClient";
 import BackTab from "./Transactions/BackTab";
 
+function resolveErrorMessage(error, fallback) {
+  if (!error) {
+    return fallback;
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  if (typeof error === "string") {
+    return error || fallback;
+  }
+
+  const message = error.message || error.error_description || error.details || fallback;
+
+  if (/function\s+crypt\(text,\s*text\)\s+does\s+not\s+exist/i.test(message)) {
+    return "Transaction PIN setup is not ready in this database yet. Run the PIN security SQL fix in Supabase, then try again.";
+  }
+
+  return message;
+}
+
 export default function ChangePinScreen({ user, onBack }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -58,7 +80,7 @@ export default function ChangePinScreen({ user, onBack }) {
       setSuccess("PIN updated successfully.");
       window.setTimeout(() => onBack?.(), 700);
     } catch (err) {
-      setError(err.message || "Unable to update your PIN.");
+      setError(resolveErrorMessage(err, "Unable to update your PIN."));
     } finally {
       setLoading(false);
     }
@@ -96,7 +118,7 @@ export default function ChangePinScreen({ user, onBack }) {
           <div className="space-y-4">
             <label className="block">
               <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                Current Password
+                Login Password
               </span>
               <input
                 type="password"
@@ -104,6 +126,9 @@ export default function ChangePinScreen({ user, onBack }) {
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
               />
+              <p className="mt-2 text-sm text-slate-500">
+                Enter the password you use to sign in. This screen does not use your old transaction PIN for verification.
+              </p>
             </label>
 
             <label className="block">
