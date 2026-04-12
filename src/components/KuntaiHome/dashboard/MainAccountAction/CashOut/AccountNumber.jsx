@@ -57,6 +57,10 @@ function resolveErrorMessage(error, fallback) {
     return "Transaction PIN verification is not ready in this database yet. Run the PIN security SQL fix in Supabase, then try again.";
   }
 
+  if (/function\s+gen_random_bytes\(integer\)\s+does\s+not\s+exist/i.test(message)) {
+    return "Transfer reference generation is not ready in this database yet. Re-run the PIN security SQL fix in Supabase, then try again.";
+  }
+
   return message;
 }
 
