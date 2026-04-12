@@ -61,6 +61,14 @@ function resolveErrorMessage(error, fallback) {
     return "Transfer reference generation is not ready in this database yet. Re-run the PIN security SQL fix in Supabase, then try again.";
   }
 
+  if (/column\s+"?reference_number"?\s+does\s+not\s+exist/i.test(message)) {
+    return "The transfer table in this database is missing the new reference fields. Run the account transfer schema repair SQL in Supabase, then try again.";
+  }
+
+  if (/transactions_transaction_type_check/i.test(message) || /violates check constraint.*transaction_type/i.test(message)) {
+    return "The transactions table in this database is using an older allowed-type list. Run the transactions schema repair SQL in Supabase, then try again.";
+  }
+
   return message;
 }
 
