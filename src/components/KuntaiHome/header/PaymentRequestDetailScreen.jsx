@@ -1,6 +1,7 @@
 import { ArrowLeft, CheckCircle2, Clock3, X } from "lucide-react";
 
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
+import ActionBanner from "../../feedback/ActionBanner";
 import BackTab from "./Transactions/BackTab";
 
 function statusTone(status) {
@@ -19,7 +20,14 @@ function statusTone(status) {
   return "bg-amber-100 text-amber-700";
 }
 
-export default function PaymentRequestDetailScreen({ request, onBack, onCancel, onPayNow, mode = "incoming" }) {
+export default function PaymentRequestDetailScreen({
+  request,
+  onBack,
+  onCancel,
+  onPayNow,
+  mode = "incoming",
+  feedback = null,
+}) {
   if (!request) {
     return null;
   }
@@ -41,6 +49,12 @@ export default function PaymentRequestDetailScreen({ request, onBack, onCancel, 
 
       <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
         <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+          {feedback ? (
+            <ActionBanner tone={feedback.tone || "info"} title={feedback.title} className="mb-6">
+              {feedback.message}
+            </ActionBanner>
+          ) : null}
+
           <div className="mb-6 flex items-center justify-between gap-4">
             <div className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${statusTone(request.status)}`}>
               {request.status}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import supabase from "../../../Backend/lib/supabaseClient";
+import ActionBanner from "../../feedback/ActionBanner";
 import BackTab from "./Transactions/BackTab";
 
 export default function ChangePasswordScreen({ user, onBack }) {
@@ -82,14 +83,18 @@ export default function ChangePasswordScreen({ user, onBack }) {
       <div className="mx-auto max-w-3xl px-4 py-6 md:px-8">
         <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
           {error ? (
-            <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="mb-5">
+              <ActionBanner tone="danger" title="Password update unsuccessful">
               {error}
+              </ActionBanner>
             </div>
           ) : null}
 
           {success ? (
-            <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <div className="mb-5">
+              <ActionBanner tone="success" title="Password updated successfully">
               {success}
+              </ActionBanner>
             </div>
           ) : null}
 

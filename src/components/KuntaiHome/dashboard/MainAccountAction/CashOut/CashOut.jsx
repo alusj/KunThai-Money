@@ -5,7 +5,7 @@ import Bank from "./Bank";
 import MobileMoney from "./MobileMoney";
 import AccountNumber from "./AccountNumber";
 
-export default function CashOut({ account, refreshAccount }) {
+export default function CashOut({ account, user, profile, refreshAccount }) {
   const [open, setOpen] = useState(false);
   const [activeOption, setActiveOption] = useState(null);
 
@@ -30,7 +30,13 @@ export default function CashOut({ account, refreshAccount }) {
         title={activeOption === "account" ? "Transfer Flow" : "Cash Out to"}
       >
         {activeOption === "account" ? (
-          <AccountNumber account={account} onClose={handleClose} refreshAccount={refreshAccount} />
+          <AccountNumber
+            account={account}
+            user={user}
+            profile={profile}
+            onClose={handleClose}
+            refreshAccount={refreshAccount}
+          />
         ) : (
           <div className="space-y-3">
             <Bank />

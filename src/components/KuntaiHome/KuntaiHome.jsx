@@ -38,6 +38,36 @@ import PaymentRequestTransferScreen from "./header/PaymentRequestTransferScreen"
 import ProfileScreen from "./header/ProfileScreen";
 import SearchScreen from "./header/SearchScreen";
 import TransactionsScreen from "./header/Transactions/TransactionScreen";
+import ActionBanner from "../feedback/ActionBanner";
+
+const HOME_SCREEN_KEY = "kuntai-home-active-screen";
+const SEEN_NOTIFICATION_IDS_KEY = "kuntai-seen-notification-ids";
+const SEEN_TRANSACTION_IDS_KEY = "kuntai-seen-transaction-ids";
+const PERSISTED_HOME_SCREENS = new Set([
+  "dashboard",
+  "profile",
+  "notifications",
+  "transactions",
+  "search",
+  "edit-profile",
+  "change-pin",
+  "change-password",
+  "create-account",
+]);
+
+function readStoredIds(key) {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 function withImageVersion(url) {
   if (!url) {
@@ -53,7 +83,14 @@ export default function KunTaiHome() {
   const { isDarkMode, toggleTheme } = useAppearance();
   const { user } = useAuth();
   const { status, loading: statusLoading } = useOnboardingStatus(user?.id);
-  const [activeScreen, setActiveScreen] = useState("dashboard");
+  const [activeScreen, setActiveScreen] = useState(() => {
+    if (typeof window === "undefined") {
+      return "dashboard";
+    }
+
+    const saved = window.sessionStorage.getItem(HOME_SCREEN_KEY);
+    return PERSISTED_HOME_SCREENS.has(saved) ? saved : "dashboard";
+  });
   const [account, setAccount] = useState(null);
   const [profileName, setProfileName] = useState("User");
   const [profile, setProfile] = useState(null);
@@ -65,6 +102,14 @@ export default function KunTaiHome() {
   const [dismissedRequestIds, setDismissedRequestIds] = useState([]);
   const [adminMessages, setAdminMessages] = useState([]);
   const [dismissedAdminMessageIds, setDismissedAdminMessageIds] = useState([]);
+  const [seenNotificationIds, setSeenNotificationIds] = useState(() =>
+    readStoredIds(SEEN_NOTIFICATION_IDS_KEY)
+  );
+  const [seenTransactionIds, setSeenTransactionIds] = useState(() =>
+    readStoredIds(SEEN_TRANSACTION_IDS_KEY)
+  );
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const [paymentRequestFeedback, setPaymentRequestFeedback] = useState(null);
   const [biometricState, setBiometricState] = useState({
     supported: false,
     enabled: false,
@@ -82,6 +127,12 @@ export default function KunTaiHome() {
     paymentRequests,
     adminMessages,
   });
+  const unseenNotificationCount = notifications.filter(
+    (item) => !seenNotificationIds.includes(String(item.id))
+  ).length;
+  const unseenTransactionCount = recentTransactions.filter(
+    (item) => !seenTransactionIds.includes(String(item.id))
+  ).length;
   const activeIncomingPopupRequest = paymentRequests.find(
     (request) => request.status === "pending" && !dismissedRequestIds.includes(request.id)
   );
@@ -96,6 +147,14 @@ export default function KunTaiHome() {
       message,
       messageTone,
     }));
+  };
+
+  const showActionFeedback = (title, message, tone = "info") => {
+    setActionFeedback({ title, message, tone });
+    window.clearTimeout(window.__kunthaiActionFeedbackTimer);
+    window.__kunthaiActionFeedbackTimer = window.setTimeout(() => {
+      setActionFeedback(null);
+    }, 4500);
   };
 
   const fetchAccount = async () => {
@@ -346,6 +405,11 @@ export default function KunTaiHome() {
     try {
       const viewed = await markPaymentRequestViewed(request.id);
       setSelectedPaymentRequest(viewed || request);
+      setPaymentRequestFeedback({
+        tone: "info",
+        title: "Payment request opened",
+        message: "You can review the request details below before paying or declining.",
+      });
     } catch (error) {
       console.log("Payment request view error:", error);
       setSelectedPaymentRequest(request);
@@ -363,8 +427,18 @@ export default function KunTaiHome() {
     try {
       await resolvePaymentRequest(request.id, "declined");
       await fetchPaymentRequests();
+      showActionFeedback(
+        "Payment request declined",
+        "The requester has been updated that you did not approve this payment request.",
+        "warning"
+      );
     } catch (error) {
       console.log("Payment request decline error:", error);
+      showActionFeedback(
+        "Action unsuccessful",
+        error instanceof Error ? error.message : "The payment request could not be declined.",
+        "danger"
+      );
     } finally {
       setDismissedRequestIds((current) => [...new Set([...current, request.id])]);
     }
@@ -378,6 +452,54 @@ export default function KunTaiHome() {
     fetchPaymentRequests();
     fetchAdminMessages();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (PERSISTED_HOME_SCREENS.has(activeScreen)) {
+      window.sessionStorage.setItem(HOME_SCREEN_KEY, activeScreen);
+    }
+  }, [activeScreen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      SEEN_NOTIFICATION_IDS_KEY,
+      JSON.stringify(seenNotificationIds.slice(-120))
+    );
+  }, [seenNotificationIds]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      SEEN_TRANSACTION_IDS_KEY,
+      JSON.stringify(seenTransactionIds.slice(-120))
+    );
+  }, [seenTransactionIds]);
+
+  useEffect(() => {
+    if (activeScreen === "notifications" && notifications.length) {
+      setSeenNotificationIds((current) => [
+        ...new Set([...current, ...notifications.map((item) => String(item.id))]),
+      ]);
+    }
+  }, [activeScreen, notifications]);
+
+  useEffect(() => {
+    if (activeScreen === "transactions" && recentTransactions.length) {
+      setSeenTransactionIds((current) => [
+        ...new Set([...current, ...recentTransactions.map((item) => String(item.id))]),
+      ]);
+    }
+  }, [activeScreen, recentTransactions]);
 
   useEffect(() => {
     refreshBiometrics();
@@ -435,6 +557,16 @@ export default function KunTaiHome() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {actionFeedback ? (
+        <div className="sticky top-3 z-[90] px-4 pt-4 md:px-8 lg:px-12">
+          <div className="mx-auto max-w-3xl">
+            <ActionBanner tone={actionFeedback.tone} title={actionFeedback.title}>
+              {actionFeedback.message}
+            </ActionBanner>
+          </div>
+        </div>
+      ) : null}
+
       {activeScreen === "dashboard" && (
         <>
           <Header
@@ -442,8 +574,8 @@ export default function KunTaiHome() {
             displayName={profileName}
             loading={accountLoading || profileLoading || transactionsLoading || otherAccountsLoading}
             profile={profile}
-            notificationCount={notifications.length}
-            transactionCount={recentTransactions.length}
+            notificationCount={unseenNotificationCount}
+            transactionCount={unseenTransactionCount}
           />
 
           {renderKycNotice()}
@@ -534,6 +666,7 @@ export default function KunTaiHome() {
             refreshAccount={refreshWalletData}
             otherAccounts={otherAccounts}
             user={user}
+            profile={profile}
           />
         </>
       )}
@@ -573,6 +706,11 @@ export default function KunTaiHome() {
 
             if (action === "payment-request-outgoing-view") {
               setSelectedPaymentRequest(item.request);
+              setPaymentRequestFeedback({
+                tone: "info",
+                title: "Outgoing request opened",
+                message: "You are viewing the current status of the payment request you sent.",
+              });
               setActiveScreen("payment-request-detail");
               return;
             }
@@ -584,9 +722,19 @@ export default function KunTaiHome() {
                 } else {
                   await cancelPaymentRequest(item.requestId);
                   await fetchPaymentRequests();
+                  showActionFeedback(
+                    "Payment request cancelled",
+                    "Your request has been cancelled successfully.",
+                    "warning"
+                  );
                 }
               } catch (error) {
                 console.log("Payment request cancel error:", error);
+                showActionFeedback(
+                  "Action unsuccessful",
+                  error instanceof Error ? error.message : "The payment request could not be cancelled.",
+                  "danger"
+                );
               }
             }
           }}
@@ -597,7 +745,9 @@ export default function KunTaiHome() {
         <PaymentRequestDetailScreen
           request={selectedPaymentRequest}
           mode={selectedPaymentRequest?.recipient_user_id === user?.id ? "incoming" : "outgoing"}
+          feedback={paymentRequestFeedback}
           onBack={() => {
+            setPaymentRequestFeedback(null);
             setSelectedPaymentRequest(null);
             setActiveScreen("notifications");
           }}
@@ -611,13 +761,29 @@ export default function KunTaiHome() {
             try {
               if (selectedPaymentRequest?.recipient_user_id === user?.id) {
                 await resolvePaymentRequest(selectedPaymentRequest.id, "declined");
+                showActionFeedback(
+                  "Payment request declined",
+                  "The request has been declined successfully.",
+                  "warning"
+                );
               } else {
                 await cancelPaymentRequest(selectedPaymentRequest.id);
+                showActionFeedback(
+                  "Payment request cancelled",
+                  "Your outgoing payment request has been cancelled.",
+                  "warning"
+                );
               }
               await fetchPaymentRequests();
             } catch (error) {
               console.log("Payment request cancel error:", error);
+              showActionFeedback(
+                "Action unsuccessful",
+                error instanceof Error ? error.message : "The payment request could not be updated.",
+                "danger"
+              );
             } finally {
+              setPaymentRequestFeedback(null);
               setSelectedPaymentRequest(null);
               setActiveScreen("notifications");
             }
@@ -635,12 +801,25 @@ export default function KunTaiHome() {
             if (selectedPaymentRequest?.id) {
               try {
                 await resolvePaymentRequest(selectedPaymentRequest.id, "accepted");
+                showActionFeedback(
+                  "Payment sent successfully",
+                  "The requested payment has been completed and the requester has been updated.",
+                  "success"
+                );
               } catch (error) {
                 console.log("Payment request accept error:", error);
+                showActionFeedback(
+                  "Transfer completed, but request update failed",
+                  error instanceof Error
+                    ? error.message
+                    : "The money transfer worked, but the request status could not be updated.",
+                  "warning"
+                );
               }
             }
 
             await fetchPaymentRequests();
+            setPaymentRequestFeedback(null);
             setSelectedPaymentRequest(null);
             setActiveScreen("notifications");
           }}

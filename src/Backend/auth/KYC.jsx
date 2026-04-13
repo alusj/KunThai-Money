@@ -5,6 +5,7 @@ import Cropper from "react-easy-crop";
 import supabase from "../lib/supabaseClient";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
+import { useAppearance } from "../../components/AppearanceProvider";
 
 function isMissingBucketError(error) {
   const message = error?.message?.toLowerCase?.() || "";
@@ -20,6 +21,7 @@ function getKycUploadErrorMessage(error) {
 }
 
 export default function KYC() {
+  const { isDarkMode } = useAppearance();
   const navigate = useNavigate();
   const [idType, setIdType] = useState("");
   const [idNumber, setIdNumber] = useState("");
@@ -179,8 +181,12 @@ export default function KYC() {
       subtitle="Identity verification strengthens trust on the platform and unlocks higher-value features."
     >
       <div className="w-full max-w-md">
-        <h2 className="mb-2 text-center text-2xl font-bold">Verify Your Identity</h2>
-        <p className="mb-6 text-center text-sm text-gray-500">Complete your KYC to unlock full features</p>
+        <h2 className={`mb-2 text-center text-2xl font-bold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
+          Verify Your Identity
+        </h2>
+        <p className={`mb-6 text-center text-sm ${isDarkMode ? "text-slate-300" : "text-gray-500"}`}>
+          Complete your KYC to unlock full features
+        </p>
 
         {errorMessage && (
           <AuthNotice tone="danger" title="Verification incomplete">
@@ -192,7 +198,11 @@ export default function KYC() {
           <select
             value={idType}
             onChange={(event) => setIdType(event.target.value)}
-            className="w-full rounded-xl border p-3"
+            className={`w-full rounded-xl border p-3 ${
+              isDarkMode
+                ? "border-slate-700 bg-slate-900 text-slate-100"
+                : "border-slate-200 bg-white text-slate-900"
+            }`}
           >
             <option value="">Select ID Type</option>
             <option>National ID</option>
@@ -204,19 +214,41 @@ export default function KYC() {
             placeholder="ID Number"
             value={idNumber}
             onChange={(event) => setIdNumber(event.target.value)}
-            className="w-full rounded-xl border p-3"
+            className={`w-full rounded-xl border p-3 ${
+              isDarkMode
+                ? "border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-400"
+                : "border-slate-200 bg-white text-slate-900"
+            }`}
           />
 
-          <input value={issuedBy} disabled className="w-full rounded-xl border bg-gray-100 p-3" />
+          <input
+            value={issuedBy}
+            disabled
+            className={`w-full rounded-xl border p-3 ${
+              isDarkMode
+                ? "border-slate-700 bg-slate-800 text-slate-300"
+                : "border-slate-200 bg-gray-100 text-slate-700"
+            }`}
+          />
 
           <input
             placeholder="National Identification Number (NIN)"
             value={nin}
             onChange={(event) => setNin(event.target.value)}
-            className="w-full rounded-xl border p-3"
+            className={`w-full rounded-xl border p-3 ${
+              isDarkMode
+                ? "border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-400"
+                : "border-slate-200 bg-white text-slate-900"
+            }`}
           />
 
-          <label className="block cursor-pointer rounded-xl border-2 border-dashed p-4 text-center">
+          <label
+            className={`block cursor-pointer rounded-xl border-2 border-dashed p-4 text-center ${
+              isDarkMode
+                ? "border-slate-500 text-slate-100"
+                : "border-slate-300 text-slate-900"
+            }`}
+          >
             Upload ID (Front Only)
             <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
           </label>
@@ -227,7 +259,11 @@ export default function KYC() {
             onClick={handleSubmit}
             disabled={loading}
             className={`w-full rounded-2xl py-3 text-white ${
-              loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+              loading
+                ? "bg-slate-500"
+                : isDarkMode
+                  ? "bg-emerald-500 hover:bg-emerald-400"
+                  : "bg-slate-950 hover:bg-slate-800"
             }`}
           >
             {loading ? "Submitting..." : "Verify Identity"}
@@ -235,7 +271,11 @@ export default function KYC() {
 
           <button
             onClick={() => setShowSkipConfirm(true)}
-            className="mt-3 w-full rounded-xl border py-3 text-gray-700 hover:bg-gray-100"
+            className={`mt-3 w-full rounded-xl border py-3 transition ${
+              isDarkMode
+                ? "border-slate-600 bg-slate-900 text-slate-100 hover:bg-slate-800"
+                : "border-slate-200 bg-white text-gray-700 hover:bg-gray-100"
+            }`}
           >
             Skip for now
           </button>

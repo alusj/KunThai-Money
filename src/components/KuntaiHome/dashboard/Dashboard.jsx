@@ -5,7 +5,7 @@
 // Now receives real banking data from UrBankHome
 // ======================================================
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import MainAccountCard from "./MainAccountCard";
 import MainAccountNumber from "./MainAccountContainer/MainAccountNumber";
@@ -26,19 +26,52 @@ import Restaurant from "./Services/Restaurant/Restaurant";
 import Hotel from "./Services/Hotel/Hotel";
 import Supermarket from "./Services/Supermarket/supermarket";
 import Pharmacy from "./Services/Pharmacy/Pharmacy";
+import { useAppearance } from "../../AppearanceProvider";
 
-export default function Dashboard({ account, refreshAccount, otherAccounts = [], user }) {
-  const [activeService, setActiveService] = useState(null);
+const DASHBOARD_SERVICE_KEY = "kuntai-dashboard-active-service";
+
+export default function Dashboard({ account, refreshAccount, otherAccounts = [], user, profile }) {
+  const { isDarkMode } = useAppearance();
+  const [activeService, setActiveService] = useState(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    return window.sessionStorage.getItem(DASHBOARD_SERVICE_KEY) || null;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (activeService) {
+      window.sessionStorage.setItem(DASHBOARD_SERVICE_KEY, activeService);
+    } else {
+      window.sessionStorage.removeItem(DASHBOARD_SERVICE_KEY);
+    }
+  }, [activeService]);
 
   return (
-    <main className="w-full min-h-screen">
+    <main
+      className={`min-h-screen w-full transition-colors ${
+        isDarkMode
+          ? "bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.08),transparent_24%),linear-gradient(180deg,#0f172a_0%,#111827_44%,#172033_100%)]"
+          : ""
+      }`}
+    >
       {!activeService && (
         <div className="px-4 md:px-8 lg:px-12">
           {!account ? (
             <UrBankSkeleton />
           ) : (
             <>
-              <MainAccountCard account={account} user={user} refreshAccount={refreshAccount} />
+              <MainAccountCard
+                account={account}
+                user={user}
+                profile={profile}
+                refreshAccount={refreshAccount}
+              />
               <MainAccountNumber account={account} />
               <OtherAccountContainer accounts={otherAccounts} />
               <ServicesContainer setActiveService={setActiveService} />

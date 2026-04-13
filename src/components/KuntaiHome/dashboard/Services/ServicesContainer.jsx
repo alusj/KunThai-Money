@@ -3,6 +3,7 @@
 // Improved spacing + responsive grid
 
 import ServiceCard from "./ServiceCard";
+import { useAppearance } from "../../../AppearanceProvider";
 
 import { FaStore, FaShieldAlt, FaHotel, FaUtensils, FaShoppingCart, FaBus, FaCapsules } from "react-icons/fa";
 import { MdElectricBolt, MdWifi, MdSchool, MdTv } from "react-icons/md";
@@ -13,6 +14,7 @@ import { IoTicketOutline } from "react-icons/io5";
 import { HiOutlineTrendingUp } from "react-icons/hi";
 
 export default function ServicesContainer({ setActiveService }) {
+  const { isDarkMode } = useAppearance();
 
   const services = [
     { key: "merchant", title: "Pay Merchant", icon: <FaStore size={22} /> },
@@ -36,7 +38,7 @@ export default function ServicesContainer({ setActiveService }) {
   return (
     <div className="mt-10">
 
-      <h2 className="text-base font-semibold mb-5">
+      <h2 className={`mb-5 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
         Services
       </h2>
 

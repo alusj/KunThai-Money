@@ -13,7 +13,8 @@ import {
   XCircle,
 } from "lucide-react";
 
-import AuthNotice from "../../../../auth/AuthNotice";
+import ActionBanner from "../../../../feedback/ActionBanner";
+import { useAppearance } from "../../../../AppearanceProvider";
 import {
   createAccountTransfer,
   getAccountTransferRecipient,
@@ -127,12 +128,15 @@ function RecipientAvatar({ name, image }) {
 
 export default function AccountNumber({
   account,
+  user,
+  profile,
   onClose,
   refreshAccount,
   initialValues = null,
   onTransferSuccess,
   backLabel = "Back",
 }) {
+  const { isDarkMode } = useAppearance();
   const currency = normalizeCurrencyCode(account?.currency) || "SLL";
   const availableBalance = Number(account?.balance || 0);
   const [step, setStep] = useState("form");
@@ -149,6 +153,19 @@ export default function AccountNumber({
   const [pin, setPin] = useState("");
   const [recipientLookup, setRecipientLookup] = useState(null);
   const [receipt, setReceipt] = useState(null);
+  const ownerName =
+    profile?.first_name || profile?.last_name
+      ? [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(" ")
+      : user?.user_metadata?.full_name ||
+        user?.user_metadata?.display_name ||
+        user?.user_metadata?.name ||
+        account?.account_name ||
+        "KunThai user";
+  const ownerProfileImage =
+    profile?.profile_image ||
+    user?.user_metadata?.profile_image ||
+    user?.raw_user_meta_data?.profile_image ||
+    "";
 
   const numericAmount = Number(form.amount);
   const transactionFee = 0;
@@ -276,6 +293,12 @@ export default function AccountNumber({
         pin,
         metadata: {
           flow: "dashboard_account_number_transfer",
+          sender_name: ownerName,
+          sender_profile_image: ownerProfileImage,
+          sender_account_number: account?.account_number || "",
+          recipient_name: recipientLookup?.recipient_name || form.accountNumber.trim(),
+          recipient_profile_image: recipientLookup?.recipient_profile_image || "",
+          recipient_account_number: form.accountNumber.trim(),
         },
       });
 
@@ -298,8 +321,8 @@ export default function AccountNumber({
         senderAccountNumber: transfer?.source_account_number || account?.account_number || "Pending",
         paymentMethod: paymentMethodLabel(transfer?.source_account_type || account?.account_type),
       });
-      setStep("receipt");
       setPin("");
+      setStep("receipt");
     } catch (submitError) {
       setError(resolveErrorMessage(submitError, "The transfer could not be completed."));
     } finally {
@@ -389,7 +412,13 @@ export default function AccountNumber({
 
   if (step === "receipt" && receipt) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={`rounded-2xl border p-4 shadow-sm ${isDarkMode ? "border-slate-700 bg-slate-950" : "border-slate-200 bg-white"}`}>
+        <div className="mb-4">
+          <ActionBanner tone="success" title="Cash Out Successful">
+            Your transfer was completed successfully. The cash out receipt is ready below.
+          </ActionBanner>
+        </div>
+
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
@@ -482,7 +511,7 @@ export default function AccountNumber({
 
   if (step === "pin") {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={`rounded-2xl border p-4 shadow-sm ${isDarkMode ? "border-slate-700 bg-slate-950" : "border-slate-200 bg-white"}`}>
           <button
             type="button"
             onClick={() => setStep("confirm")}
@@ -500,9 +529,9 @@ export default function AccountNumber({
 
         {error ? (
           <div className="mb-4">
-            <AuthNotice tone="danger" title="PIN check failed">
+            <ActionBanner tone="danger" title="PIN check failed">
               {error}
-            </AuthNotice>
+            </ActionBanner>
           </div>
         ) : null}
 
@@ -539,7 +568,7 @@ export default function AccountNumber({
 
   if (step === "confirm") {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={`rounded-2xl border p-4 shadow-sm ${isDarkMode ? "border-slate-700 bg-slate-950" : "border-slate-200 bg-white"}`}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
@@ -608,10 +637,10 @@ export default function AccountNumber({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+    <div className={`rounded-2xl border p-4 shadow-sm ${isDarkMode ? "border-slate-700 bg-slate-950" : "border-slate-200 bg-white"}`}>
+      <div className={`mb-5 rounded-2xl border p-4 ${isDarkMode ? "border-emerald-500/30 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50"}`}>
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm">
+          <span className={`flex h-11 w-11 items-center justify-center rounded-full shadow-sm ${isDarkMode ? "bg-slate-900 text-emerald-300" : "bg-white text-emerald-700"}`}>
             <Wallet size={18} />
           </span>
           <div>
@@ -623,9 +652,17 @@ export default function AccountNumber({
 
       {error ? (
         <div className="mb-4">
-          <AuthNotice tone="danger" title="Transfer could not continue">
+          <ActionBanner tone="danger" title="Cash out unsuccessful">
             {error}
-          </AuthNotice>
+          </ActionBanner>
+        </div>
+      ) : null}
+
+      {recipientLookup?.is_valid ? (
+        <div className="mb-4">
+          <ActionBanner tone="success" title="Recipient verified">
+            {recipientLookup.recipient_name} is ready to receive this transfer.
+          </ActionBanner>
         </div>
       ) : null}
 

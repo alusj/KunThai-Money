@@ -68,7 +68,23 @@ function initialsFromName(name = "") {
 }
 
 function resolvePersonLabel(transaction) {
-  return transaction.counterparty_name || transaction.description || transaction.transaction_type || "KunThai user";
+  if (transaction.direction === "credit") {
+    return (
+      transaction.metadata?.sender_name ||
+      transaction.counterparty_name ||
+      transaction.description ||
+      transaction.transaction_type ||
+      "KunThai user"
+    );
+  }
+
+  return (
+    transaction.metadata?.recipient_name ||
+    transaction.counterparty_name ||
+    transaction.description ||
+    transaction.transaction_type ||
+    "KunThai user"
+  );
 }
 
 function resolveReason(transaction) {
@@ -101,11 +117,36 @@ function resolveTransactionId(transaction) {
 }
 
 function resolvePartyImage(transaction) {
+  if (transaction.direction === "credit") {
+    return (
+      transaction.metadata?.sender_profile_image ||
+      transaction.metadata?.counterparty_profile_image ||
+      ""
+    );
+  }
+
   return (
-    transaction.metadata?.counterparty_profile_image ||
-    transaction.metadata?.sender_profile_image ||
     transaction.metadata?.recipient_profile_image ||
+    transaction.metadata?.counterparty_profile_image ||
     ""
+  );
+}
+
+function resolvePartyAccount(transaction) {
+  if (transaction.direction === "credit") {
+    return (
+      transaction.metadata?.sender_account_number ||
+      transaction.counterparty_account ||
+      transaction.metadata?.counterparty_account ||
+      "Unavailable"
+    );
+  }
+
+  return (
+    transaction.metadata?.recipient_account_number ||
+    transaction.counterparty_account ||
+    transaction.metadata?.counterparty_account ||
+    "Unavailable"
   );
 }
 
@@ -128,12 +169,7 @@ function deriveReceipt(transaction, account) {
     title: direction === "credit" ? "Cash in Receipt:" : "Cash Out Receipt:",
     personName: resolvePersonLabel(transaction),
     personImage: resolvePartyImage(transaction),
-    personAccount:
-      transaction.counterparty_account ||
-      transaction.metadata?.counterparty_account ||
-      transaction.metadata?.sender_account_number ||
-      transaction.metadata?.recipient_account_number ||
-      "Unavailable",
+    personAccount: resolvePartyAccount(transaction),
     amount,
     currency,
     dateTime: transaction.created_at,
@@ -451,6 +487,13 @@ export default function TransactionsScreen({ setActiveScreen, account }) {
   }, [activeTab, search, transactions]);
 
   const summary = useMemo(() => summarizeTransactions(transactions), [transactions]);
+  const todaySummary = useMemo(() => {
+    const today = new Date().toDateString();
+
+    return summarizeTransactions(
+      transactions.filter((transaction) => new Date(transaction.created_at).toDateString() === today)
+    );
+  }, [transactions]);
   const selectedReceipt = useMemo(
     () => (selectedTransaction ? deriveReceipt(selectedTransaction, account) : null),
     [selectedTransaction, account]
@@ -487,12 +530,12 @@ export default function TransactionsScreen({ setActiveScreen, account }) {
         <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-[30px] border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 shadow-sm">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] opacity-70">Total Cash In</p>
-              <p className="mt-4 text-3xl font-semibold">+{formatCurrency(summary.totalInflow, account?.currency || "SLL")}</p>
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] opacity-70">Total Cash In Today</p>
+              <p className="mt-4 text-3xl font-semibold">+{formatCurrency(todaySummary.totalInflow, account?.currency || "SLL")}</p>
             </div>
             <div className="rounded-[30px] border border-sky-200 bg-sky-50 p-5 text-sky-950 shadow-sm">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] opacity-70">Total Cash Out</p>
-              <p className="mt-4 text-3xl font-semibold">-{formatCurrency(summary.totalOutflow, account?.currency || "SLL")}</p>
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] opacity-70">Total Cash Out Today</p>
+              <p className="mt-4 text-3xl font-semibold">-{formatCurrency(todaySummary.totalOutflow, account?.currency || "SLL")}</p>
             </div>
           </div>
 

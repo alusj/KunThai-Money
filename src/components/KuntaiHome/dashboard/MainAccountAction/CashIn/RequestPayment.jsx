@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Loader2, ReceiptText, SendHorizonal } from "lucide-react";
 
-import AuthNotice from "../../../../auth/AuthNotice";
+import ActionBanner from "../../../../feedback/ActionBanner";
 import { createPaymentRequest } from "../../../../../Backend/services/paymentRequestService";
 import { getAccountTransferRecipient } from "../../../../../Backend/services/transferService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
@@ -153,9 +153,11 @@ function RequestPaymentScreen({ account, onBack, onCreated }) {
                 </button>
               </div>
               {recipientLookup?.is_valid ? (
-                <p className="mt-2 text-sm font-semibold text-emerald-700">
-                  {recipientLookup.recipient_name}
-                </p>
+                <div className="mt-3">
+                  <ActionBanner tone="success" title="Account verified">
+                    {recipientLookup.recipient_name} can receive this payment request.
+                  </ActionBanner>
+                </div>
               ) : null}
             </label>
 
@@ -194,17 +196,19 @@ function RequestPaymentScreen({ account, onBack, onCreated }) {
 
           {error ? (
             <div className="mt-5">
-              <AuthNotice tone="danger" title="Payment request could not continue">
+              <ActionBanner tone="danger" title="Payment request unsuccessful">
                 {error}
-              </AuthNotice>
+              </ActionBanner>
             </div>
           ) : null}
 
           {success ? (
             <div className="mt-5">
-              <AuthNotice tone="success" title="Payment request sent">
-                {success}
-              </AuthNotice>
+              <ActionBanner tone="success" title="Payment request sent successfully">
+                {recipientLookup?.recipient_name
+                  ? `Your request has been delivered to ${recipientLookup.recipient_name}.`
+                  : success}
+              </ActionBanner>
             </div>
           ) : null}
 

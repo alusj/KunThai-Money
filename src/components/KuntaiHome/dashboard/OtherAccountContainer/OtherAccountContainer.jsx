@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { getAccountTypeLabel } from "../../../../Backend/utils/accountTypes";
+import { useAppearance } from "../../../AppearanceProvider";
 
 const accentStyles = {
   business: "border-l-indigo-600",
@@ -22,15 +23,22 @@ const accentStyles = {
 };
 
 function OtherAccountCard({ account }) {
+  const { isDarkMode } = useAppearance();
   const accentClass = accentStyles[account.account_type] || "border-l-slate-400";
 
   return (
     <div
-      className={`bg-white border border-gray-200 border-l-4 rounded-xl p-4 flex items-center justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-blue-400 ${accentClass}`}
+      className={`flex items-center justify-between rounded-xl border border-l-4 p-4 transition-all duration-300 ${
+        isDarkMode
+          ? "border-slate-700 bg-slate-900/92 hover:border-sky-400 hover:shadow-[0_18px_34px_rgba(2,6,23,0.42)]"
+          : "border-gray-200 bg-white hover:border-blue-400 hover:shadow-lg hover:-translate-y-1"
+      } ${accentClass}`}
     >
       <div>
-        <h3 className="font-semibold text-gray-800">{account.account_name || getAccountTypeLabel(account.account_type)}</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-gray-800"}`}>
+          {account.account_name || getAccountTypeLabel(account.account_type)}
+        </h3>
+        <p className={`text-sm ${isDarkMode ? "text-slate-300" : "text-gray-500"}`}>
           Balance: {formatCurrency(account.balance || 0, account.currency || "USD")}
         </p>
       </div>
@@ -43,6 +51,8 @@ function OtherAccountCard({ account }) {
 }
 
 export default function OtherAccountContainer({ accounts = [] }) {
+  const { isDarkMode } = useAppearance();
+
   if (!accounts.length) {
     return null;
   }
@@ -50,8 +60,12 @@ export default function OtherAccountContainer({ accounts = [] }) {
   return (
     <section className="mt-10 w-full">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold">Other Accounts</h2>
-        <p className="text-sm text-gray-500">Manage your service wallets and linked accounts</p>
+        <h2 className={`text-lg font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
+          Other Accounts
+        </h2>
+        <p className={`text-sm ${isDarkMode ? "text-slate-300" : "text-gray-500"}`}>
+          Manage your service wallets and linked accounts
+        </p>
       </div>
 
       <div className="flex flex-col gap-4">
