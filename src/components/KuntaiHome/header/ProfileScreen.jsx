@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   Bell,
+  BriefcaseBusiness,
   ChevronRight,
   CircleHelp,
   CreditCard,
@@ -112,6 +113,8 @@ export default function ProfileScreen({
   onOpenChangePassword,
   onOpenTransactions,
   onOpenNotifications,
+  isAdmin,
+  onOpenAdmin,
   onOpenTerms,
   onOpenHelp,
   onSignOut,
@@ -284,6 +287,18 @@ export default function ProfileScreen({
               onClick={onOpenNotifications}
             />
           </SectionCard>
+
+          {isAdmin ? (
+            <SectionCard title="Admin">
+              <RowAction
+                icon={BriefcaseBusiness}
+                title="KYC & notifications"
+                description="Open the admin review queue for identity checks and compliance alerts."
+                end={<ChevronEnd />}
+                onClick={onOpenAdmin}
+              />
+            </SectionCard>
+          ) : null}
 
           <SectionCard title="Settings">
             <RowAction

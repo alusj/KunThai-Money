@@ -12,6 +12,8 @@ import KYC from "../Backend/auth/KYC";
 import WelcomeLoader from "../Backend/auth/WelcomeLoader";
 import KuntaiHome from "../components/KuntaiHome/KuntaiHome";
 import CardTopupCallback from "../components/KuntaiHome/wallet/CardTopupCallback";
+import AdminRoute from "../components/AdminRoute";
+import AdminDashboard from "../components/Admin/AdminDashboard";
 import ProtectedRoute from "../components/ProtectedRoute";
 import PublicRoute from "../components/PublicRoute";
 import AuthSessionRoute from "../components/AuthSessionRoute";
@@ -107,6 +109,14 @@ export default function AppRoutes() {
           <ProtectedRoute>
             <CardTopupCallback />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
         }
       />
     </Routes>

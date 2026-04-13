@@ -1,17 +1,44 @@
 import { formatCurrency } from "./formatCurrency";
 
-function buildTransactionMessage(transaction) {
-  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "USD");
-  const counterparty =
-    transaction.counterparty_name || transaction.description || transaction.transaction_type || "activity";
+function buildPaymentRequestMessage(request) {
+  const lines = [
+    `From ${request.requester_name}`,
+    `Account No: ${request.requester_account_number}`,
+    `Amount requested: ${formatCurrency(request.amount ?? 0, request.currency || "SLL")}`,
+    `Reason for request: ${request.reason || "No reason added"}`,
+  ];
 
-  return transaction.direction === "credit"
-    ? `${amount} received from ${counterparty}`
-    : `${amount} sent for ${counterparty}`;
+  if (request.status) {
+    lines.push(`Status: ${request.status}`);
+  }
+
+  return lines.join("\n");
 }
 
-export function buildHeaderNotifications({ status, account, transactions = [] }) {
+export function buildHeaderNotifications({
+  status,
+  paymentRequests = [],
+  adminMessages = [],
+}) {
   const items = [];
+
+  paymentRequests
+    .filter((request) => request.status === "pending")
+    .slice(0, 3)
+    .forEach((request) => {
+      items.push({
+      id: request.id,
+      tone: "success",
+      title: "Cash-in request",
+      body: buildPaymentRequestMessage(request),
+      action: "payment-request-view",
+      secondaryAction: "payment-request-cancel",
+      actionLabel: "View",
+      secondaryLabel: "Cancel",
+      requestId: request.id,
+      request,
+    });
+    });
 
   if (!status?.hasKyc) {
     items.push({
@@ -29,6 +56,14 @@ export function buildHeaderNotifications({ status, account, transactions = [] })
       body: "Your identity submission is in review. We will update your account once compliance clears it.",
       action: "kyc",
     });
+  } else if (status.kycStatus === "rejected") {
+    items.push({
+      id: "kyc-rejected",
+      tone: "warning",
+      title: "KYC needs attention",
+      body: "Your identity review needs an update. Open KYC to review the details and submit again.",
+      action: "kyc",
+    });
   } else if (status.kycStatus === "approved") {
     items.push({
       id: "kyc-approved",
@@ -39,35 +74,17 @@ export function buildHeaderNotifications({ status, account, transactions = [] })
     });
   }
 
-  if (account?.account_number) {
+  adminMessages.slice(0, 3).forEach((message, index) => {
     items.push({
-      id: "account-ready",
-      tone: "neutral",
-      title: "Account ready for transfers",
-      body: `Main account ${account.account_number} is active for cross-border activity.`,
-      action: "transactions",
-    });
-  }
-
-  transactions.slice(0, 2).forEach((transaction) => {
-    items.push({
-      id: transaction.id,
-      tone: transaction.direction === "credit" ? "success" : "info",
-      title: transaction.direction === "credit" ? "Cash in recorded" : "Cash out recorded",
-      body: buildTransactionMessage(transaction),
-      action: "transactions",
+      id: message.id || `admin-message-${index}`,
+      tone: message.tone || "neutral",
+      title: message.title || "Admin message",
+      body: message.body || "You have a new update from the admin team.",
+      action: message.action || "admin-message",
+      actionLabel: message.actionLabel || "Done",
+      ...message,
     });
   });
 
-  if (!transactions.length) {
-    items.push({
-      id: "no-transactions",
-      tone: "neutral",
-      title: "No recent transactions yet",
-      body: "Your cash in and cash out activity will appear here as soon as you start transacting.",
-      action: "transactions",
-    });
-  }
-
-  return items.slice(0, 4);
+  return items.slice(0, 6);
 }

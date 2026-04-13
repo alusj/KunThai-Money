@@ -1,0 +1,630 @@
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Clock3, RefreshCw, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
+
+import { getAdminKycReviews, getSignedKycDocument, updateKycStatus } from "../../Backend/services/adminService";
+import {
+  archiveAdminNotification,
+  createAdminNotification,
+  getAdminNotifications,
+} from "../../Backend/services/adminNotificationService";
+
+function formatAdminDate(value) {
+  if (!value) {
+    return "Just now";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function statusTone(status) {
+  if (status === "approved") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  if (status === "rejected") {
+    return "bg-rose-100 text-rose-700";
+  }
+
+  return "bg-amber-100 text-amber-700";
+}
+
+function KycNotificationCard({ count }) {
+  return (
+    <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-5 shadow-sm">
+      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-amber-700">Admin Notifications</p>
+      <h2 className="mt-3 text-2xl font-semibold text-slate-950">KYC reviews waiting</h2>
+      <p className="mt-3 text-sm leading-6 text-slate-600">
+        {count} submission{count === 1 ? "" : "s"} currently need attention from the compliance/admin team.
+      </p>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, tone = "slate" }) {
+  const toneStyles = {
+    slate: "border-slate-200 bg-white text-slate-950",
+    amber: "border-amber-200 bg-amber-50 text-amber-900",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    rose: "border-rose-200 bg-rose-50 text-rose-900",
+  };
+
+  return (
+    <div className={`rounded-[24px] border p-5 shadow-sm ${toneStyles[tone] || toneStyles.slate}`}>
+      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] opacity-60">{label}</p>
+      <p className="mt-3 text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function AdminNotificationFeed({ pendingCount, approvedTodayCount, rejectedCount }) {
+  const notifications = [
+    {
+      id: "pending",
+      title: "Pending KYC reviews",
+      body:
+        pendingCount > 0
+          ? `${pendingCount} submission${pendingCount === 1 ? "" : "s"} still need a decision from the admin team.`
+          : "No pending KYC review is waiting right now.",
+      tone: pendingCount > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-800",
+    },
+    {
+      id: "approved",
+      title: "Approved today",
+      body:
+        approvedTodayCount > 0
+          ? `${approvedTodayCount} account${approvedTodayCount === 1 ? "" : "s"} moved to approved today.`
+          : "No KYC approval has been recorded today yet.",
+      tone: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    },
+    {
+      id: "rejected",
+      title: "Rejected submissions",
+      body:
+        rejectedCount > 0
+          ? `${rejectedCount} submission${rejectedCount === 1 ? "" : "s"} are currently rejected and may need follow-up.`
+          : "No rejected KYC submission is on the board right now.",
+      tone: "border-rose-200 bg-rose-50 text-rose-900",
+    },
+  ];
+
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-white">
+          <ShieldAlert size={20} />
+        </span>
+        <div>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Notifications</p>
+          <p className="mt-1 text-lg font-semibold text-slate-950">Compliance activity at a glance</p>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {notifications.map((item) => (
+          <div key={item.id} className={`rounded-[22px] border p-4 ${item.tone}`}>
+            <p className="text-sm font-semibold">{item.title}</p>
+            <p className="mt-2 text-sm leading-6 opacity-85">{item.body}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NotificationComposer({ form, onChange, onSubmit, busy }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-white">
+          <ShieldCheck size={20} />
+        </span>
+        <div>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Broadcast Center</p>
+          <p className="mt-1 text-lg font-semibold text-slate-950">Write a notification for users</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Audience</span>
+          <select
+            value={form.audienceType}
+            onChange={(event) => onChange("audienceType", event.target.value)}
+            className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+          >
+            <option value="all">All users</option>
+            <option value="single_user">One user</option>
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tone</span>
+          <select
+            value={form.tone}
+            onChange={(event) => onChange("tone", event.target.value)}
+            className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+          >
+            <option value="info">Info</option>
+            <option value="success">Success</option>
+            <option value="warning">Warning</option>
+            <option value="neutral">Neutral</option>
+          </select>
+        </label>
+      </div>
+
+      {form.audienceType === "single_user" ? (
+        <label className="mt-4 block">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Target User ID</span>
+          <input
+            value={form.targetUserId}
+            onChange={(event) => onChange("targetUserId", event.target.value)}
+            placeholder="Paste the user's UUID"
+            className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+          />
+        </label>
+      ) : null}
+
+      <label className="mt-4 block">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Title</span>
+        <input
+          value={form.title}
+          onChange={(event) => onChange("title", event.target.value)}
+          placeholder="Service update"
+          className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+        />
+      </label>
+
+      <label className="mt-4 block">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Message</span>
+        <textarea
+          value={form.body}
+          onChange={(event) => onChange("body", event.target.value)}
+          placeholder="Write the full notification users should receive."
+          rows={5}
+          className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+        />
+      </label>
+
+      <label className="mt-4 inline-flex items-center gap-3 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          checked={form.isPopup}
+          onChange={(event) => onChange("isPopup", event.target.checked)}
+          className="h-4 w-4 rounded border-slate-300"
+        />
+        <span>Show as dashboard popup alert too</span>
+      </label>
+
+      <div className="mt-5">
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={busy}
+          className={`rounded-full px-5 py-3 text-sm font-semibold text-white transition ${
+            busy ? "cursor-not-allowed bg-slate-300" : "bg-slate-950 hover:bg-slate-800"
+          }`}
+        >
+          {busy ? "Sending..." : "Send notification"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SentNotifications({ items, onArchive, busyId }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Sent Notifications</p>
+          <p className="mt-1 text-lg font-semibold text-slate-950">Recent admin announcements</p>
+        </div>
+        <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+          {items.length} active
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {items.length === 0 ? (
+          <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
+            No admin notifications have been sent yet.
+          </div>
+        ) : (
+          items.map((item) => (
+            <div key={item.id} className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-950">{item.title}</p>
+                    <span className="rounded-full bg-white px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                      {item.audience_type === "all" ? "All users" : "Single user"}
+                    </span>
+                    {item.is_popup ? (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                        Popup
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
+                  <p className="mt-3 text-xs text-slate-500">
+                    {formatAdminDate(item.created_at)}
+                    {item.target_user_id ? ` • User ${item.target_user_id}` : ""}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onArchive(item.id)}
+                  disabled={busyId === item.id}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busyId === item.id ? "Archiving..." : "Archive"}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReviewCard({ item, onApprove, onReject }) {
+  const [documentUrl, setDocumentUrl] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDocument = async () => {
+      if (!item.front_id_url) {
+        return;
+      }
+
+      try {
+        const url = await getSignedKycDocument(item.front_id_url);
+        if (isMounted) {
+          setDocumentUrl(url);
+        }
+      } catch {
+        if (isMounted) {
+          setDocumentUrl(null);
+        }
+      }
+    };
+
+    loadDocument();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [item.front_id_url]);
+
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-xl font-semibold text-slate-950">{item.displayName}</h3>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusTone(item.kyc_status)}`}>
+              {item.kyc_status}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-slate-500">{item.profile?.phone || "No phone found"}</p>
+        </div>
+
+        <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <Clock3 size={14} />
+          {new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }).format(new Date(item.updated_at || item.created_at))}
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">ID Type</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.id_type || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">ID Number</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.id_number || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">National ID / NIN</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.national_id || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Issued By</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.issued_by || "Not provided"}</p>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Document Preview</p>
+          {documentUrl ? (
+            <img src={documentUrl} alt={`${item.displayName} KYC document`} className="mt-3 h-72 w-full rounded-[20px] object-cover" />
+          ) : (
+            <div className="mt-3 flex h-72 items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+              Document preview unavailable
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => onApprove(item)}
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+        >
+          <CheckCircle2 size={16} />
+          <span>Approve</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(item)}
+          className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+        >
+          <XCircle size={16} />
+          <span>Reject</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminDashboard() {
+  const [items, setItems] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [activeFilter, setActiveFilter] = useState("pending");
+  const [notificationForm, setNotificationForm] = useState({
+    title: "",
+    body: "",
+    audienceType: "all",
+    targetUserId: "",
+    tone: "info",
+    isPopup: false,
+  });
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [archiveBusyId, setArchiveBusyId] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [data, notifications] = await Promise.all([
+        getAdminKycReviews(),
+        getAdminNotifications({ status: "active", limit: 8 }),
+      ]);
+      setItems(data);
+      setAdminNotifications(notifications);
+    } catch (err) {
+      setError(err.message || "Admin KYC review could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const pendingCount = useMemo(
+    () => items.filter((item) => item.kyc_status === "pending").length,
+    [items]
+  );
+  const approvedCount = useMemo(
+    () => items.filter((item) => item.kyc_status === "approved").length,
+    [items]
+  );
+  const rejectedCount = useMemo(
+    () => items.filter((item) => item.kyc_status === "rejected").length,
+    [items]
+  );
+  const approvedTodayCount = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return items.filter(
+      (item) => item.kyc_status === "approved" && (item.updated_at || item.created_at || "").slice(0, 10) === today
+    ).length;
+  }, [items]);
+  const filteredItems = useMemo(() => {
+    if (activeFilter === "all") {
+      return items;
+    }
+
+    return items.filter((item) => item.kyc_status === activeFilter);
+  }, [activeFilter, items]);
+
+  const handleStatusChange = async (item, nextStatus) => {
+    try {
+      await updateKycStatus({ kycId: item.id, status: nextStatus });
+      await load();
+    } catch (err) {
+      setError(err.message || "KYC status could not be updated.");
+    }
+  };
+
+  const updateNotificationForm = (key, value) => {
+    setNotificationForm((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "audienceType" && value === "all" ? { targetUserId: "" } : {}),
+    }));
+  };
+
+  const handleNotificationSubmit = async () => {
+    if (!notificationForm.title.trim() || !notificationForm.body.trim()) {
+      setError("Notification title and message are required.");
+      return;
+    }
+
+    if (notificationForm.audienceType === "single_user" && !notificationForm.targetUserId.trim()) {
+      setError("A target user ID is required for a one-user notification.");
+      return;
+    }
+
+    setNotificationBusy(true);
+    setError("");
+
+    try {
+      await createAdminNotification({
+        title: notificationForm.title.trim(),
+        body: notificationForm.body.trim(),
+        audienceType: notificationForm.audienceType,
+        targetUserId:
+          notificationForm.audienceType === "single_user"
+            ? notificationForm.targetUserId.trim()
+            : null,
+        tone: notificationForm.tone,
+        isPopup: notificationForm.isPopup,
+      });
+
+      setNotificationForm({
+        title: "",
+        body: "",
+        audienceType: "all",
+        targetUserId: "",
+        tone: "info",
+        isPopup: false,
+      });
+
+      await load();
+    } catch (err) {
+      setError(err.message || "Notification could not be sent.");
+    } finally {
+      setNotificationBusy(false);
+    }
+  };
+
+  const handleArchiveNotification = async (notificationId) => {
+    setArchiveBusyId(notificationId);
+    setError("");
+
+    try {
+      await archiveAdminNotification(notificationId);
+      await load();
+    } catch (err) {
+      setError(err.message || "Notification could not be archived.");
+    } finally {
+      setArchiveBusyId(null);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
+          <div>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-slate-400">Admin Panel</p>
+            <h1 className="mt-2 text-2xl font-bold text-slate-950">KYC & Notifications</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <RefreshCw size={15} />
+              <span>Refresh</span>
+            </button>
+            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {pendingCount} pending
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
+        <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <KycNotificationCard count={pendingCount} />
+          <AdminNotificationFeed
+            pendingCount={pendingCount}
+            approvedTodayCount={approvedTodayCount}
+            rejectedCount={rejectedCount}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <MetricCard label="Pending Reviews" value={pendingCount} tone="amber" />
+          <MetricCard label="Approved Accounts" value={approvedCount} tone="emerald" />
+          <MetricCard label="Rejected Accounts" value={rejectedCount} tone="rose" />
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+          <NotificationComposer
+            form={notificationForm}
+            onChange={updateNotificationForm}
+            onSubmit={handleNotificationSubmit}
+            busy={notificationBusy}
+          />
+          <SentNotifications
+            items={adminNotifications}
+            onArchive={handleArchiveNotification}
+            busyId={archiveBusyId}
+          />
+        </div>
+
+        {error ? (
+          <div className="mt-6 rounded-[24px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">{error}</div>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          {[
+            { id: "pending", label: `Pending (${pendingCount})` },
+            { id: "approved", label: `Approved (${approvedCount})` },
+            { id: "rejected", label: `Rejected (${rejectedCount})` },
+            { id: "all", label: `All (${items.length})` },
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setActiveFilter(filter.id)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                activeFilter === filter.id
+                  ? "bg-slate-950 text-white"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-6 space-y-4">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-64 animate-pulse rounded-[28px] bg-slate-100" />
+            ))
+          ) : filteredItems.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center">
+              <p className="text-lg font-semibold text-slate-950">No KYC submissions found for this filter.</p>
+            </div>
+          ) : (
+            filteredItems.map((item) => (
+              <ReviewCard
+                key={item.id}
+                item={item}
+                onApprove={() => handleStatusChange(item, "approved")}
+                onReject={() => handleStatusChange(item, "rejected")}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

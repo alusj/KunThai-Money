@@ -328,10 +328,7 @@ function ReceiptView({ receipt, onBack }) {
             <ReceiptAvatar name={receipt.personName} image={receipt.personImage} direction={receipt.direction} />
             <div className="min-w-0">
               <p className="truncate text-xl font-semibold text-slate-950">{receipt.personName}</p>
-              <p className="mt-1 text-base font-semibold text-slate-950">
-                <span className="mr-2">ACC NO:</span>
-                <span>{receipt.personAccount}</span>
-              </p>
+              <p className="mt-1 text-base font-semibold text-slate-950">{receipt.personAccount}</p>
             </div>
           </div>
 

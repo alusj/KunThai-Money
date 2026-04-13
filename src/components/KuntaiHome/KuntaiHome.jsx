@@ -5,6 +5,13 @@ import supabase from "../../Backend/lib/supabaseClient";
 import { useAuth } from "../../Backend/hooks/useAuth";
 import { useOnboardingStatus } from "../../Backend/hooks/useOnboardingStatus";
 import { createOtherAccount, getOtherAccounts } from "../../Backend/services/otherAccountService";
+import { getUserAdminNotifications } from "../../Backend/services/adminNotificationService";
+import {
+  cancelPaymentRequest,
+  getPaymentRequests,
+  markPaymentRequestViewed,
+  resolvePaymentRequest,
+} from "../../Backend/services/paymentRequestService";
 import { getTransactions } from "../../Backend/services/transactionService";
 import {
   canUseBiometrics,
@@ -14,6 +21,7 @@ import {
   verifyBiometrics,
 } from "../../Backend/utils/biometricAuth";
 import { normalizeCurrencyRecord } from "../../Backend/utils/currency";
+import { formatCurrency } from "../../Backend/utils/formatCurrency";
 import { buildHeaderNotifications } from "../../Backend/utils/headerNotifications";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";
@@ -25,6 +33,8 @@ import ChangePasswordScreen from "./header/ChangePasswordScreen";
 import ChangePinScreen from "./header/ChangePinScreen";
 import EditProfileScreen from "./header/EditProfileScreen";
 import NotificationScreen from "./header/NotificationScreen";
+import PaymentRequestDetailScreen from "./header/PaymentRequestDetailScreen";
+import PaymentRequestTransferScreen from "./header/PaymentRequestTransferScreen";
 import ProfileScreen from "./header/ProfileScreen";
 import SearchScreen from "./header/SearchScreen";
 import TransactionsScreen from "./header/Transactions/TransactionScreen";
@@ -48,7 +58,13 @@ export default function KunTaiHome() {
   const [profileName, setProfileName] = useState("User");
   const [profile, setProfile] = useState(null);
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [paymentRequests, setPaymentRequests] = useState([]);
+  const [outgoingPaymentRequests, setOutgoingPaymentRequests] = useState([]);
+  const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [otherAccounts, setOtherAccounts] = useState([]);
+  const [dismissedRequestIds, setDismissedRequestIds] = useState([]);
+  const [adminMessages, setAdminMessages] = useState([]);
+  const [dismissedAdminMessageIds, setDismissedAdminMessageIds] = useState([]);
   const [biometricState, setBiometricState] = useState({
     supported: false,
     enabled: false,
@@ -63,9 +79,15 @@ export default function KunTaiHome() {
   const [otherAccountsLoading, setOtherAccountsLoading] = useState(true);
   const notifications = buildHeaderNotifications({
     status,
-    account,
-    transactions: recentTransactions,
+    paymentRequests,
+    adminMessages,
   });
+  const activeIncomingPopupRequest = paymentRequests.find(
+    (request) => request.status === "pending" && !dismissedRequestIds.includes(request.id)
+  );
+  const activeAdminPopupMessage = adminMessages.find(
+    (message) => message.is_popup && !dismissedAdminMessageIds.includes(message.id)
+  );
 
   const updateBiometricBanner = (messageTitle, message, messageTone = "info") => {
     setBiometricState((current) => ({
@@ -174,6 +196,31 @@ export default function KunTaiHome() {
       setOtherAccounts([]);
     } finally {
       setOtherAccountsLoading(false);
+    }
+  };
+
+  const fetchPaymentRequests = async () => {
+    try {
+      const [incoming, outgoing] = await Promise.all([
+        getPaymentRequests({ userId: user?.id, direction: "incoming", limit: 5 }),
+        getPaymentRequests({ userId: user?.id, direction: "outgoing", limit: 5 }),
+      ]);
+      setPaymentRequests(incoming);
+      setOutgoingPaymentRequests(outgoing);
+    } catch (error) {
+      console.log("Payment requests fetch error:", error);
+      setPaymentRequests([]);
+      setOutgoingPaymentRequests([]);
+    }
+  };
+
+  const fetchAdminMessages = async () => {
+    try {
+      const data = await getUserAdminNotifications({ userId: user?.id, limit: 10 });
+      setAdminMessages(data);
+    } catch (error) {
+      console.log("Admin notifications fetch error:", error);
+      setAdminMessages([]);
     }
   };
 
@@ -291,11 +338,45 @@ export default function KunTaiHome() {
     navigate("/login?reason=signed-out", { replace: true });
   };
 
+  const openIncomingPaymentRequest = async (request) => {
+    if (!request?.id) {
+      return;
+    }
+
+    try {
+      const viewed = await markPaymentRequestViewed(request.id);
+      setSelectedPaymentRequest(viewed || request);
+    } catch (error) {
+      console.log("Payment request view error:", error);
+      setSelectedPaymentRequest(request);
+    }
+
+    await fetchPaymentRequests();
+    setActiveScreen("payment-request-detail");
+  };
+
+  const declineIncomingPaymentRequest = async (request) => {
+    if (!request?.id) {
+      return;
+    }
+
+    try {
+      await resolvePaymentRequest(request.id, "declined");
+      await fetchPaymentRequests();
+    } catch (error) {
+      console.log("Payment request decline error:", error);
+    } finally {
+      setDismissedRequestIds((current) => [...new Set([...current, request.id])]);
+    }
+  };
+
   useEffect(() => {
     fetchAccount();
     fetchProfile();
     fetchRecentTransactions();
     fetchOtherAccounts();
+    fetchPaymentRequests();
+    fetchAdminMessages();
   }, [user?.id]);
 
   useEffect(() => {
@@ -367,6 +448,87 @@ export default function KunTaiHome() {
 
           {renderKycNotice()}
 
+          {activeIncomingPopupRequest ? (
+            <div className="px-4 pt-4 md:px-8 lg:px-12">
+              <div className="rounded-[28px] border border-emerald-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+                      Payment requested form
+                    </p>
+                    <h3 className="mt-3 text-2xl font-semibold text-slate-950">
+                      {activeIncomingPopupRequest.requester_name} is requesting payment
+                    </h3>
+                    <div className="mt-4 space-y-2 text-sm leading-6 text-slate-600">
+                      <p>From Account holder name: {activeIncomingPopupRequest.requester_name}</p>
+                      <p>Account number: {activeIncomingPopupRequest.requester_account_number}</p>
+                      <p>Amount requested: {formatCurrency(activeIncomingPopupRequest.amount || 0, activeIncomingPopupRequest.currency || "SLL")}</p>
+                      <p>Reason for request: {activeIncomingPopupRequest.reason || "No reason added"}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openIncomingPaymentRequest(activeIncomingPopupRequest)}
+                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => declineIncomingPaymentRequest(activeIncomingPopupRequest)}
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {!activeIncomingPopupRequest && activeAdminPopupMessage ? (
+            <div className="px-4 pt-4 md:px-8 lg:px-12">
+              <div className="rounded-[28px] border border-sky-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-sky-700">
+                      Admin notification
+                    </p>
+                    <h3 className="mt-3 text-2xl font-semibold text-slate-950">
+                      {activeAdminPopupMessage.title}
+                    </h3>
+                    <p className="mt-4 text-sm leading-6 text-slate-600">
+                      {activeAdminPopupMessage.body}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setActiveScreen("notifications")}
+                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDismissedAdminMessageIds((current) => [
+                          ...new Set([...current, activeAdminPopupMessage.id]),
+                        ])
+                      }
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <Dashboard
             account={accountLoading ? null : account}
             refreshAccount={refreshWalletData}
@@ -384,7 +546,9 @@ export default function KunTaiHome() {
         <NotificationScreen
           notifications={notifications}
           onBack={() => setActiveScreen("dashboard")}
-          onAction={(action) => {
+          onAction={async (item, type) => {
+            const action = type === "secondary" ? item.secondaryAction : item.action;
+
             if (action === "kyc") {
               navigate("/kyc");
               return;
@@ -392,7 +556,93 @@ export default function KunTaiHome() {
 
             if (action === "transactions") {
               setActiveScreen("transactions");
+              return;
             }
+
+            if (action === "admin-message") {
+              if (item.id) {
+                setDismissedAdminMessageIds((current) => [...new Set([...current, item.id])]);
+              }
+              return;
+            }
+
+            if (action === "payment-request-view") {
+              await openIncomingPaymentRequest(item.request);
+              return;
+            }
+
+            if (action === "payment-request-outgoing-view") {
+              setSelectedPaymentRequest(item.request);
+              setActiveScreen("payment-request-detail");
+              return;
+            }
+
+            if (action === "payment-request-cancel") {
+              try {
+                if (item.request?.recipient_user_id === user?.id) {
+                  await declineIncomingPaymentRequest(item.request);
+                } else {
+                  await cancelPaymentRequest(item.requestId);
+                  await fetchPaymentRequests();
+                }
+              } catch (error) {
+                console.log("Payment request cancel error:", error);
+              }
+            }
+          }}
+        />
+      )}
+
+      {activeScreen === "payment-request-detail" && (
+        <PaymentRequestDetailScreen
+          request={selectedPaymentRequest}
+          mode={selectedPaymentRequest?.recipient_user_id === user?.id ? "incoming" : "outgoing"}
+          onBack={() => {
+            setSelectedPaymentRequest(null);
+            setActiveScreen("notifications");
+          }}
+          onPayNow={() => setActiveScreen("payment-request-transfer")}
+          onCancel={async () => {
+            if (!selectedPaymentRequest?.id) {
+              setActiveScreen("notifications");
+              return;
+            }
+
+            try {
+              if (selectedPaymentRequest?.recipient_user_id === user?.id) {
+                await resolvePaymentRequest(selectedPaymentRequest.id, "declined");
+              } else {
+                await cancelPaymentRequest(selectedPaymentRequest.id);
+              }
+              await fetchPaymentRequests();
+            } catch (error) {
+              console.log("Payment request cancel error:", error);
+            } finally {
+              setSelectedPaymentRequest(null);
+              setActiveScreen("notifications");
+            }
+          }}
+        />
+      )}
+
+      {activeScreen === "payment-request-transfer" && (
+        <PaymentRequestTransferScreen
+          account={account}
+          request={selectedPaymentRequest}
+          refreshAccount={refreshWalletData}
+          onBack={() => setActiveScreen("payment-request-detail")}
+          onTransferSuccess={async () => {
+            if (selectedPaymentRequest?.id) {
+              try {
+                await resolvePaymentRequest(selectedPaymentRequest.id, "accepted");
+              } catch (error) {
+                console.log("Payment request accept error:", error);
+              }
+            }
+
+            await fetchPaymentRequests();
+            setSelectedPaymentRequest(null);
+            setActiveScreen("notifications");
           }}
         />
       )}
@@ -410,6 +660,8 @@ export default function KunTaiHome() {
           onOpenChangePassword={() => openProtectedSecurityScreen("change-password")}
           onOpenTransactions={() => setActiveScreen("transactions")}
           onOpenNotifications={() => setActiveScreen("notifications")}
+          isAdmin={user?.app_metadata?.role === "admin"}
+          onOpenAdmin={() => navigate("/admin")}
           onOpenTerms={() => setActiveScreen("dashboard")}
           onOpenHelp={() => setActiveScreen("dashboard")}
           onSignOut={handleSignOut}

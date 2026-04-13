@@ -125,11 +125,23 @@ function RecipientAvatar({ name, image }) {
   );
 }
 
-export default function AccountNumber({ account, onClose, refreshAccount }) {
+export default function AccountNumber({
+  account,
+  onClose,
+  refreshAccount,
+  initialValues = null,
+  onTransferSuccess,
+  backLabel = "Back",
+}) {
   const currency = normalizeCurrencyCode(account?.currency) || "SLL";
   const availableBalance = Number(account?.balance || 0);
   const [step, setStep] = useState("form");
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [form, setForm] = useState(() => ({
+    ...INITIAL_FORM,
+    accountNumber: initialValues?.accountNumber || "",
+    amount: initialValues?.amount ? String(initialValues.amount) : "",
+    reason: initialValues?.reason || "",
+  }));
   const [error, setError] = useState("");
   const [isCheckingRecipient, setIsCheckingRecipient] = useState(false);
   const [isPreparingPin, setIsPreparingPin] = useState(false);
@@ -268,6 +280,7 @@ export default function AccountNumber({ account, onClose, refreshAccount }) {
       });
 
       await refreshAccount?.();
+      await onTransferSuccess?.(transfer);
 
       setReceipt({
         status: transfer?.status || "completed",
@@ -362,7 +375,12 @@ export default function AccountNumber({ account, onClose, refreshAccount }) {
 
   const handleReset = () => {
     setStep("form");
-    setForm(INITIAL_FORM);
+    setForm({
+      ...INITIAL_FORM,
+      accountNumber: initialValues?.accountNumber || "",
+      amount: initialValues?.amount ? String(initialValues.amount) : "",
+      reason: initialValues?.reason || "",
+    });
     setPin("");
     setError("");
     setRecipientLookup(null);
@@ -465,14 +483,14 @@ export default function AccountNumber({ account, onClose, refreshAccount }) {
   if (step === "pin") {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <button
-          type="button"
-          onClick={() => setStep("confirm")}
-          className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
-        >
-          <ArrowLeft size={16} />
-          <span>Back</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setStep("confirm")}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+          >
+            <ArrowLeft size={16} />
+            <span>{backLabel}</span>
+          </button>
 
         <div className="mb-5">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Transaction PIN</p>
@@ -529,7 +547,7 @@ export default function AccountNumber({ account, onClose, refreshAccount }) {
             className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
           >
             <ArrowLeft size={16} />
-            <span>Back</span>
+            <span>{backLabel}</span>
           </button>
         </div>
 

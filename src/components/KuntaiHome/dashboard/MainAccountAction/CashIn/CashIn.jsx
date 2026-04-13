@@ -22,7 +22,7 @@ export default function CashIn({ account, user }) {
         <div className="space-y-3">
           <Bank account={account} user={user} />
           <MobileMoney />
-          <RequestPayment />
+          <RequestPayment account={account} />
         </div>
       </BottomSheet>
     </>
