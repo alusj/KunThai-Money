@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   Bell,
   BriefcaseBusiness,
+  ChevronLeft,
   ChevronRight,
   CircleHelp,
   CreditCard,
@@ -12,9 +13,9 @@ import {
   LogOut,
   MessageCircle,
   Monitor,
+  Palette,
   Shield,
   Type,
-  Wallet,
 } from "lucide-react";
 import BackTab from "./Transactions/BackTab";
 import AuthNotice from "../../auth/AuthNotice";
@@ -49,16 +50,19 @@ function formatLastSeen(lastLoginAt) {
   }).format(new Date(lastLoginAt));
 }
 
-function SectionCard({ title, children }) {
+function SectionCard({ title, subtitle, children, compact = false }) {
   return (
     <section className="rounded-[28px] bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-      <p className="text-[0.72rem] font-semibold uppercase tracking-[0.32em] text-slate-400">{title}</p>
-      <div className="mt-4 space-y-3">{children}</div>
+      <div className={compact ? "" : "mb-4"}>
+        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.32em] text-slate-400">{title}</p>
+        {subtitle ? <p className="mt-2 text-sm text-slate-500">{subtitle}</p> : null}
+      </div>
+      <div className={compact ? "space-y-3" : "space-y-3"}>{children}</div>
     </section>
   );
 }
 
-function RowAction({ icon: Icon, title, description, end, onClick, danger = false }) {
+function RowAction({ icon: Icon, title, description, end, onClick, danger = false, compact = false }) {
   return (
     <div
       role="button"
@@ -70,9 +74,9 @@ function RowAction({ icon: Icon, title, description, end, onClick, danger = fals
           onClick?.();
         }
       }}
-      className={`flex w-full items-center justify-between gap-4 rounded-[22px] px-4 py-4 text-left transition ${
-        danger ? "bg-rose-50 hover:bg-rose-100" : "bg-slate-50 hover:bg-slate-100"
-      }`}
+      className={`flex w-full items-center justify-between gap-4 rounded-[22px] text-left transition ${
+        compact ? "px-4 py-3" : "px-4 py-4"
+      } ${danger ? "bg-rose-50 hover:bg-rose-100" : "bg-slate-50 hover:bg-slate-100"}`}
     >
       <span className="flex items-start gap-3">
         <span className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-full ${danger ? "bg-white text-rose-700" : "bg-white text-slate-700"}`}>
@@ -80,7 +84,9 @@ function RowAction({ icon: Icon, title, description, end, onClick, danger = fals
         </span>
         <span>
           <span className={`block text-sm font-semibold sm:text-base ${danger ? "text-rose-800" : "text-slate-950"}`}>{title}</span>
-          <span className={`mt-1 block text-xs leading-5 ${danger ? "text-rose-600" : "text-slate-500"}`}>{description}</span>
+          {description ? (
+            <span className={`mt-1 block text-xs leading-5 ${danger ? "text-rose-600" : "text-slate-500"}`}>{description}</span>
+          ) : null}
         </span>
       </span>
       <span className="shrink-0">{end}</span>
@@ -91,6 +97,7 @@ function RowAction({ icon: Icon, title, description, end, onClick, danger = fals
 function Toggle({ enabled, onChange, disabled = false }) {
   return (
     <button
+      type="button"
       onClick={(event) => {
         event.stopPropagation();
         onChange?.();
@@ -110,6 +117,27 @@ function ChevronEnd() {
   return <ChevronRight size={18} className="text-slate-400" />;
 }
 
+function SubmenuHeader({ title, description, onBack }) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+          aria-label={`Back from ${title}`}
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div>
+          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.32em] text-slate-400">{title}</p>
+          <p className="mt-2 text-sm text-slate-500">{description}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileScreen({
   name,
   profile,
@@ -120,7 +148,6 @@ export default function ProfileScreen({
   onOpenCreateAccount,
   onOpenChangePin,
   onOpenChangePassword,
-  onOpenTransactions,
   onOpenNotifications,
   isAdmin,
   onOpenAdmin,
@@ -146,7 +173,7 @@ export default function ProfileScreen({
         .toUpperCase(),
     [name]
   );
-
+  const [activeMenu, setActiveMenu] = useState(null);
   const [notificationState, setNotificationState] = useState({
     transactions: true,
     security: true,
@@ -157,6 +184,288 @@ export default function ProfileScreen({
     language: "English",
     textSize: "Medium",
   });
+
+  const menuCards = [
+    {
+      key: "security",
+      icon: Shield,
+      title: "Security",
+      description: "PIN, biometrics, and password controls.",
+    },
+    {
+      key: "notifications",
+      icon: Bell,
+      title: "Notifications",
+      description: "Manage transaction, security, and app alerts.",
+    },
+    {
+      key: "settings",
+      icon: Monitor,
+      title: "Settings",
+      description: "Appearance, language, and reading preferences.",
+    },
+    {
+      key: "terms",
+      icon: FileText,
+      title: "Terms & Conditions",
+      description: "Policies, fees, compliance, and usage rules.",
+    },
+    {
+      key: "help",
+      icon: CircleHelp,
+      title: "Help",
+      description: "Support channels, guides, and troubleshooting.",
+    },
+    {
+      key: "logout",
+      icon: LogOut,
+      title: "Logout",
+      description: "Sign out from this device or all devices.",
+      danger: true,
+    },
+  ];
+
+  const renderMenuContent = () => {
+    if (activeMenu === "security") {
+      return (
+        <SectionCard title="Security" compact>
+          <SubmenuHeader
+            title="Security"
+            description="Protect your account with stronger access controls."
+            onBack={() => setActiveMenu(null)}
+          />
+          {biometrics?.message ? (
+            <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
+              {biometrics.message}
+            </AuthNotice>
+          ) : null}
+          <RowAction
+            icon={Shield}
+            title="Change PIN"
+            description="Update the PIN used for protected account actions."
+            end={<ChevronEnd />}
+            onClick={onOpenChangePin}
+            compact
+          />
+          <RowAction
+            icon={Fingerprint}
+            title="Enable biometrics"
+            description={
+              biometrics?.supported
+                ? "Use Face ID or fingerprint before opening sensitive account actions."
+                : "This device or browser does not currently support platform biometrics."
+            }
+            end={
+              <Toggle
+                enabled={Boolean(biometrics?.enabled)}
+                disabled={Boolean(biometrics?.busy || !biometrics?.supported)}
+                onChange={onToggleBiometrics}
+              />
+            }
+            onClick={onToggleBiometrics}
+            compact
+          />
+          <RowAction
+            icon={LockKeyhole}
+            title="Change password"
+            description="Verify your current password, then set a new one."
+            end={<ChevronEnd />}
+            onClick={onOpenChangePassword}
+            compact
+          />
+        </SectionCard>
+      );
+    }
+
+    if (activeMenu === "notifications") {
+      return (
+        <SectionCard title="Notifications" compact>
+          <SubmenuHeader
+            title="Notifications"
+            description="Choose which updates should get your attention."
+            onBack={() => setActiveMenu(null)}
+          />
+          <RowAction
+            icon={Bell}
+            title="Transactions"
+            description="Cash in, cash out, and activity alerts."
+            end={
+              <Toggle
+                enabled={notificationState.transactions}
+                onChange={() => setNotificationState((current) => ({ ...current, transactions: !current.transactions }))}
+              />
+            }
+            onClick={onOpenNotifications}
+            compact
+          />
+          <RowAction
+            icon={Shield}
+            title="Security alerts"
+            description="Suspicious sign-in and protection messages."
+            end={
+              <Toggle
+                enabled={notificationState.security}
+                onChange={() => setNotificationState((current) => ({ ...current, security: !current.security }))}
+              />
+            }
+            onClick={onOpenNotifications}
+            compact
+          />
+          <RowAction
+            icon={CreditCard}
+            title="Promotions"
+            description="Product offers and promotional campaigns."
+            end={
+              <Toggle
+                enabled={notificationState.promotions}
+                onChange={() => setNotificationState((current) => ({ ...current, promotions: !current.promotions }))}
+              />
+            }
+            onClick={onOpenNotifications}
+            compact
+          />
+          <RowAction
+            icon={Monitor}
+            title="System updates"
+            description="Service improvements and maintenance notices."
+            end={
+              <Toggle
+                enabled={notificationState.systemUpdates}
+                onChange={() => setNotificationState((current) => ({ ...current, systemUpdates: !current.systemUpdates }))}
+              />
+            }
+            onClick={onOpenNotifications}
+            compact
+          />
+        </SectionCard>
+      );
+    }
+
+    if (activeMenu === "settings") {
+      return (
+        <SectionCard title="Settings" compact>
+          <SubmenuHeader
+            title="Settings"
+            description="Adjust the way the app looks and feels on this device."
+            onBack={() => setActiveMenu(null)}
+          />
+          <RowAction
+            icon={Palette}
+            title="Appearance"
+            description={
+              appearance?.isDarkMode
+                ? "Dark mode is active across the app on this device."
+                : "Light mode is active across the app on this device."
+            }
+            end={<Toggle enabled={Boolean(appearance?.isDarkMode)} onChange={onToggleAppearance} />}
+            onClick={onToggleAppearance}
+            compact
+          />
+          <RowAction
+            icon={Globe}
+            title="Language"
+            description="Current language preference."
+            end={<span className="text-sm font-semibold text-slate-500">{settingsState.language}</span>}
+            onClick={() => {}}
+            compact
+          />
+          <RowAction
+            icon={Type}
+            title="Text size"
+            description="Adjust the reading size used throughout the app."
+            end={<span className="text-sm font-semibold text-slate-500">{settingsState.textSize}</span>}
+            onClick={() => {}}
+            compact
+          />
+        </SectionCard>
+      );
+    }
+
+    if (activeMenu === "terms") {
+      return (
+        <SectionCard title="Terms & Conditions" compact>
+          <SubmenuHeader
+            title="Terms & Conditions"
+            description="Review policies, charges, and compliance expectations."
+            onBack={() => setActiveMenu(null)}
+          />
+          <RowAction icon={FileText} title="Privacy policy" description="How user data is collected and protected." end={<ChevronEnd />} onClick={onOpenTerms} compact />
+          <RowAction icon={FileText} title="Terms of service" description="Rules guiding account and product usage." end={<ChevronEnd />} onClick={onOpenTerms} compact />
+          <RowAction icon={CreditCard} title="Fees and charges" description="Charges applied to transfers and services." end={<ChevronEnd />} onClick={onOpenTerms} compact />
+          <RowAction icon={Shield} title="KYC / compliance rules" description="Verification and compliance expectations." end={<ChevronEnd />} onClick={onOpenTerms} compact />
+        </SectionCard>
+      );
+    }
+
+    if (activeMenu === "help") {
+      return (
+        <SectionCard title="Help" compact>
+          <SubmenuHeader
+            title="Help"
+            description="Find support, guides, and quick troubleshooting paths."
+            onBack={() => setActiveMenu(null)}
+          />
+          <RowAction icon={MessageCircle} title="Live chat" description="Reserved for future in-app live support." end={<span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Future</span>} onClick={onOpenHelp} compact />
+          <RowAction icon={MessageCircle} title="WhatsApp support" description="Fast support path for account and transfer issues." end={<ChevronEnd />} onClick={onOpenHelp} compact />
+          <RowAction icon={MessageCircle} title="Email support" description="Reach support by email for detailed follow-up." end={<ChevronEnd />} onClick={onOpenHelp} compact />
+          <RowAction icon={CircleHelp} title="Guides & tutorial" description="Learning resources for common actions and product usage." end={<ChevronEnd />} onClick={onOpenHelp} compact />
+          <RowAction icon={CircleHelp} title="FAQs" description="Common answers before contacting support." end={<ChevronEnd />} onClick={onOpenHelp} compact />
+          <RowAction icon={CircleHelp} title="Didn't receive money" description="Troubleshooting for delayed or missing transfers." end={<ChevronEnd />} onClick={onOpenHelp} compact />
+          <RowAction icon={CircleHelp} title="OTP not working" description="Support steps when verification codes do not arrive." end={<ChevronEnd />} onClick={onOpenHelp} compact />
+          <RowAction icon={CircleHelp} title="Account locked / suspended" description="What to do when access is restricted or under review." end={<ChevronEnd />} onClick={onOpenHelp} compact />
+        </SectionCard>
+      );
+    }
+
+    if (activeMenu === "logout") {
+      return (
+        <SectionCard title="Logout" compact>
+          <SubmenuHeader
+            title="Logout"
+            description="Choose how widely you want to end active sessions."
+            onBack={() => setActiveMenu(null)}
+          />
+          <RowAction
+            icon={LogOut}
+            title="Logout from all devices"
+            description="Close every active session connected to this account."
+            end={<ChevronEnd />}
+            onClick={() => onSignOut?.("all")}
+            danger
+            compact
+          />
+          <RowAction
+            icon={LogOut}
+            title="Logout from this device"
+            description="End only the current device session securely."
+            end={<ChevronEnd />}
+            onClick={() => onSignOut?.("current")}
+            danger
+            compact
+          />
+        </SectionCard>
+      );
+    }
+
+    return (
+      <SectionCard
+        title="Menu"
+        subtitle="Open a category to manage related settings in one focused place."
+      >
+        {menuCards.map((item) => (
+          <RowAction
+            key={item.key}
+            icon={item.icon}
+            title={item.title}
+            description={item.description}
+            end={<ChevronEnd />}
+            onClick={() => setActiveMenu(item.key)}
+            danger={item.danger}
+          />
+        ))}
+      </SectionCard>
+    );
+  };
 
   return (
     <div
@@ -173,7 +482,7 @@ export default function ProfileScreen({
             <p className={`text-[0.7rem] font-semibold uppercase tracking-[0.32em] ${isDarkMode ? "text-slate-300" : "text-slate-400"}`}>
               Profile Center
             </p>
-           </div>
+          </div>
           <div className={`rounded-full px-3 py-2 text-xs font-semibold ${isDarkMode ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-600"}`}>
             Active
           </div>
@@ -205,6 +514,7 @@ export default function ProfileScreen({
                     {name}
                   </p>
                   <button
+                    type="button"
                     onClick={onOpenEditProfile}
                     className="mt-4 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                   >
@@ -214,6 +524,7 @@ export default function ProfileScreen({
               </div>
 
               <button
+                type="button"
                 onClick={onOpenCreateAccount}
                 className="rounded-[22px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] px-5 py-4 text-left text-white shadow-[0_16px_36px_rgba(37,99,235,0.18)] transition hover:opacity-95 lg:min-w-[220px]"
               >
@@ -272,7 +583,7 @@ export default function ProfileScreen({
                         <p className={`text-sm font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
                           {item.title}
                         </p>
-                        <p className={`mt-1 text-xs break-all ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                        <p className={`mt-1 break-all text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
                           {item.description}
                         </p>
                       </div>
@@ -292,225 +603,45 @@ export default function ProfileScreen({
           </div>
         </section>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <SectionCard title="Security">
-            {biometrics?.message ? (
-              <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
-                {biometrics.message}
-              </AuthNotice>
-            ) : null}
-            <RowAction
-              icon={Shield}
-              title="Change PIN"
-              description="Update the PIN used for your protected account actions."
-              end={<ChevronEnd />}
-              onClick={onOpenChangePin}
-            />
-            <RowAction
-              icon={Fingerprint}
-              title="Enable biometrics"
-              description={
-                biometrics?.supported
-                  ? "Use Face ID or fingerprint on this device before opening sensitive security actions."
-                  : "This browser or device does not currently support platform biometrics for the app."
-              }
-              end={
-                <Toggle
-                  enabled={Boolean(biometrics?.enabled)}
-                  disabled={Boolean(biometrics?.busy || !biometrics?.supported)}
-                  onChange={onToggleBiometrics}
+        <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          {renderMenuContent()}
+
+          <div className="space-y-5">
+            {isAdmin ? (
+              <SectionCard
+                title="Admin"
+                subtitle="Admin tools stay separate so they do not compete with everyday profile settings."
+              >
+                <RowAction
+                  icon={BriefcaseBusiness}
+                  title="KYC & Notifications"
+                  description="Open the admin review queue for identity checks and compliance alerts."
+                  end={<ChevronEnd />}
+                  onClick={onOpenAdmin}
                 />
-              }
-              onClick={onToggleBiometrics}
-            />
-            <RowAction
-              icon={LockKeyhole}
-              title="Change password"
-              description="Verify your current password, then choose a new one."
-              end={<ChevronEnd />}
-              onClick={onOpenChangePassword}
-            />
-          </SectionCard>
+              </SectionCard>
+            ) : null}
 
-          <SectionCard title="Notifications">
-            <RowAction
-              icon={Bell}
-              title="Transactions notification"
-              description="Cash in, cash out and activity alerts."
-              end={<Toggle enabled={notificationState.transactions} onChange={() => setNotificationState((current) => ({ ...current, transactions: !current.transactions }))} />}
-              onClick={onOpenNotifications}
-            />
-            <RowAction
-              icon={Shield}
-              title="Security"
-              description="Suspicious sign-in and account protection alerts."
-              end={<Toggle enabled={notificationState.security} onChange={() => setNotificationState((current) => ({ ...current, security: !current.security }))} />}
-              onClick={onOpenNotifications}
-            />
-            <RowAction
-              icon={Wallet}
-              title="Promotions"
-              description="Product offers and promotional campaigns."
-              end={<Toggle enabled={notificationState.promotions} onChange={() => setNotificationState((current) => ({ ...current, promotions: !current.promotions }))} />}
-              onClick={onOpenNotifications}
-            />
-            <RowAction
-              icon={Monitor}
-              title="System updates"
-              description="Service improvements and maintenance notices."
-              end={<Toggle enabled={notificationState.systemUpdates} onChange={() => setNotificationState((current) => ({ ...current, systemUpdates: !current.systemUpdates }))} />}
-              onClick={onOpenNotifications}
-            />
-          </SectionCard>
-
-          {isAdmin ? (
-            <SectionCard title="Admin">
+            <SectionCard
+              title="Quick Actions"
+              subtitle="The most common profile actions stay close without overcrowding the page."
+            >
               <RowAction
-                icon={BriefcaseBusiness}
-                title="KYC & notifications"
-                description="Open the admin review queue for identity checks and compliance alerts."
+                icon={Bell}
+                title="Open notifications"
+                description="Review your recent alerts and admin messages."
                 end={<ChevronEnd />}
-                onClick={onOpenAdmin}
+                onClick={onOpenNotifications}
+              />
+              <RowAction
+                icon={Shield}
+                title="Open security"
+                description="Jump straight into PIN, biometrics, and password controls."
+                end={<ChevronEnd />}
+                onClick={() => setActiveMenu("security")}
               />
             </SectionCard>
-          ) : null}
-
-          <SectionCard title="Settings">
-            <RowAction
-              icon={Monitor}
-              title="Appearance"
-              description={
-                appearance?.isDarkMode
-                  ? "Dark mode is active across the app on this device."
-                  : "Light mode is active across the app on this device."
-              }
-              end={<Toggle enabled={Boolean(appearance?.isDarkMode)} onChange={onToggleAppearance} />}
-              onClick={onToggleAppearance}
-            />
-            <RowAction
-              icon={Globe}
-              title="Language"
-              description="Current language preference."
-              end={<span className="text-sm font-semibold text-slate-500">{settingsState.language}</span>}
-              onClick={() => {}}
-            />
-            <RowAction
-              icon={Type}
-              title="Text size"
-              description="Adjust the reading size used throughout the app."
-              end={<span className="text-sm font-semibold text-slate-500">{settingsState.textSize}</span>}
-              onClick={() => {}}
-            />
-          </SectionCard>
-
-          <SectionCard title="Terms & Conditions">
-            <RowAction
-              icon={FileText}
-              title="Privacy policy"
-              description="How user information is collected and protected."
-              end={<ChevronEnd />}
-              onClick={onOpenTerms}
-            />
-            <RowAction
-              icon={FileText}
-              title="Terms of services"
-              description="Rules guiding account and product usage."
-              end={<ChevronEnd />}
-              onClick={onOpenTerms}
-            />
-            <RowAction
-              icon={CreditCard}
-              title="Fees and charges"
-              description="Charges applied to transfers and services."
-              end={<ChevronEnd />}
-              onClick={onOpenTerms}
-            />
-            <RowAction
-              icon={Shield}
-              title="KYC / compliance rules"
-              description="Verification and compliance expectations."
-              end={<ChevronEnd />}
-              onClick={onOpenTerms}
-            />
-          </SectionCard>
-
-          <SectionCard title="Help">
-            <RowAction
-              icon={MessageCircle}
-              title="Live chat"
-              description="Reserved for future in-app live support."
-              end={<span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Future</span>}
-              onClick={onOpenHelp}
-            />
-            <RowAction
-              icon={MessageCircle}
-              title="WhatsApp support"
-              description="Fast support path for account and transfer issues."
-              end={<ChevronEnd />}
-              onClick={onOpenHelp}
-            />
-            <RowAction
-              icon={MessageCircle}
-              title="Email support"
-              description="Reach support by email for detailed follow-up."
-              end={<ChevronEnd />}
-              onClick={onOpenHelp}
-            />
-            <RowAction
-              icon={CircleHelp}
-              title="Guides & Tutorial"
-              description="Learning resources for common actions and product usage."
-              end={<ChevronEnd />}
-              onClick={onOpenHelp}
-            />
-            <RowAction
-              icon={CircleHelp}
-              title="FAQs"
-              description="Common answers before contacting support."
-              end={<ChevronEnd />}
-              onClick={onOpenHelp}
-            />
-            <RowAction
-              icon={CircleHelp}
-              title="Didn't receive money"
-              description="Troubleshooting for delayed or missing transfers."
-              end={<ChevronEnd />}
-              onClick={onOpenHelp}
-            />
-            <RowAction
-              icon={CircleHelp}
-              title="OTP not working"
-              description="Support steps when verification codes do not arrive."
-              end={<ChevronEnd />}
-              onClick={onOpenHelp}
-            />
-            <RowAction
-              icon={CircleHelp}
-              title="Account locked / suspended"
-              description="What to do when access is restricted or under review."
-              end={<ChevronEnd />}
-              onClick={onOpenHelp}
-            />
-          </SectionCard>
-
-          <SectionCard title="Logout">
-            <RowAction
-              icon={LogOut}
-              title="Logout from all devices"
-              description="Close every active session connected to this account."
-              end={<ChevronEnd />}
-              onClick={() => onSignOut?.("all")}
-              danger
-            />
-            <RowAction
-              icon={LogOut}
-              title="Logout from this device"
-              description="End only the current device session securely."
-              end={<ChevronEnd />}
-              onClick={() => onSignOut?.("current")}
-              danger
-            />
-          </SectionCard>
+          </div>
         </div>
       </div>
     </div>
