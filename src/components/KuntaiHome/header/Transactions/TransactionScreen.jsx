@@ -67,11 +67,23 @@ function initialsFromName(name = "") {
   );
 }
 
-function resolvePersonLabel(transaction) {
+function resolveProfileName(profile) {
+  const fullName = [profile?.first_name, profile?.middle_name, profile?.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return fullName || "";
+}
+
+function resolvePersonLabel(transaction, account, profile) {
+  const profileName = resolveProfileName(profile);
+
   if (transaction.direction === "credit") {
     return (
       transaction.metadata?.sender_name ||
       transaction.counterparty_name ||
+      profileName ||
       transaction.description ||
       transaction.transaction_type ||
       "KunThai user"
@@ -81,6 +93,7 @@ function resolvePersonLabel(transaction) {
   return (
     transaction.metadata?.recipient_name ||
     transaction.counterparty_name ||
+    profileName ||
     transaction.description ||
     transaction.transaction_type ||
     "KunThai user"
@@ -116,11 +129,12 @@ function resolveTransactionId(transaction) {
   );
 }
 
-function resolvePartyImage(transaction) {
+function resolvePartyImage(transaction, profile) {
   if (transaction.direction === "credit") {
     return (
       transaction.metadata?.sender_profile_image ||
       transaction.metadata?.counterparty_profile_image ||
+      profile?.profile_image ||
       ""
     );
   }
@@ -128,30 +142,33 @@ function resolvePartyImage(transaction) {
   return (
     transaction.metadata?.recipient_profile_image ||
     transaction.metadata?.counterparty_profile_image ||
+    profile?.profile_image ||
     ""
   );
 }
 
-function resolvePartyAccount(transaction) {
+function resolvePartyAccount(transaction, account) {
   if (transaction.direction === "credit") {
     return (
       transaction.metadata?.sender_account_number ||
       transaction.counterparty_account ||
       transaction.metadata?.counterparty_account ||
+      account?.account_number ||
       "Unavailable"
     );
   }
 
   return (
-    transaction.metadata?.recipient_account_number ||
-    transaction.counterparty_account ||
-    transaction.metadata?.counterparty_account ||
-    "Unavailable"
-  );
+      transaction.metadata?.recipient_account_number ||
+      transaction.counterparty_account ||
+      transaction.metadata?.counterparty_account ||
+      account?.account_number ||
+      "Unavailable"
+    );
 }
 
-function buildTransactionMessage(transaction) {
-  const person = resolvePersonLabel(transaction);
+function buildTransactionMessage(transaction, account, profile) {
+  const person = resolvePersonLabel(transaction, account, profile);
   const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
 
   return transaction.direction === "credit"
@@ -159,7 +176,7 @@ function buildTransactionMessage(transaction) {
     : `You have sent ${amount} to ${person}.`;
 }
 
-function deriveReceipt(transaction, account) {
+function deriveReceipt(transaction, account, profile) {
   const direction = transaction.direction === "credit" ? "credit" : "debit";
   const amount = Number(transaction.amount || 0);
   const currency = normalizeCurrencyCode(transaction.currency || account?.currency) || "SLL";
@@ -167,9 +184,9 @@ function deriveReceipt(transaction, account) {
   return {
     direction,
     title: direction === "credit" ? "Cash in Receipt:" : "Cash Out Receipt:",
-    personName: resolvePersonLabel(transaction),
-    personImage: resolvePartyImage(transaction),
-    personAccount: resolvePartyAccount(transaction),
+    personName: resolvePersonLabel(transaction, account, profile),
+    personImage: resolvePartyImage(transaction, profile),
+    personAccount: resolvePartyAccount(transaction, account),
     amount,
     currency,
     dateTime: transaction.created_at,
@@ -425,7 +442,7 @@ function ReceiptView({ receipt, onBack }) {
   );
 }
 
-export default function TransactionsScreen({ setActiveScreen, account }) {
+export default function TransactionsScreen({ setActiveScreen, account, profile }) {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [transactions, setTransactions] = useState([]);
@@ -495,8 +512,8 @@ export default function TransactionsScreen({ setActiveScreen, account }) {
     );
   }, [transactions]);
   const selectedReceipt = useMemo(
-    () => (selectedTransaction ? deriveReceipt(selectedTransaction, account) : null),
-    [selectedTransaction, account]
+    () => (selectedTransaction ? deriveReceipt(selectedTransaction, account, profile) : null),
+    [selectedTransaction, account, profile]
   );
 
   const groupedTransactions = useMemo(() => {
@@ -625,7 +642,7 @@ export default function TransactionsScreen({ setActiveScreen, account }) {
 
                                   <div className="min-w-0">
                                     <p className="text-base font-semibold leading-7 text-slate-950">
-                                      {buildTransactionMessage(transaction)}
+                                      {buildTransactionMessage(transaction, account, profile)}
                                     </p>
                                     <p className="mt-2 inline-flex items-center gap-2 text-sm text-slate-500">
                                       <Clock3 size={14} />
