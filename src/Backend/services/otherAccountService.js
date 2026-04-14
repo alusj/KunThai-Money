@@ -63,6 +63,26 @@ function buildAgentMetadata(payload, uploadedDocumentFiles = []) {
   };
 }
 
+function buildAgentResubmissionMetadata(existingMetadata = {}, payload, uploadedDocumentFiles = []) {
+  const existingAgentProfile = existingMetadata?.agent_profile || {};
+
+  return {
+    ...existingMetadata,
+    agent_profile: {
+      ...existingAgentProfile,
+      review_status: "pending",
+      reviewed_at: null,
+      rejected_at: null,
+      rejection_reason: "",
+      rejection_comment: "",
+      resubmitted_at: new Date().toISOString(),
+      requested_business_documents: payload.requested_business_documents || [],
+      business_document_note: payload.business_document_note || "",
+      business_document_files: uploadedDocumentFiles,
+    },
+  };
+}
+
 function normalizeCountryCode(countryCode = "") {
   return String(countryCode || "").replace(/\+/g, "").trim();
 }
@@ -253,4 +273,88 @@ export async function createOtherAccount(payload) {
   }
 
   return normalizeCurrencyRecord(updatedAccount);
+}
+
+export async function resubmitAgentAccount(accountId, payload) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    throw userError;
+  }
+
+  if (!user?.id) {
+    throw new Error("Authentication required");
+  }
+
+  if (!accountId) {
+    throw new Error("Agent account could not be found.");
+  }
+
+  if (!payload.account_name?.trim()) {
+    throw new Error("Enter an account name");
+  }
+
+  if (!payload.location_country?.trim() || !payload.location_city?.trim()) {
+    throw new Error("Enter at least country and city for account location");
+  }
+
+  if (!payload.business_document_files?.length) {
+    throw new Error("Upload at least one business document before resubmitting.");
+  }
+
+  const { data: existingAccount, error: fetchError } = await supabase
+    .from("kuntai_other_accounts")
+    .select("id,user_id,account_type,metadata")
+    .eq("id", accountId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  if (existingAccount.account_type !== "agent") {
+    throw new Error("Only agent accounts can be resubmitted from this form.");
+  }
+
+  const uploadedDocumentFiles = await uploadAgentBusinessDocuments(
+    user.id,
+    payload.business_document_files || []
+  );
+
+  const metadata = buildAgentResubmissionMetadata(
+    existingAccount.metadata || {},
+    payload,
+    uploadedDocumentFiles
+  );
+
+  const { data, error } = await supabase
+    .from("kuntai_other_accounts")
+    .update({
+      account_name: payload.account_name.trim(),
+      status: "pending",
+      location_mode: payload.location_mode || "manual",
+      use_current_location: Boolean(payload.use_current_location),
+      location_country: payload.location_country.trim(),
+      location_city: payload.location_city.trim(),
+      location_address: payload.location_address?.trim() || null,
+      latitude: payload.latitude ?? null,
+      longitude: payload.longitude ?? null,
+      nearby_discovery_enabled: Boolean(payload.nearby_discovery_enabled),
+      metadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", accountId)
+    .eq("user_id", user.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeCurrencyRecord(data);
 }

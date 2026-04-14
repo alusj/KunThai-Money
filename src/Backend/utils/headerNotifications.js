@@ -19,6 +19,7 @@ export function buildHeaderNotifications({
   status,
   paymentRequests = [],
   adminMessages = [],
+  otherAccounts = [],
 }) {
   const items = [];
 
@@ -85,6 +86,29 @@ export function buildHeaderNotifications({
       ...message,
     });
   });
+
+  otherAccounts
+    .filter((account) => {
+      const reviewStatus = account?.metadata?.agent_profile?.review_status || account?.status || "pending";
+      return account?.account_type === "agent" && reviewStatus === "rejected";
+    })
+    .slice(0, 2)
+    .forEach((account, index) => {
+      const rejectionReason =
+        account?.metadata?.agent_profile?.rejection_reason ||
+        account?.metadata?.agent_profile?.rejection_comment ||
+        "Please review your account name and upload fresh business documents before resubmitting.";
+
+      items.push({
+        id: `agent-rejected-${account.id || index}`,
+        tone: "warning",
+        title: `${account.account_name || "Agent account"} needs changes`,
+        body: `Reason: ${rejectionReason}`,
+        action: "agent-account-resubmit",
+        actionLabel: "Open",
+        accountId: account.id,
+      });
+    });
 
   return items.slice(0, 6);
 }

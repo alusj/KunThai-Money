@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ACCOUNT_TYPE_OPTIONS } from "../../../Backend/utils/accountTypes";
 import { countryMap } from "../../../Backend/utils/countryMap";
@@ -7,17 +7,22 @@ import BackTab from "./Transactions/BackTab";
 export default function CreateAnotherAccountScreen({
   mainAccount,
   existingAccounts = [],
+  mode = "create",
+  editAccount = null,
+  rejectionReason = "",
   onBack,
   onCreate,
 }) {
-  const [accountType, setAccountType] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [locationMode, setLocationMode] = useState("manual");
-  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
-  const [locationCountry, setLocationCountry] = useState(mainAccount?.country || "");
-  const [locationCity, setLocationCity] = useState("");
-  const [locationAddress, setLocationAddress] = useState("");
-  const [nearbyDiscoveryEnabled, setNearbyDiscoveryEnabled] = useState(true);
+  const [accountType, setAccountType] = useState(editAccount?.account_type || "");
+  const [accountName, setAccountName] = useState(editAccount?.account_name || "");
+  const [locationMode, setLocationMode] = useState(editAccount?.location_mode || "manual");
+  const [useCurrentLocation, setUseCurrentLocation] = useState(Boolean(editAccount?.use_current_location));
+  const [locationCountry, setLocationCountry] = useState(editAccount?.location_country || mainAccount?.country || "");
+  const [locationCity, setLocationCity] = useState(editAccount?.location_city || "");
+  const [locationAddress, setLocationAddress] = useState(editAccount?.location_address || "");
+  const [nearbyDiscoveryEnabled, setNearbyDiscoveryEnabled] = useState(
+    editAccount?.nearby_discovery_enabled ?? true
+  );
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationLookupLoading, setLocationLookupLoading] = useState(false);
   const [locatedAddress, setLocatedAddress] = useState("");
@@ -25,15 +30,41 @@ export default function CreateAnotherAccountScreen({
   const [locatedCoordinates, setLocatedCoordinates] = useState(null);
   const [permissionState, setPermissionState] = useState("prompt");
   const [showLocationHelp, setShowLocationHelp] = useState(false);
-  const [requestedBusinessDocuments, setRequestedBusinessDocuments] = useState([]);
-  const [businessDocumentNote, setBusinessDocumentNote] = useState("");
+  const [requestedBusinessDocuments, setRequestedBusinessDocuments] = useState(
+    editAccount?.metadata?.agent_profile?.requested_business_documents || []
+  );
+  const [businessDocumentNote, setBusinessDocumentNote] = useState(
+    editAccount?.metadata?.agent_profile?.business_document_note || ""
+  );
   const [businessDocumentFiles, setBusinessDocumentFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const isEditMode = mode === "resubmit" && Boolean(editAccount?.id);
+  const isResubmittingRejectedAgent = isEditMode && editAccount?.account_type === "agent";
+
+  useEffect(() => {
+    setAccountType(editAccount?.account_type || "");
+    setAccountName(editAccount?.account_name || "");
+    setLocationMode(editAccount?.location_mode || "manual");
+    setUseCurrentLocation(Boolean(editAccount?.use_current_location));
+    setLocationCountry(editAccount?.location_country || mainAccount?.country || "");
+    setLocationCity(editAccount?.location_city || "");
+    setLocationAddress(editAccount?.location_address || "");
+    setNearbyDiscoveryEnabled(editAccount?.nearby_discovery_enabled ?? true);
+    setRequestedBusinessDocuments(editAccount?.metadata?.agent_profile?.requested_business_documents || []);
+    setBusinessDocumentNote(editAccount?.metadata?.agent_profile?.business_document_note || "");
+    setBusinessDocumentFiles([]);
+    setError("");
+  }, [editAccount, mainAccount?.country, mode]);
 
   const existingTypes = useMemo(
-    () => new Set(existingAccounts.map((account) => account.account_type)),
-    [existingAccounts]
+    () =>
+      new Set(
+        existingAccounts
+          .filter((account) => !isEditMode || account.id !== editAccount?.id)
+          .map((account) => account.account_type)
+      ),
+    [editAccount?.id, existingAccounts, isEditMode]
   );
 
   const availableOptions = useMemo(
@@ -41,7 +72,9 @@ export default function CreateAnotherAccountScreen({
     [existingTypes]
   );
 
-  const selectedOption = availableOptions.find((option) => option.value === accountType);
+  const selectedOption =
+    availableOptions.find((option) => option.value === accountType) ||
+    ACCOUNT_TYPE_OPTIONS.find((option) => option.value === accountType);
   const isAgentAccount = accountType === "agent";
   const locationIsDevice = locationMode === "device" || useCurrentLocation;
   const isIOS =
@@ -214,6 +247,11 @@ export default function CreateAnotherAccountScreen({
       return;
     }
 
+    if (isResubmittingRejectedAgent && !businessDocumentFiles.length) {
+      setError("Upload fresh business documents before resubmitting this agent account.");
+      return;
+    }
+
     if (!locationCountry.trim() || !locationCity.trim()) {
       setError("Enter at least country and city for account location");
       return;
@@ -223,6 +261,7 @@ export default function CreateAnotherAccountScreen({
 
     try {
       await onCreate({
+        id: editAccount?.id || null,
         account_type: accountType,
         account_name: accountName.trim(),
         location_mode: locationIsDevice ? "device" : "manual",
@@ -236,6 +275,7 @@ export default function CreateAnotherAccountScreen({
         requested_business_documents: isAgentAccount ? requestedBusinessDocuments : [],
         business_document_note: isAgentAccount ? businessDocumentNote.trim() : "",
         business_document_files: isAgentAccount ? businessDocumentFiles : [],
+        is_resubmission: isResubmittingRejectedAgent,
       });
     } catch (err) {
       const message = err.message?.toLowerCase?.() || "";
@@ -260,12 +300,14 @@ export default function CreateAnotherAccountScreen({
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
           <BackTab onBack={onBack} />
-          <div className="text-center">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Account Setup
-            </p>
-            <h1 className="mt-2 text-lg font-bold text-slate-950 md:text-xl">Create another account</h1>
-          </div>
+            <div className="text-center">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
+              {isEditMode ? "Agent Review Update" : "Account Setup"}
+              </p>
+            <h1 className="mt-2 text-lg font-bold text-slate-950 md:text-xl">
+              {isEditMode ? "Update agent account" : "Create another account"}
+            </h1>
+            </div>
           <div className="w-16" />
         </div>
       </div>
@@ -278,6 +320,12 @@ export default function CreateAnotherAccountScreen({
             </div>
           )}
 
+          {isResubmittingRejectedAgent && rejectionReason ? (
+            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span className="font-semibold">Admin reason:</span> {rejectionReason}
+            </div>
+          ) : null}
+
           <div className="grid gap-4">
             <label className="block">
               <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
@@ -285,13 +333,16 @@ export default function CreateAnotherAccountScreen({
               </span>
               <select
                 value={accountType}
+                disabled={isEditMode}
                 onChange={(event) => {
                   const nextType = event.target.value;
                   setAccountType(nextType);
                   const nextOption = availableOptions.find((option) => option.value === nextType);
                   setAccountName(nextOption?.label || "");
                 }}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                className={`mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white ${
+                  isEditMode ? "cursor-not-allowed bg-slate-100 text-slate-500" : "bg-slate-50"
+                }`}
               >
                 <option value="">Select an account type</option>
                 {availableOptions.map((option) => (
@@ -319,10 +370,12 @@ export default function CreateAnotherAccountScreen({
                 <div className="flex flex-col gap-2">
                   <div>
                     <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                      Optional Business Documents
+                      {isResubmittingRejectedAgent ? "Business Documents Required" : "Optional Business Documents"}
                     </p>
                     <p className="mt-2 text-sm text-amber-900">
-                      When someone opens an agent account, we can request supporting business documents, but keep them optional for a smoother setup.
+                      {isResubmittingRejectedAgent
+                        ? "This agent account was rejected. Upload fresh image or PDF business documents before sending it back for admin review."
+                        : "When someone opens an agent account, we can request supporting business documents, but keep them optional for a smoother setup."}
                     </p>
                   </div>
 
@@ -351,14 +404,18 @@ export default function CreateAnotherAccountScreen({
                       value={businessDocumentNote}
                       onChange={(event) => setBusinessDocumentNote(event.target.value)}
                       rows={3}
-                      placeholder="Optional note for the agent review team"
+                      placeholder={
+                        isResubmittingRejectedAgent
+                          ? "Explain what you updated for the admin review team"
+                          : "Optional note for the agent review team"
+                      }
                       className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
                     />
                   </label>
 
                   <label className="block">
                     <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                      Upload Business Documents
+                      Upload Business Documents {isResubmittingRejectedAgent ? "*" : ""}
                     </span>
                     <input
                       type="file"
@@ -367,6 +424,9 @@ export default function CreateAnotherAccountScreen({
                       onChange={handleBusinessDocumentChange}
                       className="mt-2 block w-full rounded-2xl border border-dashed border-amber-300 bg-white px-4 py-3 text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-amber-100 file:px-4 file:py-2 file:font-semibold file:text-amber-700"
                     />
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      Upload images or PDF files only. Each file must stay under 10MB.
+                    </p>
                     {!!businessDocumentFiles.length && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {businessDocumentFiles.map((file) => (
@@ -484,7 +544,13 @@ export default function CreateAnotherAccountScreen({
               saving ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
             }`}
           >
-            {saving ? "Creating account..." : "Create account"}
+            {saving
+              ? isEditMode
+                ? "Sending update..."
+                : "Creating account..."
+              : isEditMode
+                ? "Resubmit agent account"
+                : "Create account"}
           </button>
         </div>
       </div>

@@ -40,6 +40,7 @@ export default function Dashboard({
   onHideMainAccountNumber,
   onHideOtherAccount,
   onMoveOtherAccountToMain,
+  onEditRejectedAgent,
 }) {
   const { isDarkMode } = useAppearance();
   const [activeService, setActiveService] = useState(() => {
@@ -97,6 +98,7 @@ export default function Dashboard({
                 refreshAccount={refreshAccount}
                 onHideAccountFromDashboard={onHideOtherAccount}
                 onMoveAccountToMain={onMoveOtherAccountToMain}
+                onEditRejectedAgent={onEditRejectedAgent}
               />
               <ServicesContainer setActiveService={setActiveService} />
             </>

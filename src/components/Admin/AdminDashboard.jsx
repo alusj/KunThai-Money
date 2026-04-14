@@ -402,6 +402,11 @@ function ReviewCard({ item, onApprove, onReject }) {
 function AgentReviewCard({ item, onApprove, onReject }) {
   const displayStatus = formatReviewStatusLabel(item.agentReviewStatus);
   const [documentPreviews, setDocumentPreviews] = useState([]);
+  const [rejectionComment, setRejectionComment] = useState(item.rejectionReason || "");
+
+  useEffect(() => {
+    setRejectionComment(item.rejectionReason || "");
+  }, [item.rejectionReason, item.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -498,6 +503,21 @@ function AgentReviewCard({ item, onApprove, onReject }) {
               {item.businessDocumentNote || "No note added"}
             </p>
           </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Rejection Reason For User
+            </p>
+            <textarea
+              value={rejectionComment}
+              onChange={(event) => setRejectionComment(event.target.value)}
+              rows={4}
+              placeholder="Explain what must be corrected before this agent account can be approved."
+              className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+            />
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              This message will appear on the user's dashboard and inside their notification center if you reject the request.
+            </p>
+          </div>
         </div>
 
         <div className="rounded-[24px] border border-slate-200 bg-white p-4">
@@ -564,7 +584,7 @@ function AgentReviewCard({ item, onApprove, onReject }) {
         </button>
         <button
           type="button"
-          onClick={() => onReject(item)}
+          onClick={() => onReject(item, rejectionComment)}
           className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
         >
           <XCircle size={16} />
@@ -667,9 +687,20 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAgentStatusChange = async (item, nextStatus) => {
+  const handleAgentStatusChange = async (item, nextStatus, comment = "") => {
     try {
-      await updateAgentAccountStatus({ accountId: item.id, status: nextStatus });
+      const trimmedComment = comment.trim();
+
+      if (nextStatus === "rejected" && !trimmedComment) {
+        setError("Add a rejection reason before rejecting an agent account.");
+        return;
+      }
+
+      await updateAgentAccountStatus({
+        accountId: item.id,
+        status: nextStatus,
+        comment: trimmedComment,
+      });
       await createAdminNotification({
         title:
           nextStatus === "approved"
@@ -678,7 +709,7 @@ export default function AdminDashboard() {
         body:
           nextStatus === "approved"
             ? `Your ${item.account_name || "agent"} account has been approved by the admin team and is now ready to use.`
-            : `Your ${item.account_name || "agent"} account request was rejected by the admin team. Please review your business documents and try again.`,
+            : `Your ${item.account_name || "agent"} account request was rejected by the admin team. Reason: ${trimmedComment}. Please update your account details and upload fresh business documents before resubmitting.`,
         audienceType: "single_user",
         targetUserId: item.user_id,
         tone: nextStatus === "approved" ? "success" : "warning",
@@ -893,7 +924,7 @@ export default function AdminDashboard() {
                   key={item.id}
                   item={item}
                   onApprove={() => handleAgentStatusChange(item, "approved")}
-                  onReject={() => handleAgentStatusChange(item, "rejected")}
+                  onReject={(_, comment) => handleAgentStatusChange(item, "rejected", comment)}
                 />
               ))
             )}

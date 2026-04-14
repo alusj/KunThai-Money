@@ -4,7 +4,11 @@ import { useNavigate } from "react-router-dom";
 import supabase from "../../Backend/lib/supabaseClient";
 import { useAuth } from "../../Backend/hooks/useAuth";
 import { useOnboardingStatus } from "../../Backend/hooks/useOnboardingStatus";
-import { createOtherAccount, getOtherAccounts } from "../../Backend/services/otherAccountService";
+import {
+  createOtherAccount,
+  getOtherAccounts,
+  resubmitAgentAccount,
+} from "../../Backend/services/otherAccountService";
 import { getUserAdminNotifications } from "../../Backend/services/adminNotificationService";
 import {
   cancelPaymentRequest,
@@ -108,6 +112,11 @@ export default function KunTaiHome() {
   const [outgoingPaymentRequests, setOutgoingPaymentRequests] = useState([]);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [otherAccounts, setOtherAccounts] = useState([]);
+  const [accountFormState, setAccountFormState] = useState({
+    mode: "create",
+    editAccount: null,
+    returnScreen: "profile",
+  });
   const [dismissedRequestIds, setDismissedRequestIds] = useState([]);
   const [adminMessages, setAdminMessages] = useState([]);
   const [dismissedAdminMessageIds, setDismissedAdminMessageIds] = useState([]);
@@ -145,6 +154,7 @@ export default function KunTaiHome() {
     status,
     paymentRequests,
     adminMessages,
+    otherAccounts,
   });
   const unseenNotificationCount = notifications.filter(
     (item) => !seenNotificationIds.includes(String(item.id))
@@ -164,6 +174,10 @@ export default function KunTaiHome() {
   const hiddenOtherAccounts = otherAccounts.filter((item) =>
     hiddenOtherAccountIds.includes(String(item.id))
   );
+  const rejectedAgentAccounts = otherAccounts.filter((item) => {
+    const reviewStatus = item?.metadata?.agent_profile?.review_status || item?.status || "pending";
+    return item?.account_type === "agent" && reviewStatus === "rejected";
+  });
   const hiddenDashboardItems = [];
 
   if (account?.account_number && isMainAccountNumberHidden) {
@@ -189,6 +203,27 @@ export default function KunTaiHome() {
     window.__kunthaiActionFeedbackTimer = window.setTimeout(() => {
       setActionFeedback(null);
     }, 4500);
+  };
+
+  const openAccountForm = ({ mode = "create", editAccount = null, returnScreen = "profile" } = {}) => {
+    setAccountFormState({
+      mode,
+      editAccount,
+      returnScreen,
+    });
+    setActiveScreen("create-account");
+  };
+
+  const openRejectedAgentResubmission = (agentAccount, returnScreen = "dashboard") => {
+    if (!agentAccount?.id) {
+      return;
+    }
+
+    openAccountForm({
+      mode: "resubmit",
+      editAccount: agentAccount,
+      returnScreen,
+    });
   };
 
   const fetchAccount = async () => {
@@ -710,6 +745,38 @@ export default function KunTaiHome() {
             </div>
           ) : null}
 
+          {rejectedAgentAccounts.length ? (
+            <div className="px-4 pt-4 md:px-8 lg:px-12">
+              <div className="rounded-[28px] border border-amber-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-amber-700">
+                      Agent account update needed
+                    </p>
+                    <h3 className="mt-3 text-2xl font-semibold text-slate-950">
+                      {rejectedAgentAccounts[0]?.account_name || "Agent account"} needs to be updated
+                    </h3>
+                    <p className="mt-4 text-sm leading-6 text-slate-600">
+                      {rejectedAgentAccounts[0]?.metadata?.agent_profile?.rejection_reason ||
+                        rejectedAgentAccounts[0]?.metadata?.agent_profile?.rejection_comment ||
+                        "The admin team asked for corrections before this account can be approved."}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openRejectedAgentResubmission(rejectedAgentAccounts[0], "dashboard")}
+                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <Dashboard
             account={accountLoading ? null : account}
             refreshAccount={refreshWalletData}
@@ -729,6 +796,9 @@ export default function KunTaiHome() {
                 `${otherAccount?.account_name || "This account"} is ready for a future move-to-main flow, but the transfer action is not connected yet.`,
                 "info"
               )
+            }
+            onEditRejectedAgent={(agentAccount) =>
+              openRejectedAgentResubmission(agentAccount, "dashboard")
             }
           />
         </>
@@ -758,6 +828,15 @@ export default function KunTaiHome() {
             if (action === "admin-message") {
               if (item.id) {
                 setDismissedAdminMessageIds((current) => [...new Set([...current, item.id])]);
+              }
+              return;
+            }
+
+            if (action === "agent-account-resubmit") {
+              const targetAccount = otherAccounts.find((accountItem) => accountItem.id === item.accountId);
+
+              if (targetAccount) {
+                openRejectedAgentResubmission(targetAccount, "notifications");
               }
               return;
             }
@@ -897,7 +976,7 @@ export default function KunTaiHome() {
           status={status}
           onBack={() => setActiveScreen("dashboard")}
           onOpenEditProfile={() => setActiveScreen("edit-profile")}
-          onOpenCreateAccount={() => setActiveScreen("create-account")}
+          onOpenCreateAccount={() => openAccountForm({ mode: "create", returnScreen: "profile" })}
           onOpenChangePin={() => openProtectedSecurityScreen("change-pin")}
           onOpenChangePassword={() => openProtectedSecurityScreen("change-password")}
           onOpenTransactions={() => setActiveScreen("transactions")}
@@ -969,10 +1048,40 @@ export default function KunTaiHome() {
         <CreateAnotherAccountScreen
           mainAccount={account}
           existingAccounts={otherAccounts}
-          onBack={() => setActiveScreen("profile")}
+          mode={accountFormState.mode}
+          editAccount={accountFormState.editAccount}
+          rejectionReason={
+            accountFormState.editAccount?.metadata?.agent_profile?.rejection_reason ||
+            accountFormState.editAccount?.metadata?.agent_profile?.rejection_comment ||
+            ""
+          }
+          onBack={() => {
+            const nextScreen = accountFormState.returnScreen || "profile";
+            setAccountFormState({
+              mode: "create",
+              editAccount: null,
+              returnScreen: "profile",
+            });
+            setActiveScreen(nextScreen);
+          }}
           onCreate={async (payload) => {
-            await createOtherAccount(payload);
+            if (accountFormState.mode === "resubmit" && accountFormState.editAccount?.id) {
+              await resubmitAgentAccount(accountFormState.editAccount.id, payload);
+              showActionFeedback(
+                "Agent account resubmitted",
+                "Your updated name and fresh business documents have been sent back to the admin team for review.",
+                "success"
+              );
+            } else {
+              await createOtherAccount(payload);
+            }
             await fetchOtherAccounts();
+            await fetchAdminMessages();
+            setAccountFormState({
+              mode: "create",
+              editAccount: null,
+              returnScreen: "profile",
+            });
             setActiveScreen("dashboard");
           }}
         />

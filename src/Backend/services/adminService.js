@@ -111,6 +111,7 @@ export async function getAdminAgentReviews() {
       profile,
       displayName: resolveRegisteredName(profile, null),
       agentReviewStatus: agentProfile.review_status || item.status || "pending",
+      rejectionReason: agentProfile.rejection_reason || agentProfile.rejection_comment || "",
       requestedBusinessDocuments: agentProfile.requested_business_documents || [],
       businessDocumentNote: agentProfile.business_document_note || "",
       businessDocumentFiles: (agentProfile.business_document_files || []).map((file, index) => ({
@@ -125,7 +126,7 @@ export async function getAdminAgentReviews() {
   });
 }
 
-export async function updateAgentAccountStatus({ accountId, status }) {
+export async function updateAgentAccountStatus({ accountId, status, comment = "" }) {
   const { data: existing, error: fetchError } = await supabase
     .from("kuntai_other_accounts")
     .select("id,metadata")
@@ -142,6 +143,9 @@ export async function updateAgentAccountStatus({ accountId, status }) {
       ...(existing.metadata?.agent_profile || {}),
       review_status: status,
       reviewed_at: new Date().toISOString(),
+      rejected_at: status === "rejected" ? new Date().toISOString() : null,
+      rejection_reason: status === "rejected" ? comment.trim() : "",
+      rejection_comment: status === "rejected" ? comment.trim() : "",
     },
   };
 

@@ -70,6 +70,7 @@ function OtherAccountCard({
   refreshAccount,
   onHideFromDashboard,
   onMoveToMain,
+  onEditRejectedAgent,
 }) {
   const { isDarkMode } = useAppearance();
   const [isConcealed, setIsConcealed] = useState(() =>
@@ -81,6 +82,12 @@ function OtherAccountCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const isForeignAccount = account.account_type === "foreign";
+  const agentReviewStatus = account?.metadata?.agent_profile?.review_status || account?.status || "pending";
+  const isRejectedAgent = account?.account_type === "agent" && agentReviewStatus === "rejected";
+  const rejectionReason =
+    account?.metadata?.agent_profile?.rejection_reason ||
+    account?.metadata?.agent_profile?.rejection_comment ||
+    "";
   const [activeForeignAction, setActiveForeignAction] = useState(null);
 
   useEffect(() => {
@@ -228,6 +235,28 @@ function OtherAccountCard({
         </div>
       </div>
 
+      {isRejectedAgent ? (
+        <div
+          className={`mt-4 rounded-2xl border px-4 py-3 ${
+            isDarkMode ? "border-amber-700/70 bg-amber-950/20 text-amber-100" : "border-amber-200 bg-amber-50 text-amber-900"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.18em]">Rejected by admin</p>
+          <p className="mt-2 text-sm leading-6">
+            {rejectionReason || "This account needs fresh business documents before it can be approved."}
+          </p>
+          <button
+            type="button"
+            onClick={() => onEditRejectedAgent?.(account)}
+            className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${
+              isDarkMode ? "bg-slate-100 text-slate-950 hover:bg-white" : "bg-slate-950 text-white hover:bg-slate-800"
+            }`}
+          >
+            Open
+          </button>
+        </div>
+      ) : null}
+
       {isForeignAccount && activeForeignAction ? (
         <BottomSheet
           isOpen={Boolean(activeForeignAction)}
@@ -276,6 +305,7 @@ export default function OtherAccountContainer({
   refreshAccount,
   onHideAccountFromDashboard,
   onMoveAccountToMain,
+  onEditRejectedAgent,
 }) {
   const { isDarkMode } = useAppearance();
 
@@ -305,6 +335,7 @@ export default function OtherAccountContainer({
             refreshAccount={refreshAccount}
             onHideFromDashboard={onHideAccountFromDashboard}
             onMoveToMain={onMoveAccountToMain}
+            onEditRejectedAgent={onEditRejectedAgent}
           />
         ))}
       </div>
