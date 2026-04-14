@@ -4,11 +4,23 @@
 import CashIn from "./CashIn/CashIn";
 import CashOut from "./CashOut/CashOut";
 
-export default function MainAccountAction({ account, user, profile, refreshAccount }) {
+export default function MainAccountAction({
+  account,
+  user,
+  profile,
+  refreshAccount,
+  otherAccounts = [],
+}) {
   return (
     <div className="grid w-full grid-cols-2 gap-3 md:flex md:w-auto md:flex-col md:gap-4">
       <CashIn account={account} user={user} />
-      <CashOut account={account} user={user} profile={profile} refreshAccount={refreshAccount} />
+      <CashOut
+        account={account}
+        user={user}
+        profile={profile}
+        refreshAccount={refreshAccount}
+        otherAccounts={otherAccounts}
+      />
     </div>
   );
 }

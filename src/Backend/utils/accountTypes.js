@@ -4,6 +4,7 @@ export const FOREIGN_ACCOUNT_TYPE = "foreign";
 export const AUTO_CREATED_ACCOUNT_TYPES = ["business", "transport"];
 
 export const MANUAL_OTHER_ACCOUNT_TYPES = [
+  "agent",
   "merchant",
   "airtime",
   "electricity",
@@ -24,6 +25,7 @@ export const MANUAL_OTHER_ACCOUNT_TYPES = [
 export const OTHER_ACCOUNT_TYPES = [...AUTO_CREATED_ACCOUNT_TYPES, ...MANUAL_OTHER_ACCOUNT_TYPES];
 
 export const ACCOUNT_TYPE_OPTIONS = [
+  { value: "agent", label: "Agent Account", currency: "local" },
   { value: "merchant", label: "Merchant Account", currency: "local" },
   { value: "airtime", label: "Airtime Account", currency: "local" },
   { value: "electricity", label: "Electricity Account", currency: "local" },

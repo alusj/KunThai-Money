@@ -19,6 +19,7 @@ import {
   createAccountTransfer,
   getAccountTransferRecipient,
 } from "../../../../../Backend/services/transferService";
+import { convertOwnAccounts } from "../../../../../Backend/services/walletConversionService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { normalizeCurrencyCode } from "../../../../../Backend/utils/currency";
 
@@ -96,6 +97,134 @@ function ReceiptRow({ label, value, emphasized = false }) {
   );
 }
 
+function formatExchangeNumber(value) {
+  const numericValue = Number(value || 0);
+  const absoluteValue = Math.abs(numericValue);
+
+  if (!Number.isFinite(numericValue)) {
+    return "0";
+  }
+
+  if (absoluteValue === 0) {
+    return "0";
+  }
+
+  if (absoluteValue >= 1) {
+    return numericValue.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  if (absoluteValue >= 0.1) {
+    return numericValue.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  }
+
+  return numericValue.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  });
+}
+
+function adjustLegacySierraLeoneRate(baseCurrency, quoteCurrency, rate) {
+  const numericRate = Number(rate);
+  const normalizedBase = normalizeCurrencyCode(baseCurrency);
+  const normalizedQuote = normalizeCurrencyCode(quoteCurrency);
+
+  if (!Number.isFinite(numericRate)) {
+    return null;
+  }
+
+  if (normalizedBase === "SLL" && normalizedQuote !== "SLL") {
+    return numericRate * 1000;
+  }
+
+  if (normalizedBase !== "SLL" && normalizedQuote === "SLL") {
+    return numericRate / 1000;
+  }
+
+  return numericRate;
+}
+
+async function fetchExchangeRate(baseCurrency, quoteCurrency) {
+  if (!baseCurrency || !quoteCurrency) {
+    throw new Error("Currency pair is incomplete.");
+  }
+
+  if (baseCurrency === quoteCurrency) {
+    return 1;
+  }
+
+  const directProviders = [
+    async () => {
+      const response = await fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`);
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      const rate = data?.rates?.[quoteCurrency] || null;
+      return adjustLegacySierraLeoneRate(baseCurrency, quoteCurrency, rate);
+    },
+    async () => {
+      const response = await fetch(
+        `https://api.frankfurter.app/latest?from=${baseCurrency}&to=${quoteCurrency}`
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      const rate = data?.rates?.[quoteCurrency] || null;
+      return adjustLegacySierraLeoneRate(baseCurrency, quoteCurrency, rate);
+    },
+  ];
+
+  for (const provider of directProviders) {
+    const rate = await provider();
+    if (rate) {
+      return Number(rate);
+    }
+  }
+
+  const reverseProviders = [
+    async () => {
+      const response = await fetch(`https://open.er-api.com/v6/latest/${quoteCurrency}`);
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      const reverseRate = data?.rates?.[baseCurrency] || null;
+      return reverseRate
+        ? adjustLegacySierraLeoneRate(baseCurrency, quoteCurrency, 1 / Number(reverseRate))
+        : null;
+    },
+    async () => {
+      const response = await fetch(
+        `https://api.frankfurter.app/latest?from=${quoteCurrency}&to=${baseCurrency}`
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const data = await response.json();
+      const reverseRate = data?.rates?.[baseCurrency] || null;
+      return reverseRate
+        ? adjustLegacySierraLeoneRate(baseCurrency, quoteCurrency, 1 / Number(reverseRate))
+        : null;
+    },
+  ];
+
+  for (const provider of reverseProviders) {
+    const rate = await provider();
+    if (rate) {
+      return Number(rate);
+    }
+  }
+
+  throw new Error("Live conversion rate is unavailable right now.");
+}
+
 function StatusBadge({ status }) {
   const tone =
     status === "completed"
@@ -135,14 +264,18 @@ export default function AccountNumber({
   initialValues = null,
   onTransferSuccess,
   backLabel = "Back",
+  conversionConfig = null,
 }) {
   const { isDarkMode } = useAppearance();
   const currency = normalizeCurrencyCode(account?.currency) || "SLL";
   const availableBalance = Number(account?.balance || 0);
+  const isConversionFlow = Boolean(conversionConfig?.targetAccount);
+  const targetCurrency = normalizeCurrencyCode(conversionConfig?.targetAccount?.currency) || currency;
   const [step, setStep] = useState("form");
   const [form, setForm] = useState(() => ({
     ...INITIAL_FORM,
-    accountNumber: initialValues?.accountNumber || "",
+    accountNumber:
+      conversionConfig?.targetAccount?.account_number || initialValues?.accountNumber || "",
     amount: initialValues?.amount ? String(initialValues.amount) : "",
     reason: initialValues?.reason || "",
   }));
@@ -153,6 +286,11 @@ export default function AccountNumber({
   const [pin, setPin] = useState("");
   const [recipientLookup, setRecipientLookup] = useState(null);
   const [receipt, setReceipt] = useState(null);
+  const [fxState, setFxState] = useState({
+    loading: false,
+    error: "",
+    rate: null,
+  });
   const ownerName =
     profile?.first_name || profile?.last_name
       ? [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(" ")
@@ -171,8 +309,34 @@ export default function AccountNumber({
   const transactionFee = 0;
   const taxAmount = 0;
   const totalAmount = Number.isFinite(numericAmount) && numericAmount > 0 ? Number(numericAmount.toFixed(2)) : 0;
+  const convertedAmountRaw =
+    isConversionFlow && fxState.rate && Number.isFinite(numericAmount) && numericAmount > 0
+      ? numericAmount * fxState.rate
+      : 0;
+  const convertedAmount =
+    isConversionFlow && convertedAmountRaw > 0
+      ? Number(convertedAmountRaw.toFixed(convertedAmountRaw >= 1 ? 2 : 6))
+      : 0;
+  const effectiveRecipientLookup = isConversionFlow
+    ? {
+        is_valid: true,
+        recipient_name:
+          conversionConfig?.targetAccount?.account_name ||
+          conversionConfig?.targetLabel ||
+          "Conversion destination",
+        recipient_profile_image: "",
+        recipient_account_number: conversionConfig?.targetAccount?.account_number || "",
+        message: "Your destination account is ready for conversion.",
+      }
+    : recipientLookup;
 
   useEffect(() => {
+    if (isConversionFlow) {
+      setRecipientLookup(null);
+      setIsCheckingRecipient(false);
+      return undefined;
+    }
+
     const trimmedAccountNumber = form.accountNumber.trim();
 
     if (!trimmedAccountNumber || trimmedAccountNumber.length < 8 || !account?.id) {
@@ -213,29 +377,75 @@ export default function AccountNumber({
       isActive = false;
       window.clearTimeout(timeoutId);
     };
-  }, [form.accountNumber, account?.id]);
+  }, [form.accountNumber, account?.id, isConversionFlow]);
+
+  useEffect(() => {
+    if (!isConversionFlow) {
+      setFxState({ loading: false, error: "", rate: null });
+      return undefined;
+    }
+
+    if (!currency || !targetCurrency) {
+      setFxState({ loading: false, error: "", rate: null });
+      return undefined;
+    }
+
+    if (currency === targetCurrency) {
+      setFxState({ loading: false, error: "", rate: 1 });
+      return undefined;
+    }
+
+    let isActive = true;
+
+    async function loadRate() {
+      setFxState({ loading: true, error: "", rate: null });
+
+      try {
+        const rate = await fetchExchangeRate(currency, targetCurrency);
+
+        if (isActive) {
+          setFxState({ loading: false, error: "", rate: Number(rate) });
+        }
+      } catch (rateError) {
+        if (isActive) {
+          setFxState({
+            loading: false,
+            error: rateError.message || "Live conversion rate is unavailable right now.",
+            rate: null,
+          });
+        }
+      }
+    }
+
+    loadRate();
+
+    return () => {
+      isActive = false;
+    };
+  }, [currency, isConversionFlow, targetCurrency]);
 
   const recipientStateIcon = useMemo(() => {
     if (isCheckingRecipient) {
       return <Loader2 size={18} className="animate-spin text-slate-400" />;
     }
 
-    if (recipientLookup?.is_valid) {
+    if (effectiveRecipientLookup?.is_valid) {
       return <CheckCircle2 size={18} className="text-emerald-600" />;
     }
 
-    if (recipientLookup && recipientLookup.is_valid === false) {
+    if (effectiveRecipientLookup && effectiveRecipientLookup.is_valid === false) {
       return <XCircle size={18} className="text-rose-600" />;
     }
 
     return null;
-  }, [isCheckingRecipient, recipientLookup]);
+  }, [effectiveRecipientLookup, isCheckingRecipient]);
 
   const canVerify =
-    Boolean(recipientLookup?.is_valid) &&
+    Boolean(effectiveRecipientLookup?.is_valid) &&
     Number.isFinite(numericAmount) &&
     numericAmount > 0 &&
-    numericAmount <= availableBalance;
+    numericAmount <= availableBalance &&
+    (!isConversionFlow || currency === targetCurrency || Boolean(fxState.rate));
 
   const handleChange = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -247,7 +457,7 @@ export default function AccountNumber({
   };
 
   const handleVerify = () => {
-    if (!recipientLookup?.is_valid) {
+    if (!effectiveRecipientLookup?.is_valid) {
       setError("Enter a valid recipient account number.");
       return;
     }
@@ -259,6 +469,11 @@ export default function AccountNumber({
 
     if (numericAmount > availableBalance) {
       setError("Amount exceeds your available balance.");
+      return;
+    }
+
+    if (isConversionFlow && currency !== targetCurrency && !fxState.rate) {
+      setError("Live conversion rate is not ready yet.");
       return;
     }
 
@@ -285,31 +500,54 @@ export default function AccountNumber({
     setError("");
 
     try {
-      const transfer = await createAccountTransfer({
-        sourceAccountId: account?.id,
-        recipientAccountNumber: form.accountNumber.trim(),
-        amount: numericAmount,
-        reason: form.reason.trim(),
-        pin,
-        metadata: {
-          flow: "dashboard_account_number_transfer",
-          sender_name: ownerName,
-          sender_profile_image: ownerProfileImage,
-          sender_account_number: account?.account_number || "",
-          recipient_name: recipientLookup?.recipient_name || form.accountNumber.trim(),
-          recipient_profile_image: recipientLookup?.recipient_profile_image || "",
-          recipient_account_number: form.accountNumber.trim(),
-        },
-      });
+      const transfer = isConversionFlow
+        ? await convertOwnAccounts({
+            sourceAccountId: account?.id,
+            targetAccountNumber: form.accountNumber.trim(),
+            amount: numericAmount,
+            convertedAmount: convertedAmount || numericAmount,
+            exchangeRate: fxState.rate || 1,
+            reason: form.reason.trim(),
+            pin,
+            metadata: {
+              flow: conversionConfig?.flow || "wallet_conversion",
+              sender_name: ownerName,
+              sender_profile_image: ownerProfileImage,
+              sender_account_number: account?.account_number || "",
+              recipient_name:
+                conversionConfig?.targetAccount?.account_name ||
+                effectiveRecipientLookup?.recipient_name ||
+                form.accountNumber.trim(),
+              recipient_account_number: form.accountNumber.trim(),
+              conversion_source_currency: currency,
+              conversion_target_currency: targetCurrency,
+            },
+          })
+        : await createAccountTransfer({
+            sourceAccountId: account?.id,
+            recipientAccountNumber: form.accountNumber.trim(),
+            amount: numericAmount,
+            reason: form.reason.trim(),
+            pin,
+            metadata: {
+              flow: "dashboard_account_number_transfer",
+              sender_name: ownerName,
+              sender_profile_image: ownerProfileImage,
+              sender_account_number: account?.account_number || "",
+              recipient_name: effectiveRecipientLookup?.recipient_name || form.accountNumber.trim(),
+              recipient_profile_image: effectiveRecipientLookup?.recipient_profile_image || "",
+              recipient_account_number: form.accountNumber.trim(),
+            },
+          });
 
       await refreshAccount?.();
       await onTransferSuccess?.(transfer);
 
       setReceipt({
         status: transfer?.status || "completed",
-        recipientName: transfer?.recipient_name || recipientLookup?.recipient_name || form.accountNumber.trim(),
-        recipientProfileImage: recipientLookup?.recipient_profile_image || "",
-        recipientAccountNumber: transfer?.recipient_account_number || form.accountNumber.trim(),
+        recipientName: transfer?.recipient_name || effectiveRecipientLookup?.recipient_name || form.accountNumber.trim(),
+        recipientProfileImage: effectiveRecipientLookup?.recipient_profile_image || "",
+        recipientAccountNumber: transfer?.recipient_account_number || transfer?.target_account_number || form.accountNumber.trim(),
         transactionId: transfer?.sender_transaction_id || transfer?.id || "Pending",
         referenceNumber: transfer?.reference_number || transfer?.id || "Pending",
         amount: Number(transfer?.amount ?? numericAmount),
@@ -320,6 +558,11 @@ export default function AccountNumber({
         createdAt: transfer?.completed_at || transfer?.created_at || new Date().toISOString(),
         senderAccountNumber: transfer?.source_account_number || account?.account_number || "Pending",
         paymentMethod: paymentMethodLabel(transfer?.source_account_type || account?.account_type),
+        convertedAmount: Number(transfer?.converted_amount ?? convertedAmount),
+        sourceCurrency: transfer?.source_currency || currency,
+        targetCurrency: transfer?.target_currency || targetCurrency,
+        exchangeRate: Number(transfer?.exchange_rate ?? fxState.rate ?? 1),
+        isConversion: isConversionFlow,
       });
       setPin("");
       setStep("receipt");
@@ -400,7 +643,8 @@ export default function AccountNumber({
     setStep("form");
     setForm({
       ...INITIAL_FORM,
-      accountNumber: initialValues?.accountNumber || "",
+      accountNumber:
+        conversionConfig?.targetAccount?.account_number || initialValues?.accountNumber || "",
       amount: initialValues?.amount ? String(initialValues.amount) : "",
       reason: initialValues?.reason || "",
     });
@@ -460,6 +704,12 @@ export default function AccountNumber({
             <div className="divide-y divide-slate-100">
               <ReceiptRow label="Transaction ID" value={receipt.transactionId} />
               <ReceiptRow label="Amount" value={formatCurrency(receipt.amount, currency)} />
+              {receipt.isConversion ? (
+                <ReceiptRow
+                  label="Converted Amount"
+                  value={`${receipt.targetCurrency} ${formatExchangeNumber(receipt.convertedAmount || 0)}`}
+                />
+              ) : null}
               <ReceiptRow label="Tax" value={formatCurrency(receipt.taxAmount, currency)} />
               <ReceiptRow label="Fee" value={formatCurrency(receipt.transactionFee, currency)} />
               <ReceiptRow label="Reason" value={receipt.reason} />
@@ -481,6 +731,12 @@ export default function AccountNumber({
                 }).format(new Date(receipt.createdAt))}
               />
               <ReceiptRow label="Sender Account" value={receipt.senderAccountNumber} />
+              {receipt.isConversion ? (
+                <ReceiptRow
+                  label="Exchange Rate"
+                  value={`1 ${receipt.sourceCurrency} = ${formatExchangeNumber(receipt.exchangeRate || 1)} ${receipt.targetCurrency}`}
+                />
+              ) : null}
               <ReceiptRow label="Reference Number" value={receipt.referenceNumber} />
               <ReceiptRow label="Payment Method" value={receipt.paymentMethod} />
             </div>
@@ -590,11 +846,11 @@ export default function AccountNumber({
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Recipient Details</p>
             <div className="mt-4 flex items-center gap-4">
               <RecipientAvatar
-                name={recipientLookup?.recipient_name || form.accountNumber.trim()}
-                image={recipientLookup?.recipient_profile_image}
+                name={effectiveRecipientLookup?.recipient_name || form.accountNumber.trim()}
+                image={effectiveRecipientLookup?.recipient_profile_image}
               />
               <div>
-                <p className="text-base font-semibold text-slate-950">{recipientLookup?.recipient_name}</p>
+                <p className="text-base font-semibold text-slate-950">{effectiveRecipientLookup?.recipient_name}</p>
                 <p className="mt-1 text-sm text-slate-500">{form.accountNumber.trim()}</p>
               </div>
             </div>
@@ -604,8 +860,24 @@ export default function AccountNumber({
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Transaction Details</p>
             <div className="mt-3 divide-y divide-slate-100">
               <ReceiptRow label="Amount" value={formatCurrency(numericAmount || 0, currency)} />
+              {isConversionFlow ? (
+                <ReceiptRow
+                  label="Converted Amount"
+                  value={`${targetCurrency} ${formatExchangeNumber(convertedAmount || 0)}`}
+                />
+              ) : null}
               <ReceiptRow label="Tax" value={formatCurrency(taxAmount, currency)} />
               <ReceiptRow label="Transaction Fee" value={formatCurrency(transactionFee, currency)} />
+              {isConversionFlow ? (
+                <ReceiptRow
+                  label="Exchange Rate"
+                  value={
+                    fxState.rate
+                      ? `1 ${currency} = ${formatExchangeNumber(fxState.rate)} ${targetCurrency}`
+                      : "Loading live rate"
+                  }
+                />
+              ) : null}
               <ReceiptRow label="Reason" value={form.reason.trim() || "No note added"} />
               <ReceiptRow label="TOTAL" value={formatCurrency(totalAmount, currency)} emphasized />
             </div>
@@ -658,10 +930,10 @@ export default function AccountNumber({
         </div>
       ) : null}
 
-      {recipientLookup?.is_valid ? (
+      {effectiveRecipientLookup?.is_valid && !isConversionFlow ? (
         <div className="mb-4">
           <ActionBanner tone="success" title="Recipient verified">
-            {recipientLookup.recipient_name} is ready to receive this transfer.
+            {effectiveRecipientLookup.recipient_name} is ready to receive this transfer.
           </ActionBanner>
         </div>
       ) : null}
@@ -679,15 +951,18 @@ export default function AccountNumber({
               value={form.accountNumber}
               onChange={(event) => handleChange("accountNumber", event.target.value.replace(/\D/g, "").slice(0, 16))}
               placeholder="Enter recipient account number"
-              className="w-full bg-transparent py-3 text-sm text-slate-900 outline-none"
+              disabled={isConversionFlow}
+              className="w-full bg-transparent py-3 text-sm text-slate-900 outline-none disabled:cursor-not-allowed disabled:text-slate-500"
             />
             {recipientStateIcon}
           </div>
-          <p className={`mt-2 text-xs ${recipientLookup?.is_valid ? "text-emerald-600" : recipientLookup ? "text-rose-600" : "text-slate-400"}`}>
-            {recipientLookup?.message || "We will validate the account number automatically."}
-          </p>
-          {recipientLookup?.is_valid ? (
-            <p className="mt-1 text-sm font-semibold text-slate-900">{recipientLookup.recipient_name}</p>
+          {!isConversionFlow ? (
+            <p className={`mt-2 text-xs ${effectiveRecipientLookup?.is_valid ? "text-emerald-600" : effectiveRecipientLookup ? "text-rose-600" : "text-slate-400"}`}>
+              {effectiveRecipientLookup?.message || "We will validate the account number automatically."}
+            </p>
+          ) : null}
+          {effectiveRecipientLookup?.is_valid && !isConversionFlow ? (
+            <p className="mt-1 text-sm font-semibold text-slate-900">{effectiveRecipientLookup.recipient_name}</p>
           ) : null}
         </label>
 
@@ -709,6 +984,27 @@ export default function AccountNumber({
             />
           </div>
         </label>
+
+        {isConversionFlow ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Converted Amount
+            </p>
+            <p className="mt-2 text-sm font-semibold text-slate-900">
+              {fxState.loading
+                ? "Loading live conversion..."
+                : fxState.rate
+                  ? `${targetCurrency} ${formatExchangeNumber(convertedAmount || 0)}`
+                  : "Conversion preview unavailable"}
+            </p>
+            <p className={`mt-2 text-xs ${fxState.error ? "text-rose-600" : "text-slate-500"}`}>
+              {fxState.error ||
+                (fxState.rate
+                  ? `Live rate: 1 ${currency} = ${formatExchangeNumber(fxState.rate)} ${targetCurrency}`
+                  : "We are fetching the latest conversion rate.")}
+            </p>
+          </div>
+        ) : null}
 
         <label className="block">
           <span className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Reason</span>

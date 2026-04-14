@@ -21,6 +21,7 @@ import {
   verifyBiometrics,
 } from "../../Backend/utils/biometricAuth";
 import { normalizeCurrencyRecord } from "../../Backend/utils/currency";
+import { getAccountTypeLabel } from "../../Backend/utils/accountTypes";
 import { formatCurrency } from "../../Backend/utils/formatCurrency";
 import { buildHeaderNotifications } from "../../Backend/utils/headerNotifications";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
@@ -43,6 +44,8 @@ import ActionBanner from "../feedback/ActionBanner";
 const HOME_SCREEN_KEY = "kuntai-home-active-screen";
 const SEEN_NOTIFICATION_IDS_KEY = "kuntai-seen-notification-ids";
 const SEEN_TRANSACTION_IDS_KEY = "kuntai-seen-transaction-ids";
+const DASHBOARD_ACCOUNT_NUMBER_HIDDEN_KEY = "kuntai-dashboard-account-number-hidden";
+const DASHBOARD_HIDDEN_OTHER_ACCOUNT_IDS_KEY = "kuntai-dashboard-hidden-other-account-ids";
 const PERSISTED_HOME_SCREENS = new Set([
   "dashboard",
   "profile",
@@ -67,6 +70,14 @@ function readStoredIds(key) {
   } catch {
     return [];
   }
+}
+
+function persistStoredIds(key, values) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(key, JSON.stringify(values));
 }
 
 function withImageVersion(url) {
@@ -108,6 +119,16 @@ export default function KunTaiHome() {
   const [seenTransactionIds, setSeenTransactionIds] = useState(() =>
     readStoredIds(SEEN_TRANSACTION_IDS_KEY)
   );
+  const [isMainAccountNumberHidden, setIsMainAccountNumberHidden] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.localStorage.getItem(DASHBOARD_ACCOUNT_NUMBER_HIDDEN_KEY) === "true";
+  });
+  const [hiddenOtherAccountIds, setHiddenOtherAccountIds] = useState(() =>
+    readStoredIds(DASHBOARD_HIDDEN_OTHER_ACCOUNT_IDS_KEY)
+  );
   const [actionFeedback, setActionFeedback] = useState(null);
   const [paymentRequestFeedback, setPaymentRequestFeedback] = useState(null);
   const [biometricState, setBiometricState] = useState({
@@ -139,6 +160,37 @@ export default function KunTaiHome() {
   const activeAdminPopupMessage = adminMessages.find(
     (message) => message.is_popup && !dismissedAdminMessageIds.includes(message.id)
   );
+  const visibleOtherAccounts = otherAccounts.filter(
+    (item) => !hiddenOtherAccountIds.includes(String(item.id))
+  );
+  const hiddenOtherAccounts = otherAccounts.filter((item) =>
+    hiddenOtherAccountIds.includes(String(item.id))
+  );
+  const hiddenDashboardItems = [];
+
+  if (account?.account_number && isMainAccountNumberHidden) {
+    hiddenDashboardItems.push({
+      key: "main-account-number",
+      title: "Main Account Number",
+      description: account.account_number,
+      onShow: () => setIsMainAccountNumberHidden(false),
+    });
+  }
+
+  hiddenOtherAccounts.forEach((item) => {
+    hiddenDashboardItems.push({
+      key: `other-account-${item.id}`,
+      title: item.account_name || getAccountTypeLabel(item.account_type),
+      description: `${item.account_number || "Account number pending"} • ${formatCurrency(
+        item.balance || 0,
+        item.currency || "USD"
+      )}`,
+      onShow: () =>
+        setHiddenOtherAccountIds((current) =>
+          current.filter((hiddenId) => hiddenId !== String(item.id))
+        ),
+    });
+  });
 
   const updateBiometricBanner = (messageTitle, message, messageTone = "info") => {
     setBiometricState((current) => ({
@@ -486,6 +538,21 @@ export default function KunTaiHome() {
   }, [seenTransactionIds]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      DASHBOARD_ACCOUNT_NUMBER_HIDDEN_KEY,
+      String(isMainAccountNumberHidden)
+    );
+  }, [isMainAccountNumberHidden]);
+
+  useEffect(() => {
+    persistStoredIds(DASHBOARD_HIDDEN_OTHER_ACCOUNT_IDS_KEY, hiddenOtherAccountIds);
+  }, [hiddenOtherAccountIds]);
+
+  useEffect(() => {
     if (activeScreen === "notifications" && notifications.length) {
       setSeenNotificationIds((current) => [
         ...new Set([...current, ...notifications.map((item) => String(item.id))]),
@@ -664,9 +731,23 @@ export default function KunTaiHome() {
           <Dashboard
             account={accountLoading ? null : account}
             refreshAccount={refreshWalletData}
-            otherAccounts={otherAccounts}
+            otherAccounts={visibleOtherAccounts}
             user={user}
             profile={profile}
+            isMainAccountNumberHidden={isMainAccountNumberHidden}
+            onHideMainAccountNumber={() => setIsMainAccountNumberHidden(true)}
+            onHideOtherAccount={(accountId) =>
+              setHiddenOtherAccountIds((current) => [
+                ...new Set([...current, String(accountId)]),
+              ])
+            }
+            onMoveOtherAccountToMain={(otherAccount) =>
+              showActionFeedback(
+                "Move to main coming soon",
+                `${otherAccount?.account_name || "This account"} is ready for a future move-to-main flow, but the transfer action is not connected yet.`,
+                "info"
+              )
+            }
           />
         </>
       )}
@@ -848,6 +929,7 @@ export default function KunTaiHome() {
           onToggleBiometrics={handleToggleBiometrics}
           appearance={{ isDarkMode }}
           onToggleAppearance={toggleTheme}
+          hiddenDashboardItems={hiddenDashboardItems}
         />
       )}
 

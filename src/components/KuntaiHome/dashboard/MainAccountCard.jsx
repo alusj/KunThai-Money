@@ -9,7 +9,7 @@ import MainAccountContainer from "./MainAccountContainer/MainAccountContainer";
 import MainAccountAction from "./MainAccountAction/MainAccountAction";
 import { useAppearance } from "../../AppearanceProvider";
 
-export default function MainAccountCard({ account, user, profile, refreshAccount }) {
+export default function MainAccountCard({ account, user, profile, refreshAccount, otherAccounts = [] }) {
   const { isDarkMode } = useAppearance();
 
   return (
@@ -38,6 +38,7 @@ export default function MainAccountCard({ account, user, profile, refreshAccount
               user={user}
               profile={profile}
               refreshAccount={refreshAccount}
+              otherAccounts={otherAccounts}
             />
           </div>
         </div>

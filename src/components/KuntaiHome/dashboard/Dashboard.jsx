@@ -30,7 +30,17 @@ import { useAppearance } from "../../AppearanceProvider";
 
 const DASHBOARD_SERVICE_KEY = "kuntai-dashboard-active-service";
 
-export default function Dashboard({ account, refreshAccount, otherAccounts = [], user, profile }) {
+export default function Dashboard({
+  account,
+  refreshAccount,
+  otherAccounts = [],
+  user,
+  profile,
+  isMainAccountNumberHidden = false,
+  onHideMainAccountNumber,
+  onHideOtherAccount,
+  onMoveOtherAccountToMain,
+}) {
   const { isDarkMode } = useAppearance();
   const [activeService, setActiveService] = useState(() => {
     if (typeof window === "undefined") {
@@ -71,9 +81,23 @@ export default function Dashboard({ account, refreshAccount, otherAccounts = [],
                 user={user}
                 profile={profile}
                 refreshAccount={refreshAccount}
+                otherAccounts={otherAccounts}
               />
-              <MainAccountNumber account={account} />
-              <OtherAccountContainer accounts={otherAccounts} />
+              {!isMainAccountNumberHidden && (
+                <MainAccountNumber
+                  account={account}
+                  onRemoveFromDashboard={onHideMainAccountNumber}
+                />
+              )}
+              <OtherAccountContainer
+                accounts={otherAccounts}
+                mainAccount={account}
+                user={user}
+                profile={profile}
+                refreshAccount={refreshAccount}
+                onHideAccountFromDashboard={onHideOtherAccount}
+                onMoveAccountToMain={onMoveOtherAccountToMain}
+              />
               <ServicesContainer setActiveService={setActiveService} />
             </>
           )}

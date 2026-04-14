@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock3, RefreshCw, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 
-import { getAdminKycReviews, getSignedKycDocument, updateKycStatus } from "../../Backend/services/adminService";
+import {
+  getAdminAgentReviews,
+  getAdminKycReviews,
+  getSignedKycDocument,
+  getSignedStoredDocument,
+  updateAgentAccountStatus,
+  updateKycStatus,
+} from "../../Backend/services/adminService";
 import {
   archiveAdminNotification,
   createAdminNotification,
@@ -32,6 +39,14 @@ function statusTone(status) {
   }
 
   return "bg-amber-100 text-amber-700";
+}
+
+function formatReviewStatusLabel(status) {
+  if (status === "active") {
+    return "approved";
+  }
+
+  return status || "pending";
 }
 
 function KycNotificationCard({ count }) {
@@ -254,7 +269,7 @@ function SentNotifications({ items, onArchive, busyId }) {
                   <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
                   <p className="mt-3 text-xs text-slate-500">
                     {formatAdminDate(item.created_at)}
-                    {item.target_user_id ? ` • User ${item.target_user_id}` : ""}
+                    {item.target_user_id ? ` â€¢ User ${item.target_user_id}` : ""}
                   </p>
                 </div>
 
@@ -384,8 +399,185 @@ function ReviewCard({ item, onApprove, onReject }) {
   );
 }
 
+function AgentReviewCard({ item, onApprove, onReject }) {
+  const displayStatus = formatReviewStatusLabel(item.agentReviewStatus);
+  const [documentPreviews, setDocumentPreviews] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDocuments = async () => {
+      if (!item.businessDocumentFiles.length) {
+        setDocumentPreviews([]);
+        return;
+      }
+
+      const previews = await Promise.all(
+        item.businessDocumentFiles.map(async (file, index) => {
+          if (!file.path) {
+            return {
+              ...file,
+              id: file.id || `agent-document-${index}`,
+              signedUrl: null,
+            };
+          }
+
+          try {
+            const signedUrl = await getSignedStoredDocument({
+              bucket: file.bucket || "kyc",
+              path: file.path,
+            });
+
+            return {
+              ...file,
+              id: file.id || file.path || `agent-document-${index}`,
+              signedUrl,
+            };
+          } catch {
+            return {
+              ...file,
+              id: file.id || file.path || `agent-document-${index}`,
+              signedUrl: null,
+            };
+          }
+        })
+      );
+
+      if (isMounted) {
+        setDocumentPreviews(previews);
+      }
+    };
+
+    loadDocuments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [item.businessDocumentFiles]);
+
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-xl font-semibold text-slate-950">
+              {item.account_name || "Agent Account"}
+            </h3>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusTone(displayStatus)}`}>
+              {displayStatus}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-slate-500">
+            {item.displayName || "Unknown user"} â€¢ {item.profile?.phone || "No phone found"}
+          </p>
+        </div>
+
+        <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <Clock3 size={14} />
+          {formatAdminDate(item.updated_at || item.created_at)}
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Account Number</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.account_number || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Business Documents Requested</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.requestedBusinessDocuments.length
+                ? item.requestedBusinessDocuments.join(", ")
+                : "No optional document was selected"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Admin Note</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.businessDocumentNote || "No note added"}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Uploaded Business Documents</p>
+          {documentPreviews.length ? (
+            <div className="mt-3 space-y-3">
+              {documentPreviews.map((file, index) => (
+                <div key={file.id || `${file.name || "file"}-${index}`} className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-950">{file.name || `Document ${index + 1}`}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {file.type || "Unknown type"}
+                    {file.size ? ` • ${Math.max(1, Math.round(file.size / 1024))} KB` : ""}
+                  </p>
+                  {file.signedUrl ? (
+                    <div className="mt-3 overflow-hidden rounded-[16px] border border-slate-200 bg-white">
+                      {String(file.type || "").toLowerCase() === "application/pdf" ? (
+                        <iframe
+                          src={file.signedUrl}
+                          title={file.name || `Document ${index + 1}`}
+                          className="h-72 w-full"
+                        />
+                      ) : (
+                        <img
+                          src={file.signedUrl}
+                          alt={file.name || `Document ${index + 1}`}
+                          className="h-72 w-full object-contain"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-[16px] border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-500">
+                      Preview unavailable for this document.
+                    </div>
+                  )}
+                  {file.signedUrl ? (
+                    <a
+                      href={file.signedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Open document
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 flex h-40 items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+              No uploaded business documents
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => onApprove(item)}
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+        >
+          <CheckCircle2 size={16} />
+          <span>Approve</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(item)}
+          className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+        >
+          <XCircle size={16} />
+          <span>Reject</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [items, setItems] = useState([]);
+  const [agentItems, setAgentItems] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -406,11 +598,13 @@ export default function AdminDashboard() {
     setError("");
 
     try {
-      const [data, notifications] = await Promise.all([
+      const [data, agentReviews, notifications] = await Promise.all([
         getAdminKycReviews(),
+        getAdminAgentReviews(),
         getAdminNotifications({ status: "active", limit: 8 }),
       ]);
       setItems(data);
+      setAgentItems(agentReviews);
       setAdminNotifications(notifications);
     } catch (err) {
       setError(err.message || "Admin KYC review could not be loaded.");
@@ -448,6 +642,21 @@ export default function AdminDashboard() {
 
     return items.filter((item) => item.kyc_status === activeFilter);
   }, [activeFilter, items]);
+  const pendingAgentCount = useMemo(
+    () =>
+      agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "pending").length,
+    [agentItems]
+  );
+  const approvedAgentCount = useMemo(
+    () =>
+      agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "approved").length,
+    [agentItems]
+  );
+  const rejectedAgentCount = useMemo(
+    () =>
+      agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "rejected").length,
+    [agentItems]
+  );
 
   const handleStatusChange = async (item, nextStatus) => {
     try {
@@ -455,6 +664,29 @@ export default function AdminDashboard() {
       await load();
     } catch (err) {
       setError(err.message || "KYC status could not be updated.");
+    }
+  };
+
+  const handleAgentStatusChange = async (item, nextStatus) => {
+    try {
+      await updateAgentAccountStatus({ accountId: item.id, status: nextStatus });
+      await createAdminNotification({
+        title:
+          nextStatus === "approved"
+            ? "Agent account approved"
+            : "Agent account needs attention",
+        body:
+          nextStatus === "approved"
+            ? `Your ${item.account_name || "agent"} account has been approved by the admin team and is now ready to use.`
+            : `Your ${item.account_name || "agent"} account request was rejected by the admin team. Please review your business documents and try again.`,
+        audienceType: "single_user",
+        targetUserId: item.user_id,
+        tone: nextStatus === "approved" ? "success" : "warning",
+        isPopup: true,
+      });
+      await load();
+    } catch (err) {
+      setError(err.message || "Agent account status could not be updated.");
     }
   };
 
@@ -564,6 +796,12 @@ export default function AdminDashboard() {
           <MetricCard label="Rejected Accounts" value={rejectedCount} tone="rose" />
         </div>
 
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <MetricCard label="Pending Agent Reviews" value={pendingAgentCount} tone="amber" />
+          <MetricCard label="Approved Agent Accounts" value={approvedAgentCount} tone="emerald" />
+          <MetricCard label="Rejected Agent Accounts" value={rejectedAgentCount} tone="rose" />
+        </div>
+
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <NotificationComposer
             form={notificationForm}
@@ -624,7 +862,45 @@ export default function AdminDashboard() {
             ))
           )}
         </div>
+
+        <div className="mt-10">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Agent Verification
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                Review agent account requests
+              </h2>
+            </div>
+            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {pendingAgentCount} pending
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {loading ? (
+              Array.from({ length: 2 }).map((_, index) => (
+                <div key={`agent-skeleton-${index}`} className="h-56 animate-pulse rounded-[28px] bg-slate-100" />
+              ))
+            ) : agentItems.length === 0 ? (
+              <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center">
+                <p className="text-lg font-semibold text-slate-950">No agent account requests found.</p>
+              </div>
+            ) : (
+              agentItems.map((item) => (
+                <AgentReviewCard
+                  key={item.id}
+                  item={item}
+                  onApprove={() => handleAgentStatusChange(item, "approved")}
+                  onReject={() => handleAgentStatusChange(item, "rejected")}
+                />
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+

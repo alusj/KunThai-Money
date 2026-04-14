@@ -25,6 +25,9 @@ export default function CreateAnotherAccountScreen({
   const [locatedCoordinates, setLocatedCoordinates] = useState(null);
   const [permissionState, setPermissionState] = useState("prompt");
   const [showLocationHelp, setShowLocationHelp] = useState(false);
+  const [requestedBusinessDocuments, setRequestedBusinessDocuments] = useState([]);
+  const [businessDocumentNote, setBusinessDocumentNote] = useState("");
+  const [businessDocumentFiles, setBusinessDocumentFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,6 +42,7 @@ export default function CreateAnotherAccountScreen({
   );
 
   const selectedOption = availableOptions.find((option) => option.value === accountType);
+  const isAgentAccount = accountType === "agent";
   const locationIsDevice = locationMode === "device" || useCurrentLocation;
   const isIOS =
     typeof navigator !== "undefined" &&
@@ -159,6 +163,44 @@ export default function CreateAnotherAccountScreen({
     setShowLocationPrompt(false);
   };
 
+  const agentDocumentOptions = [
+    "Business registration certificate",
+    "Business license",
+    "Tax identification",
+    "Proof of business address",
+  ];
+
+  const toggleRequestedDocument = (documentName) => {
+    setRequestedBusinessDocuments((current) =>
+      current.includes(documentName)
+        ? current.filter((item) => item !== documentName)
+        : [...current, documentName]
+    );
+  };
+
+  const handleBusinessDocumentChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    const invalidFile = files.find((file) => {
+      const type = String(file.type || "").toLowerCase();
+      return !(type === "application/pdf" || type.startsWith("image/"));
+    });
+
+    if (invalidFile) {
+      setError("Business documents must be image files or PDF files only.");
+      return;
+    }
+
+    const oversizedFile = files.find((file) => file.size > 10 * 1024 * 1024);
+
+    if (oversizedFile) {
+      setError("Each business document must be smaller than 10MB.");
+      return;
+    }
+
+    setError("");
+    setBusinessDocumentFiles(files);
+  };
+
   const handleSubmit = async () => {
     setError("");
 
@@ -191,6 +233,9 @@ export default function CreateAnotherAccountScreen({
         latitude: locationIsDevice ? locatedCoordinates?.latitude || null : null,
         longitude: locationIsDevice ? locatedCoordinates?.longitude || null : null,
         nearby_discovery_enabled: nearbyDiscoveryEnabled,
+        requested_business_documents: isAgentAccount ? requestedBusinessDocuments : [],
+        business_document_note: isAgentAccount ? businessDocumentNote.trim() : "",
+        business_document_files: isAgentAccount ? businessDocumentFiles : [],
       });
     } catch (err) {
       const message = err.message?.toLowerCase?.() || "";
@@ -268,6 +313,76 @@ export default function CreateAnotherAccountScreen({
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
               />
             </label>
+
+            {isAgentAccount && (
+              <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4">
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-amber-700">
+                      Optional Business Documents
+                    </p>
+                    <p className="mt-2 text-sm text-amber-900">
+                      When someone opens an agent account, we can request supporting business documents, but keep them optional for a smoother setup.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 pt-1 sm:grid-cols-2">
+                    {agentDocumentOptions.map((documentName) => (
+                      <label
+                        key={documentName}
+                        className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-white/80 px-4 py-3 text-sm text-slate-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={requestedBusinessDocuments.includes(documentName)}
+                          onChange={() => toggleRequestedDocument(documentName)}
+                          className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span>{documentName}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <label className="block">
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      Business Document Note
+                    </span>
+                    <textarea
+                      value={businessDocumentNote}
+                      onChange={(event) => setBusinessDocumentNote(event.target.value)}
+                      rows={3}
+                      placeholder="Optional note for the agent review team"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      Upload Business Documents
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,image/*"
+                      multiple
+                      onChange={handleBusinessDocumentChange}
+                      className="mt-2 block w-full rounded-2xl border border-dashed border-amber-300 bg-white px-4 py-3 text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-amber-100 file:px-4 file:py-2 file:font-semibold file:text-amber-700"
+                    />
+                    {!!businessDocumentFiles.length && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {businessDocumentFiles.map((file) => (
+                          <span
+                            key={`${file.name}-${file.size}`}
+                            className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800"
+                          >
+                            {file.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
