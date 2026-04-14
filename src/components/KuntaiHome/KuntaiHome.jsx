@@ -25,6 +25,7 @@ import {
   verifyBiometrics,
 } from "../../Backend/utils/biometricAuth";
 import { normalizeCurrencyRecord } from "../../Backend/utils/currency";
+import { formatCurrency } from "../../Backend/utils/formatCurrency";
 import { buildHeaderNotifications } from "../../Backend/utils/headerNotifications";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";

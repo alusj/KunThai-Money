@@ -803,7 +803,7 @@ export default function AccountNumber({
               setError("");
             }}
             placeholder="Enter 6-digit PIN"
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[16px] text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
           />
         </label>
 
@@ -952,7 +952,7 @@ export default function AccountNumber({
               onChange={(event) => handleChange("accountNumber", event.target.value.replace(/\D/g, "").slice(0, 16))}
               placeholder="Enter recipient account number"
               disabled={isConversionFlow}
-              className="w-full bg-transparent py-3 text-sm text-slate-900 outline-none disabled:cursor-not-allowed disabled:text-slate-500"
+            className="w-full bg-transparent py-3 text-[16px] text-slate-900 outline-none disabled:cursor-not-allowed disabled:text-slate-500"
             />
             {recipientStateIcon}
           </div>
@@ -972,7 +972,7 @@ export default function AccountNumber({
             Amount
           </span>
           <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-4">
-            <span className="text-sm font-semibold text-slate-500">{currency}</span>
+            <span className="text-[16px] font-semibold text-slate-500">{currency}</span>
             <input
               type="number"
               min="0.01"
@@ -980,7 +980,7 @@ export default function AccountNumber({
               value={form.amount}
               onChange={(event) => handleChange("amount", event.target.value)}
               placeholder="0.00"
-              className="w-full bg-transparent px-3 py-3 text-sm text-slate-900 outline-none"
+              className="w-full bg-transparent px-3 py-3 text-[16px] text-slate-900 outline-none"
             />
           </div>
         </label>
@@ -1013,7 +1013,7 @@ export default function AccountNumber({
             value={form.reason}
             onChange={(event) => handleChange("reason", event.target.value)}
             placeholder="Optional note for this transfer"
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[16px] text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
           />
         </label>
 

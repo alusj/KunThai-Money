@@ -9,6 +9,7 @@ import {
   FileText,
   Fingerprint,
   Globe,
+  Landmark,
   LockKeyhole,
   LogOut,
   MessageCircle,
@@ -99,21 +100,28 @@ function MenuDivider() {
   return <div className="ml-[4.6rem] h-px bg-slate-200" />;
 }
 
-function MenuScreenHeader({ title, onBack }) {
+function MenuScreenHeader({ title, onBack, icon: Icon = Landmark }) {
   return (
-    <div className="mb-4 flex items-center gap-4 px-2">
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
-        aria-label={`Back from ${title}`}
-      >
-        <ChevronLeft size={22} />
-      </button>
-      <div className="min-w-0 flex-1 text-center">
-        <h3 className="text-2xl font-bold text-slate-950">{title}</h3>
+    <div className="mb-6">
+      <div className="flex items-center gap-4 px-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
+          aria-label={`Back from ${title}`}
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          <h3 className="text-2xl font-bold text-slate-950">{title}</h3>
+        </div>
+        <div className="w-11" />
       </div>
-      <div className="w-11" />
+      <div className="mt-5 flex justify-center">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm">
+          <Icon size={26} />
+        </span>
+      </div>
     </div>
   );
 }
@@ -282,12 +290,13 @@ export default function ProfileScreen({
       title: "Other Accounts",
     });
   }
+  const activeMenuItem = menuCards.find((item) => item.key === activeMenu);
 
   const renderMenuContent = () => {
     if (activeMenu === "security") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Security" onBack={() => setActiveMenu(null)} />
+          <MenuScreenHeader title="Security" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Shield} />
           {biometrics?.message ? (
             <div className="mb-4">
               <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
@@ -320,7 +329,7 @@ export default function ProfileScreen({
     if (activeMenu === "notifications") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Notifications" onBack={() => setActiveMenu(null)} />
+          <MenuScreenHeader title="Notifications" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Bell} />
           <MenuGroup>
             <MenuItem
               icon={Bell}
@@ -388,7 +397,7 @@ export default function ProfileScreen({
     if (activeMenu === "settings") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Settings" onBack={() => setActiveMenu(null)} />
+          <MenuScreenHeader title="Settings" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Monitor} />
           <MenuGroup>
             <MenuItem
               icon={Palette}
@@ -418,7 +427,7 @@ export default function ProfileScreen({
     if (activeMenu === "other-accounts") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Other Accounts" onBack={() => setActiveMenu(null)} />
+          <MenuScreenHeader title="Other Accounts" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Wallet} />
           {hiddenOtherAccounts.length ? (
             <MenuGroup>
               {hiddenOtherAccounts.map((item, index) => (
@@ -461,7 +470,7 @@ export default function ProfileScreen({
     if (activeMenu === "terms") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Terms & Conditions" onBack={() => setActiveMenu(null)} />
+          <MenuScreenHeader title="Terms & Conditions" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || FileText} />
           <MenuGroup>
             <MenuItem icon={FileText} title="Privacy policy" onClick={onOpenTerms} />
             <MenuDivider />
@@ -478,7 +487,7 @@ export default function ProfileScreen({
     if (activeMenu === "help") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Help" onBack={() => setActiveMenu(null)} />
+          <MenuScreenHeader title="Help" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || CircleHelp} />
           <MenuGroup>
             <MenuItem icon={MessageCircle} title="Live chat" onClick={onOpenHelp} />
             <MenuDivider />
@@ -503,7 +512,7 @@ export default function ProfileScreen({
     if (activeMenu === "logout") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Logout" onBack={() => setActiveMenu(null)} />
+          <MenuScreenHeader title="Logout" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || LogOut} />
           <MenuGroup>
             <MenuItem
               icon={LogOut}
@@ -582,137 +591,143 @@ export default function ProfileScreen({
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
-        <section
-          className={`relative overflow-hidden rounded-[34px] p-6 ${
-            isDarkMode
-              ? "bg-[linear-gradient(135deg,#0f172a_0%,#132238_52%,#0b1730_100%)] shadow-[0_24px_60px_rgba(2,6,23,0.34)]"
-              : "bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_48%,#eef6ff_100%)] shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
-          }`}
-        >
-          <div className={`absolute inset-0 ${isDarkMode ? "bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.14),transparent_22%)]" : "bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_22%)]"}`} />
-          <div className="relative">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[28px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] text-3xl font-semibold text-white shadow-[0_20px_40px_rgba(15,23,42,0.16)]">
-                  {profile?.profile_image ? (
-                    <img src={profile.profile_image} alt={name} className="h-full w-full object-cover" />
-                  ) : (
-                    initials || "U"
-                  )}
-                </div>
+        {activeMenu ? (
+          <div className="mt-2">{renderMenuContent()}</div>
+        ) : (
+          <>
+            <section
+              className={`relative overflow-hidden rounded-[34px] p-6 ${
+                isDarkMode
+                  ? "bg-[linear-gradient(135deg,#0f172a_0%,#132238_52%,#0b1730_100%)] shadow-[0_24px_60px_rgba(2,6,23,0.34)]"
+                  : "bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_48%,#eef6ff_100%)] shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
+              }`}
+            >
+              <div className={`absolute inset-0 ${isDarkMode ? "bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.14),transparent_22%)]" : "bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_22%)]"}`} />
+              <div className="relative">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[28px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] text-3xl font-semibold text-white shadow-[0_20px_40px_rgba(15,23,42,0.16)]">
+                      {profile?.profile_image ? (
+                        <img src={profile.profile_image} alt={name} className="h-full w-full object-cover" />
+                      ) : (
+                        initials || "U"
+                      )}
+                    </div>
 
-                <div>
-                  <p className={`mt-2 text-2xl font-semibold sm:text-3xl ${isDarkMode ? "text-slate-50" : "text-slate-950"}`}>
-                    {name}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onOpenEditProfile}
-                    className="mt-4 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                  >
-                    Edit profile
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onOpenCreateAccount}
-                className="rounded-[22px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] px-5 py-4 text-left text-white shadow-[0_16px_36px_rgba(37,99,235,0.18)] transition hover:opacity-95 lg:min-w-[220px]"
-              >
-                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/64">Account</p>
-                <p className="mt-2 text-lg font-semibold">Add another account</p>
-                <p className="mt-1 text-xs text-white/72">Create an eligible service or foreign account</p>
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
-                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Account Number</p>
-                <p className={`mt-2 break-all text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{account?.account_number || "Pending"}</p>
-              </div>
-              <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
-                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Phone Number</p>
-                <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{profile?.phone || "Phone not available"}</p>
-              </div>
-              <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Verification</p>
-                    <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{verification.label}</p>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${verification.tone}`}>{verification.label}</span>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">Last seen {formatLastSeen(profile?.last_login_at)}</p>
-              </div>
-            </div>
-
-            {hiddenDashboardItems.length ? (
-              <div className={`mt-5 rounded-[24px] px-5 py-5 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Hidden From Dashboard
-                    </p>
-                    <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
-                      Hidden account items are restored here
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                    {hiddenDashboardItems.length}
-                  </span>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {hiddenDashboardItems.map((item) => (
-                    <div
-                      key={item.key}
-                      className={`flex flex-col gap-3 rounded-[22px] px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${
-                        isDarkMode ? "bg-slate-950/80" : "bg-slate-50"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className={`text-sm font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
-                          {item.title}
-                        </p>
-                        <p className={`mt-1 break-all text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                          {item.description}
-                        </p>
-                      </div>
-
+                    <div>
+                      <p className={`mt-2 text-2xl font-semibold sm:text-3xl ${isDarkMode ? "text-slate-50" : "text-slate-950"}`}>
+                        {name}
+                      </p>
                       <button
                         type="button"
-                        onClick={item.onShow}
-                        className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        onClick={onOpenEditProfile}
+                        className="mt-4 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                       >
-                        Show to dashboard
+                        Edit profile
                       </button>
                     </div>
-                  ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={onOpenCreateAccount}
+                    className="rounded-[22px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] px-5 py-4 text-left text-white shadow-[0_16px_36px_rgba(37,99,235,0.18)] transition hover:opacity-95 lg:min-w-[220px]"
+                  >
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/64">Account</p>
+                    <p className="mt-2 text-lg font-semibold">Add another account</p>
+                    <p className="mt-1 text-xs text-white/72">Create an eligible service or foreign account</p>
+                  </button>
                 </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Account Number</p>
+                    <p className={`mt-2 break-all text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{account?.account_number || "Pending"}</p>
+                  </div>
+                  <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Phone Number</p>
+                    <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{profile?.phone || "Phone not available"}</p>
+                  </div>
+                  <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Verification</p>
+                        <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{verification.label}</p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${verification.tone}`}>{verification.label}</span>
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">Last seen {formatLastSeen(profile?.last_login_at)}</p>
+                  </div>
+                </div>
+
+                {hiddenDashboardItems.length ? (
+                  <div className={`mt-5 rounded-[24px] px-5 py-5 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                          Hidden From Dashboard
+                        </p>
+                        <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
+                          Hidden account items are restored here
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                        {hiddenDashboardItems.length}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {hiddenDashboardItems.map((item) => (
+                        <div
+                          key={item.key}
+                          className={`flex flex-col gap-3 rounded-[22px] px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${
+                            isDarkMode ? "bg-slate-950/80" : "bg-slate-50"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className={`text-sm font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
+                              {item.title}
+                            </p>
+                            <p className={`mt-1 break-all text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                              {item.description}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={item.onShow}
+                            className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            Show to dashboard
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-        </section>
+            </section>
 
-        <div className="mt-6 space-y-5">
-          {renderMenuContent()}
+            <div className="mt-6 space-y-5">
+              {renderMenuContent()}
 
-          {isAdmin ? (
-            <SectionCard
-              title="Admin"
-              subtitle="Admin tools stay separate so they do not compete with everyday profile settings."
-            >
-              <RowAction
-                icon={BriefcaseBusiness}
-                title="KYC & Notifications"
-                description="Open the admin review queue for identity checks and compliance alerts."
-                end={<ChevronEnd />}
-                onClick={onOpenAdmin}
-              />
-            </SectionCard>
-          ) : null}
-        </div>
+              {isAdmin ? (
+                <SectionCard
+                  title="Admin"
+                  subtitle="Admin tools stay separate so they do not compete with everyday profile settings."
+                >
+                  <RowAction
+                    icon={BriefcaseBusiness}
+                    title="KYC & Notifications"
+                    description="Open the admin review queue for identity checks and compliance alerts."
+                    end={<ChevronEnd />}
+                    onClick={onOpenAdmin}
+                  />
+                </SectionCard>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
