@@ -63,6 +63,61 @@ function SectionCard({ title, subtitle, children, compact = false }) {
   );
 }
 
+function MenuShell({ children }) {
+  return <div className="rounded-[28px] bg-[#f3f4f6] p-3 sm:p-4">{children}</div>;
+}
+
+function MenuGroup({ children }) {
+  return <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">{children}</div>;
+}
+
+function MenuItem({ icon: Icon, title, trailing = null, onClick, danger = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${
+        danger ? "hover:bg-rose-50" : "hover:bg-slate-50"
+      }`}
+    >
+      <span
+        className={`flex h-10 w-10 items-center justify-center rounded-full ${
+          danger ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-700"
+        }`}
+      >
+        <Icon size={18} />
+      </span>
+      <span className={`min-w-0 flex-1 text-[1.02rem] font-semibold ${danger ? "text-rose-700" : "text-slate-950"}`}>
+        {title}
+      </span>
+      {trailing || <ChevronRight size={18} className="text-slate-400" />}
+    </button>
+  );
+}
+
+function MenuDivider() {
+  return <div className="ml-[4.6rem] h-px bg-slate-200" />;
+}
+
+function MenuScreenHeader({ title, onBack }) {
+  return (
+    <div className="mb-4 flex items-center gap-4 px-2">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
+        aria-label={`Back from ${title}`}
+      >
+        <ChevronLeft size={22} />
+      </button>
+      <div className="min-w-0 flex-1 text-center">
+        <h3 className="text-2xl font-bold text-slate-950">{title}</h3>
+      </div>
+      <div className="w-11" />
+    </div>
+  );
+}
+
 function RowAction({ icon: Icon, title, description, end, onClick, danger = false, compact = false }) {
   return (
     <div
@@ -191,37 +246,31 @@ export default function ProfileScreen({
       key: "security",
       icon: Shield,
       title: "Security",
-      description: "PIN, biometrics, and password controls.",
     },
     {
       key: "notifications",
       icon: Bell,
       title: "Notifications",
-      description: "Manage transaction, security, and app alerts.",
     },
     {
       key: "settings",
       icon: Monitor,
       title: "Settings",
-      description: "Appearance, language, and reading preferences.",
     },
     {
       key: "terms",
       icon: FileText,
       title: "Terms & Conditions",
-      description: "Policies, fees, compliance, and usage rules.",
     },
     {
       key: "help",
       icon: CircleHelp,
       title: "Help",
-      description: "Support channels, guides, and troubleshooting.",
     },
     {
       key: "logout",
       icon: LogOut,
       title: "Logout",
-      description: "Sign out from this device or all devices.",
       danger: true,
     },
   ];
@@ -231,313 +280,282 @@ export default function ProfileScreen({
       key: "other-accounts",
       icon: Wallet,
       title: "Other Accounts",
-      description: "Open hidden accounts removed from the dashboard.",
     });
   }
 
   const renderMenuContent = () => {
     if (activeMenu === "security") {
       return (
-        <SectionCard title="Security" compact>
-          <SubmenuHeader
-            title="Security"
-            description="Protect your account with stronger access controls."
-            onBack={() => setActiveMenu(null)}
-          />
+        <MenuShell>
+          <MenuScreenHeader title="Security" onBack={() => setActiveMenu(null)} />
           {biometrics?.message ? (
-            <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
-              {biometrics.message}
-            </AuthNotice>
+            <div className="mb-4">
+              <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
+                {biometrics.message}
+              </AuthNotice>
+            </div>
           ) : null}
-          <RowAction
-            icon={Shield}
-            title="Change PIN"
-            description="Update the PIN used for protected account actions."
-            end={<ChevronEnd />}
-            onClick={onOpenChangePin}
-            compact
-          />
-          <RowAction
-            icon={Fingerprint}
-            title="Enable biometrics"
-            description={
-              biometrics?.supported
-                ? "Use Face ID or fingerprint before opening sensitive account actions."
-                : "This device or browser does not currently support platform biometrics."
-            }
-            end={
-              <Toggle
-                enabled={Boolean(biometrics?.enabled)}
-                disabled={Boolean(biometrics?.busy || !biometrics?.supported)}
-                onChange={onToggleBiometrics}
-              />
-            }
-            onClick={onToggleBiometrics}
-            compact
-          />
-          <RowAction
-            icon={LockKeyhole}
-            title="Change password"
-            description="Verify your current password, then set a new one."
-            end={<ChevronEnd />}
-            onClick={onOpenChangePassword}
-            compact
-          />
-        </SectionCard>
+          <MenuGroup>
+            <MenuItem icon={Shield} title="Change PIN" onClick={onOpenChangePin} />
+            <MenuDivider />
+            <MenuItem
+              icon={Fingerprint}
+              title="Enable biometrics"
+              trailing={
+                <Toggle
+                  enabled={Boolean(biometrics?.enabled)}
+                  disabled={Boolean(biometrics?.busy || !biometrics?.supported)}
+                  onChange={onToggleBiometrics}
+                />
+              }
+              onClick={onToggleBiometrics}
+            />
+            <MenuDivider />
+            <MenuItem icon={LockKeyhole} title="Change password" onClick={onOpenChangePassword} />
+          </MenuGroup>
+        </MenuShell>
       );
     }
 
     if (activeMenu === "notifications") {
       return (
-        <SectionCard title="Notifications" compact>
-          <SubmenuHeader
-            title="Notifications"
-            description="Choose which updates should get your attention."
-            onBack={() => setActiveMenu(null)}
-          />
-          <RowAction
-            icon={Bell}
-            title="Transactions"
-            description="Cash in, cash out, and activity alerts."
-            end={
-              <Toggle
-                enabled={notificationState.transactions}
-                onChange={() => setNotificationState((current) => ({ ...current, transactions: !current.transactions }))}
-              />
-            }
-            onClick={onOpenNotifications}
-            compact
-          />
-          <RowAction
-            icon={Shield}
-            title="Security alerts"
-            description="Suspicious sign-in and protection messages."
-            end={
-              <Toggle
-                enabled={notificationState.security}
-                onChange={() => setNotificationState((current) => ({ ...current, security: !current.security }))}
-              />
-            }
-            onClick={onOpenNotifications}
-            compact
-          />
-          <RowAction
-            icon={CreditCard}
-            title="Promotions"
-            description="Product offers and promotional campaigns."
-            end={
-              <Toggle
-                enabled={notificationState.promotions}
-                onChange={() => setNotificationState((current) => ({ ...current, promotions: !current.promotions }))}
-              />
-            }
-            onClick={onOpenNotifications}
-            compact
-          />
-          <RowAction
-            icon={Monitor}
-            title="System updates"
-            description="Service improvements and maintenance notices."
-            end={
-              <Toggle
-                enabled={notificationState.systemUpdates}
-                onChange={() => setNotificationState((current) => ({ ...current, systemUpdates: !current.systemUpdates }))}
-              />
-            }
-            onClick={onOpenNotifications}
-            compact
-          />
-        </SectionCard>
+        <MenuShell>
+          <MenuScreenHeader title="Notifications" onBack={() => setActiveMenu(null)} />
+          <MenuGroup>
+            <MenuItem
+              icon={Bell}
+              title="Transactions"
+              trailing={
+                <Toggle
+                  enabled={notificationState.transactions}
+                  onChange={() =>
+                    setNotificationState((current) => ({ ...current, transactions: !current.transactions }))
+                  }
+                />
+              }
+              onClick={onOpenNotifications}
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={Shield}
+              title="Security alerts"
+              trailing={
+                <Toggle
+                  enabled={notificationState.security}
+                  onChange={() =>
+                    setNotificationState((current) => ({ ...current, security: !current.security }))
+                  }
+                />
+              }
+              onClick={onOpenNotifications}
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={CreditCard}
+              title="Promotions"
+              trailing={
+                <Toggle
+                  enabled={notificationState.promotions}
+                  onChange={() =>
+                    setNotificationState((current) => ({ ...current, promotions: !current.promotions }))
+                  }
+                />
+              }
+              onClick={onOpenNotifications}
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={Monitor}
+              title="System updates"
+              trailing={
+                <Toggle
+                  enabled={notificationState.systemUpdates}
+                  onChange={() =>
+                    setNotificationState((current) => ({
+                      ...current,
+                      systemUpdates: !current.systemUpdates,
+                    }))
+                  }
+                />
+              }
+              onClick={onOpenNotifications}
+            />
+          </MenuGroup>
+        </MenuShell>
       );
     }
 
     if (activeMenu === "settings") {
       return (
-        <SectionCard title="Settings" compact>
-          <SubmenuHeader
-            title="Settings"
-            description="Adjust the way the app looks and feels on this device."
-            onBack={() => setActiveMenu(null)}
-          />
-          <RowAction
-            icon={Palette}
-            title="Appearance"
-            description={
-              appearance?.isDarkMode
-                ? "Dark mode is active across the app on this device."
-                : "Light mode is active across the app on this device."
-            }
-            end={<Toggle enabled={Boolean(appearance?.isDarkMode)} onChange={onToggleAppearance} />}
-            onClick={onToggleAppearance}
-            compact
-          />
-          <RowAction
-            icon={Globe}
-            title="Language"
-            description="Current language preference."
-            end={<span className="text-sm font-semibold text-slate-500">{settingsState.language}</span>}
-            onClick={() => {}}
-            compact
-          />
-          <RowAction
-            icon={Type}
-            title="Text size"
-            description="Adjust the reading size used throughout the app."
-            end={<span className="text-sm font-semibold text-slate-500">{settingsState.textSize}</span>}
-            onClick={() => {}}
-            compact
-          />
-        </SectionCard>
+        <MenuShell>
+          <MenuScreenHeader title="Settings" onBack={() => setActiveMenu(null)} />
+          <MenuGroup>
+            <MenuItem
+              icon={Palette}
+              title="Appearance"
+              trailing={<Toggle enabled={Boolean(appearance?.isDarkMode)} onChange={onToggleAppearance} />}
+              onClick={onToggleAppearance}
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={Globe}
+              title="Language"
+              trailing={<span className="text-sm font-semibold text-slate-500">{settingsState.language}</span>}
+              onClick={() => {}}
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={Type}
+              title="Text size"
+              trailing={<span className="text-sm font-semibold text-slate-500">{settingsState.textSize}</span>}
+              onClick={() => {}}
+            />
+          </MenuGroup>
+        </MenuShell>
       );
     }
 
     if (activeMenu === "other-accounts") {
       return (
-        <SectionCard title="Other Accounts" compact>
-          <SubmenuHeader
-            title="Other Accounts"
-            description="These accounts were created already and removed from the dashboard."
-            onBack={() => setActiveMenu(null)}
-          />
+        <MenuShell>
+          <MenuScreenHeader title="Other Accounts" onBack={() => setActiveMenu(null)} />
           {hiddenOtherAccounts.length ? (
-            hiddenOtherAccounts.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-col gap-3 rounded-[22px] bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-950">
-                    {item.account_name || "Other Account"}
-                  </p>
-                  <p className="mt-1 break-all text-xs text-slate-500">
-                    {item.account_number || "Account number pending"}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {item.currency || "USD"} account
-                  </p>
+            <MenuGroup>
+              {hiddenOtherAccounts.map((item, index) => (
+                <div key={item.id}>
+                  <div className="flex items-center gap-4 px-5 py-4">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                      <Wallet size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[1.02rem] font-semibold text-slate-950">
+                        {item.account_name || "Other Account"}
+                      </p>
+                      <p className="mt-1 break-all text-xs text-slate-500">
+                        {item.account_number || "Account number pending"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onShowOtherAccount?.(item.id)}
+                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      Show
+                    </button>
+                  </div>
+                  {index !== hiddenOtherAccounts.length - 1 ? <MenuDivider /> : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onShowOtherAccount?.(item.id)}
-                  className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  Show to dashboard
-                </button>
-              </div>
-            ))
+              ))}
+            </MenuGroup>
           ) : (
-            <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-              No hidden other accounts right now.
-            </div>
+            <MenuGroup>
+              <div className="px-5 py-10 text-center text-sm text-slate-500">
+                No hidden other accounts right now.
+              </div>
+            </MenuGroup>
           )}
-        </SectionCard>
+        </MenuShell>
       );
     }
 
     if (activeMenu === "terms") {
       return (
-        <SectionCard title="Terms & Conditions" compact>
-          <SubmenuHeader
-            title="Terms & Conditions"
-            description="Review policies, charges, and compliance expectations."
-            onBack={() => setActiveMenu(null)}
-          />
-          <RowAction icon={FileText} title="Privacy policy" description="How user data is collected and protected." end={<ChevronEnd />} onClick={onOpenTerms} compact />
-          <RowAction icon={FileText} title="Terms of service" description="Rules guiding account and product usage." end={<ChevronEnd />} onClick={onOpenTerms} compact />
-          <RowAction icon={CreditCard} title="Fees and charges" description="Charges applied to transfers and services." end={<ChevronEnd />} onClick={onOpenTerms} compact />
-          <RowAction icon={Shield} title="KYC / compliance rules" description="Verification and compliance expectations." end={<ChevronEnd />} onClick={onOpenTerms} compact />
-        </SectionCard>
+        <MenuShell>
+          <MenuScreenHeader title="Terms & Conditions" onBack={() => setActiveMenu(null)} />
+          <MenuGroup>
+            <MenuItem icon={FileText} title="Privacy policy" onClick={onOpenTerms} />
+            <MenuDivider />
+            <MenuItem icon={FileText} title="Terms of service" onClick={onOpenTerms} />
+            <MenuDivider />
+            <MenuItem icon={CreditCard} title="Fees and charges" onClick={onOpenTerms} />
+            <MenuDivider />
+            <MenuItem icon={Shield} title="KYC / compliance rules" onClick={onOpenTerms} />
+          </MenuGroup>
+        </MenuShell>
       );
     }
 
     if (activeMenu === "help") {
       return (
-        <SectionCard title="Help" compact>
-          <SubmenuHeader
-            title="Help"
-            description="Find support, guides, and quick troubleshooting paths."
-            onBack={() => setActiveMenu(null)}
-          />
-          <RowAction icon={MessageCircle} title="Live chat" description="Reserved for future in-app live support." end={<span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Future</span>} onClick={onOpenHelp} compact />
-          <RowAction icon={MessageCircle} title="WhatsApp support" description="Fast support path for account and transfer issues." end={<ChevronEnd />} onClick={onOpenHelp} compact />
-          <RowAction icon={MessageCircle} title="Email support" description="Reach support by email for detailed follow-up." end={<ChevronEnd />} onClick={onOpenHelp} compact />
-          <RowAction icon={CircleHelp} title="Guides & tutorial" description="Learning resources for common actions and product usage." end={<ChevronEnd />} onClick={onOpenHelp} compact />
-          <RowAction icon={CircleHelp} title="FAQs" description="Common answers before contacting support." end={<ChevronEnd />} onClick={onOpenHelp} compact />
-          <RowAction icon={CircleHelp} title="Didn't receive money" description="Troubleshooting for delayed or missing transfers." end={<ChevronEnd />} onClick={onOpenHelp} compact />
-          <RowAction icon={CircleHelp} title="OTP not working" description="Support steps when verification codes do not arrive." end={<ChevronEnd />} onClick={onOpenHelp} compact />
-          <RowAction icon={CircleHelp} title="Account locked / suspended" description="What to do when access is restricted or under review." end={<ChevronEnd />} onClick={onOpenHelp} compact />
-        </SectionCard>
+        <MenuShell>
+          <MenuScreenHeader title="Help" onBack={() => setActiveMenu(null)} />
+          <MenuGroup>
+            <MenuItem icon={MessageCircle} title="Live chat" onClick={onOpenHelp} />
+            <MenuDivider />
+            <MenuItem icon={MessageCircle} title="WhatsApp support" onClick={onOpenHelp} />
+            <MenuDivider />
+            <MenuItem icon={MessageCircle} title="Email support" onClick={onOpenHelp} />
+            <MenuDivider />
+            <MenuItem icon={CircleHelp} title="Guides & tutorial" onClick={onOpenHelp} />
+            <MenuDivider />
+            <MenuItem icon={CircleHelp} title="FAQs" onClick={onOpenHelp} />
+            <MenuDivider />
+            <MenuItem icon={CircleHelp} title="Didn't receive money" onClick={onOpenHelp} />
+            <MenuDivider />
+            <MenuItem icon={CircleHelp} title="OTP not working" onClick={onOpenHelp} />
+            <MenuDivider />
+            <MenuItem icon={CircleHelp} title="Account locked / suspended" onClick={onOpenHelp} />
+          </MenuGroup>
+        </MenuShell>
       );
     }
 
     if (activeMenu === "logout") {
       return (
-        <SectionCard title="Logout" compact>
-          <SubmenuHeader
-            title="Logout"
-            description="Choose how widely you want to end active sessions."
-            onBack={() => setActiveMenu(null)}
-          />
-          <RowAction
-            icon={LogOut}
-            title="Logout from all devices"
-            description="Close every active session connected to this account."
-            end={<ChevronEnd />}
-            onClick={() => onSignOut?.("all")}
-            danger
-            compact
-          />
-          <RowAction
-            icon={LogOut}
-            title="Logout from this device"
-            description="End only the current device session securely."
-            end={<ChevronEnd />}
-            onClick={() => onSignOut?.("current")}
-            danger
-            compact
-          />
-        </SectionCard>
+        <MenuShell>
+          <MenuScreenHeader title="Logout" onBack={() => setActiveMenu(null)} />
+          <MenuGroup>
+            <MenuItem
+              icon={LogOut}
+              title="Logout from all devices"
+              onClick={() => onSignOut?.("all")}
+              danger
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={LogOut}
+              title="Logout from this device"
+              onClick={() => onSignOut?.("current")}
+              danger
+            />
+          </MenuGroup>
+        </MenuShell>
       );
     }
 
     return (
-      <div className="space-y-5">
-        <SectionCard
-          title="Menu"
-          subtitle="Open a category to manage related settings in one focused place."
-        >
-          {menuCards
-            .filter((item) => !item.danger)
-            .map((item, index, items) => (
-              <div key={item.key}>
-                <RowAction
+      <MenuShell>
+        <div className="mb-4 px-2">
+          <h3 className="text-2xl font-bold text-slate-950">Settings</h3>
+        </div>
+
+        <div className="space-y-5">
+          <MenuGroup>
+            {menuCards
+              .filter((item) => !item.danger)
+              .map((item, index, items) => (
+                <div key={item.key}>
+                  <MenuItem icon={item.icon} title={item.title} onClick={() => setActiveMenu(item.key)} />
+                  {index !== items.length - 1 ? <MenuDivider /> : null}
+                </div>
+              ))}
+          </MenuGroup>
+
+          <MenuGroup>
+            {menuCards
+              .filter((item) => item.danger)
+              .map((item) => (
+                <MenuItem
+                  key={item.key}
                   icon={item.icon}
                   title={item.title}
-                  description={item.description}
-                  end={<ChevronEnd />}
                   onClick={() => setActiveMenu(item.key)}
+                  danger
                 />
-                {index !== items.length - 1 ? <div className="mx-5 h-px bg-slate-200" /> : null}
-              </div>
-            ))}
-        </SectionCard>
-
-        <SectionCard title="Session" subtitle="Actions that affect your device sessions and access.">
-          {menuCards
-            .filter((item) => item.danger)
-            .map((item) => (
-              <RowAction
-                key={item.key}
-                icon={item.icon}
-                title={item.title}
-                description={item.description}
-                end={<ChevronEnd />}
-                onClick={() => setActiveMenu(item.key)}
-                danger
-              />
-            ))}
-        </SectionCard>
-      </div>
+              ))}
+          </MenuGroup>
+        </div>
+      </MenuShell>
     );
   };
 
