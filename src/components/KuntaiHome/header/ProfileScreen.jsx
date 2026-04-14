@@ -16,6 +16,7 @@ import {
   Palette,
   Shield,
   Type,
+  Wallet,
 } from "lucide-react";
 import BackTab from "./Transactions/BackTab";
 import AuthNotice from "../../auth/AuthNotice";
@@ -52,12 +53,12 @@ function formatLastSeen(lastLoginAt) {
 
 function SectionCard({ title, subtitle, children, compact = false }) {
   return (
-    <section className="rounded-[28px] bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-      <div className={compact ? "" : "mb-4"}>
-        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.32em] text-slate-400">{title}</p>
+    <section className="rounded-[24px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <div className={compact ? "px-5 pt-5" : "px-5 pt-5"}>
+        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-400">{title}</p>
         {subtitle ? <p className="mt-2 text-sm text-slate-500">{subtitle}</p> : null}
       </div>
-      <div className={compact ? "space-y-3" : "space-y-3"}>{children}</div>
+      <div className={compact ? "px-0 pb-1 pt-3" : "px-0 pb-1 pt-3"}>{children}</div>
     </section>
   );
 }
@@ -74,16 +75,16 @@ function RowAction({ icon: Icon, title, description, end, onClick, danger = fals
           onClick?.();
         }
       }}
-      className={`flex w-full items-center justify-between gap-4 rounded-[22px] text-left transition ${
-        compact ? "px-4 py-3" : "px-4 py-4"
-      } ${danger ? "bg-rose-50 hover:bg-rose-100" : "bg-slate-50 hover:bg-slate-100"}`}
+      className={`flex w-full items-center justify-between gap-4 text-left transition ${
+        compact ? "px-5 py-4" : "px-5 py-4"
+      } ${danger ? "hover:bg-rose-50" : "hover:bg-slate-50"}`}
     >
       <span className="flex items-start gap-3">
-        <span className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-full ${danger ? "bg-white text-rose-700" : "bg-white text-slate-700"}`}>
+        <span className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-full ${danger ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-700"}`}>
           <Icon size={18} />
         </span>
         <span>
-          <span className={`block text-sm font-semibold sm:text-base ${danger ? "text-rose-800" : "text-slate-950"}`}>{title}</span>
+          <span className={`block text-[1rem] font-semibold ${danger ? "text-rose-800" : "text-slate-950"}`}>{title}</span>
           {description ? (
             <span className={`mt-1 block text-xs leading-5 ${danger ? "text-rose-600" : "text-slate-500"}`}>{description}</span>
           ) : null}
@@ -119,20 +120,18 @@ function ChevronEnd() {
 
 function SubmenuHeader({ title, description, onBack }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
-          aria-label={`Back from ${title}`}
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div>
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.32em] text-slate-400">{title}</p>
-          <p className="mt-2 text-sm text-slate-500">{description}</p>
-        </div>
+    <div className="mb-4 flex items-start gap-3 px-1">
+      <button
+        type="button"
+        onClick={onBack}
+        className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
+        aria-label={`Back from ${title}`}
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <div>
+        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-400">{title}</p>
+        <p className="mt-2 text-sm text-slate-500">{description}</p>
       </div>
     </div>
   );
@@ -159,6 +158,8 @@ export default function ProfileScreen({
   appearance,
   onToggleAppearance,
   hiddenDashboardItems = [],
+  hiddenOtherAccounts = [],
+  onShowOtherAccount,
 }) {
   const { isDarkMode } = useAppearance();
   const verification = getVerificationCopy(status);
@@ -224,6 +225,15 @@ export default function ProfileScreen({
       danger: true,
     },
   ];
+
+  if (hiddenOtherAccounts.length) {
+    menuCards.splice(3, 0, {
+      key: "other-accounts",
+      icon: Wallet,
+      title: "Other Accounts",
+      description: "Open hidden accounts removed from the dashboard.",
+    });
+  }
 
   const renderMenuContent = () => {
     if (activeMenu === "security") {
@@ -381,6 +391,49 @@ export default function ProfileScreen({
       );
     }
 
+    if (activeMenu === "other-accounts") {
+      return (
+        <SectionCard title="Other Accounts" compact>
+          <SubmenuHeader
+            title="Other Accounts"
+            description="These accounts were created already and removed from the dashboard."
+            onBack={() => setActiveMenu(null)}
+          />
+          {hiddenOtherAccounts.length ? (
+            hiddenOtherAccounts.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-3 rounded-[22px] bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-950">
+                    {item.account_name || "Other Account"}
+                  </p>
+                  <p className="mt-1 break-all text-xs text-slate-500">
+                    {item.account_number || "Account number pending"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item.currency || "USD"} account
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onShowOtherAccount?.(item.id)}
+                  className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Show to dashboard
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+              No hidden other accounts right now.
+            </div>
+          )}
+        </SectionCard>
+      );
+    }
+
     if (activeMenu === "terms") {
       return (
         <SectionCard title="Terms & Conditions" compact>
@@ -448,22 +501,43 @@ export default function ProfileScreen({
     }
 
     return (
-      <SectionCard
-        title="Menu"
-        subtitle="Open a category to manage related settings in one focused place."
-      >
-        {menuCards.map((item) => (
-          <RowAction
-            key={item.key}
-            icon={item.icon}
-            title={item.title}
-            description={item.description}
-            end={<ChevronEnd />}
-            onClick={() => setActiveMenu(item.key)}
-            danger={item.danger}
-          />
-        ))}
-      </SectionCard>
+      <div className="space-y-5">
+        <SectionCard
+          title="Menu"
+          subtitle="Open a category to manage related settings in one focused place."
+        >
+          {menuCards
+            .filter((item) => !item.danger)
+            .map((item, index, items) => (
+              <div key={item.key}>
+                <RowAction
+                  icon={item.icon}
+                  title={item.title}
+                  description={item.description}
+                  end={<ChevronEnd />}
+                  onClick={() => setActiveMenu(item.key)}
+                />
+                {index !== items.length - 1 ? <div className="mx-5 h-px bg-slate-200" /> : null}
+              </div>
+            ))}
+        </SectionCard>
+
+        <SectionCard title="Session" subtitle="Actions that affect your device sessions and access.">
+          {menuCards
+            .filter((item) => item.danger)
+            .map((item) => (
+              <RowAction
+                key={item.key}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                end={<ChevronEnd />}
+                onClick={() => setActiveMenu(item.key)}
+                danger
+              />
+            ))}
+        </SectionCard>
+      </div>
     );
   };
 
@@ -603,45 +677,23 @@ export default function ProfileScreen({
           </div>
         </section>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="mt-6 space-y-5">
           {renderMenuContent()}
 
-          <div className="space-y-5">
-            {isAdmin ? (
-              <SectionCard
-                title="Admin"
-                subtitle="Admin tools stay separate so they do not compete with everyday profile settings."
-              >
-                <RowAction
-                  icon={BriefcaseBusiness}
-                  title="KYC & Notifications"
-                  description="Open the admin review queue for identity checks and compliance alerts."
-                  end={<ChevronEnd />}
-                  onClick={onOpenAdmin}
-                />
-              </SectionCard>
-            ) : null}
-
+          {isAdmin ? (
             <SectionCard
-              title="Quick Actions"
-              subtitle="The most common profile actions stay close without overcrowding the page."
+              title="Admin"
+              subtitle="Admin tools stay separate so they do not compete with everyday profile settings."
             >
               <RowAction
-                icon={Bell}
-                title="Open notifications"
-                description="Review your recent alerts and admin messages."
+                icon={BriefcaseBusiness}
+                title="KYC & Notifications"
+                description="Open the admin review queue for identity checks and compliance alerts."
                 end={<ChevronEnd />}
-                onClick={onOpenNotifications}
-              />
-              <RowAction
-                icon={Shield}
-                title="Open security"
-                description="Jump straight into PIN, biometrics, and password controls."
-                end={<ChevronEnd />}
-                onClick={() => setActiveMenu("security")}
+                onClick={onOpenAdmin}
               />
             </SectionCard>
-          </div>
+          ) : null}
         </div>
       </div>
     </div>

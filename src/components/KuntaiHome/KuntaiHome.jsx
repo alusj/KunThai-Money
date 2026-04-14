@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import supabase from "../../Backend/lib/supabaseClient";
@@ -21,8 +21,6 @@ import {
   verifyBiometrics,
 } from "../../Backend/utils/biometricAuth";
 import { normalizeCurrencyRecord } from "../../Backend/utils/currency";
-import { getAccountTypeLabel } from "../../Backend/utils/accountTypes";
-import { formatCurrency } from "../../Backend/utils/formatCurrency";
 import { buildHeaderNotifications } from "../../Backend/utils/headerNotifications";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";
@@ -176,22 +174,6 @@ export default function KunTaiHome() {
       onShow: () => setIsMainAccountNumberHidden(false),
     });
   }
-
-  hiddenOtherAccounts.forEach((item) => {
-    hiddenDashboardItems.push({
-      key: `other-account-${item.id}`,
-      title: item.account_name || getAccountTypeLabel(item.account_type),
-      description: `${item.account_number || "Account number pending"} • ${formatCurrency(
-        item.balance || 0,
-        item.currency || "USD"
-      )}`,
-      onShow: () =>
-        setHiddenOtherAccountIds((current) =>
-          current.filter((hiddenId) => hiddenId !== String(item.id))
-        ),
-    });
-  });
-
   const updateBiometricBanner = (messageTitle, message, messageTone = "info") => {
     setBiometricState((current) => ({
       ...current,
@@ -930,6 +912,12 @@ export default function KunTaiHome() {
           appearance={{ isDarkMode }}
           onToggleAppearance={toggleTheme}
           hiddenDashboardItems={hiddenDashboardItems}
+          hiddenOtherAccounts={hiddenOtherAccounts}
+          onShowOtherAccount={(accountId) =>
+            setHiddenOtherAccountIds((current) =>
+              current.filter((hiddenId) => hiddenId !== String(accountId))
+            )
+          }
         />
       )}
 

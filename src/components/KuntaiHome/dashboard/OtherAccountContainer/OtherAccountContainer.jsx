@@ -80,6 +80,8 @@ function OtherAccountCard({
     : accentStyles[account.account_type] || "border-l-slate-400";
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const isForeignAccount = account.account_type === "foreign";
+  const [activeForeignAction, setActiveForeignAction] = useState(null);
 
   useEffect(() => {
     const currentIds = readHiddenAccountContentIds();
@@ -114,8 +116,6 @@ function OtherAccountCard({
   const balanceLabel = isConcealed
     ? `Balance: ${maskValue(formatCurrency(account.balance || 0, account.currency || "USD"), 0)}`
     : `Balance: ${formatCurrency(account.balance || 0, account.currency || "USD")}`;
-  const isForeignAccount = account.account_type === "foreign";
-  const [activeForeignAction, setActiveForeignAction] = useState(null);
 
   return (
     <div
