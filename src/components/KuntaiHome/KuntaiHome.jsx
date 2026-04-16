@@ -109,6 +109,7 @@ export default function KunTaiHome() {
   const [profileName, setProfileName] = useState("User");
   const [profile, setProfile] = useState(null);
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [notificationTransactions, setNotificationTransactions] = useState([]);
   const [paymentRequests, setPaymentRequests] = useState([]);
   const [outgoingPaymentRequests, setOutgoingPaymentRequests] = useState([]);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
@@ -156,7 +157,11 @@ export default function KunTaiHome() {
     paymentRequests,
     adminMessages,
     otherAccounts,
+    recentTransactions: notificationTransactions,
   });
+  const unreadNotifications = notifications.filter(
+    (item) => !seenNotificationIds.includes(String(item.id))
+  );
   const unseenNotificationCount = notifications.filter(
     (item) => !seenNotificationIds.includes(String(item.id))
   ).length;
@@ -179,16 +184,6 @@ export default function KunTaiHome() {
     const reviewStatus = item?.metadata?.agent_profile?.review_status || item?.status || "pending";
     return item?.account_type === "agent" && reviewStatus === "rejected";
   });
-  const hiddenDashboardItems = [];
-
-  if (account?.account_number && isMainAccountNumberHidden) {
-    hiddenDashboardItems.push({
-      key: "main-account-number",
-      title: "Main Account Number",
-      description: account.account_number,
-      onShow: () => setIsMainAccountNumberHidden(false),
-    });
-  }
   const updateBiometricBanner = (messageTitle, message, messageTone = "info") => {
     setBiometricState((current) => ({
       ...current,
@@ -217,6 +212,17 @@ export default function KunTaiHome() {
 
   const openRejectedAgentResubmission = (agentAccount, returnScreen = "dashboard") => {
     if (!agentAccount?.id) {
+      return;
+    }
+
+    const reviewStatus = agentAccount?.metadata?.agent_profile?.review_status || agentAccount?.status || "pending";
+
+    if (reviewStatus !== "rejected") {
+      showActionFeedback(
+        "Account already verified",
+        `${agentAccount?.account_name || "This account"} can no longer be edited.`,
+        "info"
+      );
       return;
     }
 
@@ -304,11 +310,16 @@ export default function KunTaiHome() {
     setTransactionsLoading(true);
 
     try {
-      const data = await getTransactions({ userId: user?.id, limit: 5 });
-      setRecentTransactions(data);
+      const [historyData, notificationData] = await Promise.all([
+        getTransactions({ userId: user?.id, limit: 5 }),
+        getTransactions({ userId: user?.id, limit: 10, includeNotificationOnly: true }),
+      ]);
+      setRecentTransactions(historyData);
+      setNotificationTransactions(notificationData);
     } catch (error) {
       console.log("Recent transactions fetch error:", error);
       setRecentTransactions([]);
+      setNotificationTransactions([]);
     } finally {
       setTransactionsLoading(false);
     }
@@ -811,7 +822,7 @@ export default function KunTaiHome() {
 
       {activeScreen === "notifications" && (
         <NotificationScreen
-          notifications={notifications}
+          notifications={unreadNotifications}
           onBack={() => setActiveScreen("dashboard")}
           onAction={async (item, type) => {
             const action = type === "secondary" ? item.secondaryAction : item.action;
@@ -823,6 +834,10 @@ export default function KunTaiHome() {
 
             if (action === "transactions") {
               setActiveScreen("transactions");
+              return;
+            }
+
+            if (action === "notifications-only") {
               return;
             }
 
@@ -963,8 +978,6 @@ export default function KunTaiHome() {
 
             await fetchPaymentRequests();
             setPaymentRequestFeedback(null);
-            setSelectedPaymentRequest(null);
-            setActiveScreen("notifications");
           }}
         />
       )}
@@ -984,20 +997,32 @@ export default function KunTaiHome() {
           onOpenNotifications={() => setActiveScreen("notifications")}
           isAdmin={user?.app_metadata?.role === "admin"}
           onOpenAdmin={() => navigate("/admin")}
-          onOpenTerms={() => setActiveScreen("dashboard")}
           onOpenHelp={() => setActiveScreen("dashboard")}
           onSignOut={handleSignOut}
           biometrics={biometricState}
           onToggleBiometrics={handleToggleBiometrics}
           appearance={{ isDarkMode }}
           onToggleAppearance={toggleTheme}
-          hiddenDashboardItems={hiddenDashboardItems}
+          isMainAccountNumberHidden={isMainAccountNumberHidden}
           hiddenOtherAccounts={hiddenOtherAccounts}
-          onShowOtherAccount={(accountId) =>
+          onShowMainAccountNumber={() => {
+            setIsMainAccountNumberHidden(false);
+            showActionFeedback(
+              "Account number added to dashboard",
+              "Your main account number is now visible on the dashboard.",
+              "success"
+            );
+          }}
+          onShowOtherAccount={(accountId) => {
             setHiddenOtherAccountIds((current) =>
               current.filter((hiddenId) => hiddenId !== String(accountId))
-            )
-          }
+            );
+            showActionFeedback(
+              "Account number added to dashboard",
+              "The selected account number is now visible on the dashboard.",
+              "success"
+            );
+          }}
         />
       )}
 
@@ -1067,6 +1092,15 @@ export default function KunTaiHome() {
           }}
           onCreate={async (payload) => {
             if (accountFormState.mode === "resubmit" && accountFormState.editAccount?.id) {
+              const reviewStatus =
+                accountFormState.editAccount?.metadata?.agent_profile?.review_status ||
+                accountFormState.editAccount?.status ||
+                "pending";
+
+              if (reviewStatus !== "rejected") {
+                throw new Error("This account has already been verified and can no longer be edited.");
+              }
+
               await resubmitAgentAccount(accountFormState.editAccount.id, payload);
               showActionFeedback(
                 "Agent account resubmitted",

@@ -61,7 +61,7 @@ function KycNotificationCard({ count }) {
   );
 }
 
-function MetricCard({ label, value, tone = "slate" }) {
+function MetricCard({ label, value, tone = "slate", active = false, onClick }) {
   const toneStyles = {
     slate: "border-slate-200 bg-white text-slate-950",
     amber: "border-amber-200 bg-amber-50 text-amber-900",
@@ -69,11 +69,21 @@ function MetricCard({ label, value, tone = "slate" }) {
     rose: "border-rose-200 bg-rose-50 text-rose-900",
   };
 
+  const Component = onClick ? "button" : "div";
+
   return (
-    <div className={`rounded-[24px] border p-5 shadow-sm ${toneStyles[tone] || toneStyles.slate}`}>
+    <Component
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`rounded-[24px] border p-5 text-left shadow-sm transition ${
+        toneStyles[tone] || toneStyles.slate
+      } ${onClick ? "hover:-translate-y-0.5 hover:shadow-md" : ""} ${
+        active ? "ring-2 ring-slate-950/80" : ""
+      }`}
+    >
       <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] opacity-60">{label}</p>
       <p className="mt-3 text-3xl font-bold">{value}</p>
-    </div>
+    </Component>
   );
 }
 
@@ -595,13 +605,71 @@ function AgentReviewCard({ item, onApprove, onReject }) {
   );
 }
 
+function ReviewStatusSection({
+  eyebrow,
+  title,
+  count,
+  tone = "slate",
+  loading,
+  emptyLabel,
+  skeletonCount = 2,
+  children,
+}) {
+  const badgeTone =
+    tone === "amber"
+      ? "bg-amber-100 text-amber-800"
+      : tone === "emerald"
+        ? "bg-emerald-100 text-emerald-800"
+        : tone === "rose"
+          ? "bg-rose-100 text-rose-800"
+          : "bg-slate-100 text-slate-700";
+
+  return (
+    <section className="mt-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">{eyebrow}</p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-950">{title}</h2>
+        </div>
+        <div className={`rounded-full px-4 py-2 text-sm font-semibold ${badgeTone}`}>{count}</div>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        {loading ? (
+          Array.from({ length: skeletonCount }).map((_, index) => (
+            <div key={`${title}-skeleton-${index}`} className="h-56 animate-pulse rounded-[28px] bg-slate-100" />
+          ))
+        ) : count === 0 ? (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center">
+            <p className="text-lg font-semibold text-slate-950">{emptyLabel}</p>
+          </div>
+        ) : (
+          children
+        )}
+      </div>
+    </section>
+  );
+}
+
+function QueuePlaceholder() {
+  return (
+    <section className="mt-8 rounded-[28px] border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+      <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-400">Review Locations</p>
+      <h2 className="mt-3 text-2xl font-semibold text-slate-950">Open a status queue to view accounts</h2>
+      <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500">
+        Pending, approved, and rejected records stay in their own locations now. Select one of the account status cards above to review only that queue.
+      </p>
+    </section>
+  );
+}
+
 export default function AdminDashboard() {
   const [items, setItems] = useState([]);
   const [agentItems, setAgentItems] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeFilter, setActiveFilter] = useState("pending");
+  const [activeQueue, setActiveQueue] = useState(null);
   const [notificationForm, setNotificationForm] = useState({
     title: "",
     body: "",
@@ -655,39 +723,166 @@ export default function AdminDashboard() {
       (item) => item.kyc_status === "approved" && (item.updated_at || item.created_at || "").slice(0, 10) === today
     ).length;
   }, [items]);
-  const filteredItems = useMemo(() => {
-    if (activeFilter === "all") {
-      return items;
-    }
-
-    return items.filter((item) => item.kyc_status === activeFilter);
-  }, [activeFilter, items]);
-  const pendingAgentCount = useMemo(
-    () =>
-      agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "pending").length,
+  const pendingItems = useMemo(() => items.filter((item) => item.kyc_status === "pending"), [items]);
+  const approvedItems = useMemo(() => items.filter((item) => item.kyc_status === "approved"), [items]);
+  const rejectedItems = useMemo(() => items.filter((item) => item.kyc_status === "rejected"), [items]);
+  const pendingAgentItems = useMemo(
+    () => agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "pending"),
     [agentItems]
+  );
+  const approvedAgentItems = useMemo(
+    () => agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "approved"),
+    [agentItems]
+  );
+  const rejectedAgentItems = useMemo(
+    () => agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "rejected"),
+    [agentItems]
+  );
+  const pendingAgentCount = useMemo(
+    () => pendingAgentItems.length,
+    [pendingAgentItems]
   );
   const approvedAgentCount = useMemo(
-    () =>
-      agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "approved").length,
-    [agentItems]
+    () => approvedAgentItems.length,
+    [approvedAgentItems]
   );
   const rejectedAgentCount = useMemo(
-    () =>
-      agentItems.filter((item) => formatReviewStatusLabel(item.agentReviewStatus) === "rejected").length,
-    [agentItems]
+    () => rejectedAgentItems.length,
+    [rejectedAgentItems]
   );
+  const reviewQueues = useMemo(
+    () => [
+      {
+        key: "kyc-pending",
+        eyebrow: "KYC Reviews",
+        title: "Pending Accounts",
+        count: pendingCount,
+        tone: "amber",
+        emptyLabel: "No pending KYC accounts right now.",
+        items: pendingItems,
+        renderCard: (item) => (
+          <ReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleStatusChange(item, "approved")}
+            onReject={() => handleStatusChange(item, "rejected")}
+          />
+        ),
+      },
+      {
+        key: "kyc-approved",
+        eyebrow: "KYC Reviews",
+        title: "Approved Accounts",
+        count: approvedCount,
+        tone: "emerald",
+        emptyLabel: "No approved KYC accounts yet.",
+        items: approvedItems,
+        renderCard: (item) => (
+          <ReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleStatusChange(item, "approved")}
+            onReject={() => handleStatusChange(item, "rejected")}
+          />
+        ),
+      },
+      {
+        key: "kyc-rejected",
+        eyebrow: "KYC Reviews",
+        title: "Rejected Accounts",
+        count: rejectedCount,
+        tone: "rose",
+        emptyLabel: "No rejected KYC accounts right now.",
+        items: rejectedItems,
+        renderCard: (item) => (
+          <ReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleStatusChange(item, "approved")}
+            onReject={() => handleStatusChange(item, "rejected")}
+          />
+        ),
+      },
+      {
+        key: "agent-pending",
+        eyebrow: "Agent Verification",
+        title: "Pending Agent Accounts",
+        count: pendingAgentCount,
+        tone: "amber",
+        emptyLabel: "No pending agent accounts right now.",
+        items: pendingAgentItems,
+        renderCard: (item) => (
+          <AgentReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleAgentStatusChange(item, "approved")}
+            onReject={(_, comment) => handleAgentStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "agent-approved",
+        eyebrow: "Agent Verification",
+        title: "Approved Agent Accounts",
+        count: approvedAgentCount,
+        tone: "emerald",
+        emptyLabel: "No approved agent accounts yet.",
+        items: approvedAgentItems,
+        renderCard: (item) => (
+          <AgentReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleAgentStatusChange(item, "approved")}
+            onReject={(_, comment) => handleAgentStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "agent-rejected",
+        eyebrow: "Agent Verification",
+        title: "Rejected Agent Accounts",
+        count: rejectedAgentCount,
+        tone: "rose",
+        emptyLabel: "No rejected agent accounts right now.",
+        items: rejectedAgentItems,
+        renderCard: (item) => (
+          <AgentReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleAgentStatusChange(item, "approved")}
+            onReject={(_, comment) => handleAgentStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+    ],
+    [
+      approvedAgentCount,
+      approvedAgentItems,
+      approvedCount,
+      approvedItems,
+      pendingAgentCount,
+      pendingAgentItems,
+      pendingCount,
+      pendingItems,
+      rejectedAgentCount,
+      rejectedAgentItems,
+      rejectedCount,
+      rejectedItems,
+    ]
+  );
+  const activeQueueConfig =
+    reviewQueues.find((queue) => queue.key === activeQueue) || null;
 
-  const handleStatusChange = async (item, nextStatus) => {
+  async function handleStatusChange(item, nextStatus) {
     try {
       await updateKycStatus({ kycId: item.id, status: nextStatus });
       await load();
     } catch (err) {
       setError(err.message || "KYC status could not be updated.");
     }
-  };
+  }
 
-  const handleAgentStatusChange = async (item, nextStatus, comment = "") => {
+  async function handleAgentStatusChange(item, nextStatus, comment = "") {
     try {
       const trimmedComment = comment.trim();
 
@@ -719,7 +914,7 @@ export default function AdminDashboard() {
     } catch (err) {
       setError(err.message || "Agent account status could not be updated.");
     }
-  };
+  }
 
   const updateNotificationForm = (key, value) => {
     setNotificationForm((current) => ({
@@ -822,15 +1017,51 @@ export default function AdminDashboard() {
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <MetricCard label="Pending Reviews" value={pendingCount} tone="amber" />
-          <MetricCard label="Approved Accounts" value={approvedCount} tone="emerald" />
-          <MetricCard label="Rejected Accounts" value={rejectedCount} tone="rose" />
+          <MetricCard
+            label="Pending Reviews"
+            value={pendingCount}
+            tone="amber"
+            active={activeQueue === "kyc-pending"}
+            onClick={() => setActiveQueue((current) => (current === "kyc-pending" ? null : "kyc-pending"))}
+          />
+          <MetricCard
+            label="Approved Accounts"
+            value={approvedCount}
+            tone="emerald"
+            active={activeQueue === "kyc-approved"}
+            onClick={() => setActiveQueue((current) => (current === "kyc-approved" ? null : "kyc-approved"))}
+          />
+          <MetricCard
+            label="Rejected Accounts"
+            value={rejectedCount}
+            tone="rose"
+            active={activeQueue === "kyc-rejected"}
+            onClick={() => setActiveQueue((current) => (current === "kyc-rejected" ? null : "kyc-rejected"))}
+          />
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <MetricCard label="Pending Agent Reviews" value={pendingAgentCount} tone="amber" />
-          <MetricCard label="Approved Agent Accounts" value={approvedAgentCount} tone="emerald" />
-          <MetricCard label="Rejected Agent Accounts" value={rejectedAgentCount} tone="rose" />
+          <MetricCard
+            label="Pending Agent Reviews"
+            value={pendingAgentCount}
+            tone="amber"
+            active={activeQueue === "agent-pending"}
+            onClick={() => setActiveQueue((current) => (current === "agent-pending" ? null : "agent-pending"))}
+          />
+          <MetricCard
+            label="Approved Agent Accounts"
+            value={approvedAgentCount}
+            tone="emerald"
+            active={activeQueue === "agent-approved"}
+            onClick={() => setActiveQueue((current) => (current === "agent-approved" ? null : "agent-approved"))}
+          />
+          <MetricCard
+            label="Rejected Agent Accounts"
+            value={rejectedAgentCount}
+            tone="rose"
+            active={activeQueue === "agent-rejected"}
+            onClick={() => setActiveQueue((current) => (current === "agent-rejected" ? null : "agent-rejected"))}
+          />
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
@@ -851,85 +1082,30 @@ export default function AdminDashboard() {
           <div className="mt-6 rounded-[24px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">{error}</div>
         ) : null}
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          {[
-            { id: "pending", label: `Pending (${pendingCount})` },
-            { id: "approved", label: `Approved (${approvedCount})` },
-            { id: "rejected", label: `Rejected (${rejectedCount})` },
-            { id: "all", label: `All (${items.length})` },
-          ].map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={() => setActiveFilter(filter.id)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                activeFilter === filter.id
-                  ? "bg-slate-950 text-white"
-                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-6 space-y-4">
-          {loading ? (
-            Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="h-64 animate-pulse rounded-[28px] bg-slate-100" />
-            ))
-          ) : filteredItems.length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center">
-              <p className="text-lg font-semibold text-slate-950">No KYC submissions found for this filter.</p>
+        {activeQueueConfig ? (
+          <ReviewStatusSection
+            eyebrow={activeQueueConfig.eyebrow}
+            title={activeQueueConfig.title}
+            count={activeQueueConfig.count}
+            tone={activeQueueConfig.tone}
+            loading={loading}
+            emptyLabel={activeQueueConfig.emptyLabel}
+            skeletonCount={activeQueueConfig.key.startsWith("kyc-") ? 3 : 2}
+          >
+            <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveQueue(null)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
             </div>
-          ) : (
-            filteredItems.map((item) => (
-              <ReviewCard
-                key={item.id}
-                item={item}
-                onApprove={() => handleStatusChange(item, "approved")}
-                onReject={() => handleStatusChange(item, "rejected")}
-              />
-            ))
-          )}
-        </div>
-
-        <div className="mt-10">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Agent Verification
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                Review agent account requests
-              </h2>
-            </div>
-            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-              {pendingAgentCount} pending
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            {loading ? (
-              Array.from({ length: 2 }).map((_, index) => (
-                <div key={`agent-skeleton-${index}`} className="h-56 animate-pulse rounded-[28px] bg-slate-100" />
-              ))
-            ) : agentItems.length === 0 ? (
-              <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center">
-                <p className="text-lg font-semibold text-slate-950">No agent account requests found.</p>
-              </div>
-            ) : (
-              agentItems.map((item) => (
-                <AgentReviewCard
-                  key={item.id}
-                  item={item}
-                  onApprove={() => handleAgentStatusChange(item, "approved")}
-                  onReject={(_, comment) => handleAgentStatusChange(item, "rejected", comment)}
-                />
-              ))
-            )}
-          </div>
-        </div>
+            {activeQueueConfig.items.map((item) => activeQueueConfig.renderCard(item))}
+          </ReviewStatusSection>
+        ) : (
+          <QueuePlaceholder />
+        )}
       </div>
     </div>
   );

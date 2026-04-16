@@ -1,7 +1,17 @@
 import supabase from "../lib/supabaseClient";
 import { normalizeCurrencyRecord } from "../utils/currency";
 
-export async function getTransactions({ userId, direction = "all", limit, search = "" } = {}) {
+const NOTIFICATION_ONLY_TRANSACTION_FLOWS = new Set([
+  "foreign_to_main_conversion",
+  "main_to_foreign_conversion",
+  "wallet_conversion",
+]);
+
+function isNotificationOnlyTransaction(transaction) {
+  return NOTIFICATION_ONLY_TRANSACTION_FLOWS.has(transaction?.metadata?.flow);
+}
+
+export async function getTransactions({ userId, direction = "all", limit, search = "", includeNotificationOnly = false } = {}) {
   let resolvedUserId = userId;
 
   if (!resolvedUserId) {
@@ -38,14 +48,17 @@ export async function getTransactions({ userId, direction = "all", limit, search
     throw error;
   }
 
+  const normalizedTransactions = (data || [])
+    .map(normalizeCurrencyRecord)
+    .filter((transaction) => includeNotificationOnly || !isNotificationOnlyTransaction(transaction));
+
   if (!search.trim()) {
-    return (data || []).map(normalizeCurrencyRecord);
+    return normalizedTransactions;
   }
 
   const searchTerm = search.trim().toLowerCase();
 
-  return (data || [])
-    .map(normalizeCurrencyRecord)
+  return normalizedTransactions
     .filter((transaction) =>
     [
       transaction.transaction_type,

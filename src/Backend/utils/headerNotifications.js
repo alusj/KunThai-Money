@@ -1,5 +1,11 @@
 import { formatCurrency } from "./formatCurrency";
 
+const OWN_ACCOUNT_NOTIFICATION_FLOWS = new Set([
+  "foreign_to_main_conversion",
+  "main_to_foreign_conversion",
+  "wallet_conversion",
+]);
+
 function buildPaymentRequestMessage(request) {
   const lines = [
     `From ${request.requester_name}`,
@@ -15,11 +21,67 @@ function buildPaymentRequestMessage(request) {
   return lines.join("\n");
 }
 
+function buildOwnAccountNotification(transaction) {
+  const flow = transaction?.metadata?.flow;
+
+  if (!OWN_ACCOUNT_NOTIFICATION_FLOWS.has(flow)) {
+    return null;
+  }
+
+  const amountMoved = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const convertedAmount = formatCurrency(
+    transaction.metadata?.converted_amount ??
+      transaction.metadata?.convertedAmount ??
+      transaction.metadata?.target_amount ??
+      transaction.amount ??
+      0,
+    transaction.metadata?.conversion_target_currency ||
+      transaction.metadata?.target_currency ||
+      transaction.currency ||
+      "SLL"
+  );
+
+  if (flow === "foreign_to_main_conversion") {
+    return {
+      id: `own-transfer-${transaction.id}`,
+      tone: "info",
+      title: "Foreign account update",
+      body: `You have moved ${amountMoved} from your foreign account to your main account.\nYou have converted ${convertedAmount} from your foreign account.`,
+      action: "notifications-only",
+      actionLabel: "Open",
+      created_at: transaction.created_at,
+    };
+  }
+
+  if (flow === "main_to_foreign_conversion") {
+    return {
+      id: `own-transfer-${transaction.id}`,
+      tone: "info",
+      title: "Foreign account update",
+      body: `You have moved ${amountMoved} from your main account to your foreign account.\nYou have converted ${convertedAmount} to your foreign account.`,
+      action: "notifications-only",
+      actionLabel: "Open",
+      created_at: transaction.created_at,
+    };
+  }
+
+  return {
+    id: `own-transfer-${transaction.id}`,
+    tone: "info",
+    title: "Account transfer update",
+    body: `You have moved ${amountMoved} between your accounts.\nConverted amount: ${convertedAmount}.`,
+    action: "notifications-only",
+    actionLabel: "Open",
+    created_at: transaction.created_at,
+  };
+}
+
 export function buildHeaderNotifications({
   status,
   paymentRequests = [],
   adminMessages = [],
   otherAccounts = [],
+  recentTransactions = [],
 }) {
   const items = [];
 
@@ -110,5 +172,14 @@ export function buildHeaderNotifications({
       });
     });
 
-  return items.slice(0, 6);
+  recentTransactions
+    .map(buildOwnAccountNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  return items
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .slice(0, 6);
 }

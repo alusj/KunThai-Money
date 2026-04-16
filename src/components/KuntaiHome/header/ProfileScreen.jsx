@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   BriefcaseBusiness,
@@ -200,6 +200,224 @@ function SubmenuHeader({ title, description, onBack }) {
   );
 }
 
+const TERMS_CONTENT = {
+  privacy: {
+    title: "Privacy policy",
+    icon: FileText,
+    description: "How Kuntai Money collects, uses, stores, and protects customer information.",
+    sections: [
+      {
+        heading: "Information we collect",
+        body:
+          "We collect the information needed to open and operate your account, including your name, phone number, date of birth, address, identity details, device signals, transaction history, and any documents you submit during verification or support requests.",
+      },
+      {
+        heading: "How we use your information",
+        body:
+          "Your information is used to create and secure your account, process transfers and payments, prevent fraud, complete identity checks, comply with legal obligations, improve service performance, and send important account, security, and product communications.",
+      },
+      {
+        heading: "Sharing and disclosure",
+        body:
+          "We only share customer information where necessary with licensed financial partners, payment processors, identity verification providers, mobile network operators, auditors, regulators, or law enforcement where a lawful request applies. We do not sell your personal information.",
+      },
+      {
+        heading: "Storage and protection",
+        body:
+          "We keep data in secured systems protected by access controls, monitoring, encryption, and operational safeguards. We retain information only for as long as needed to provide the service, resolve disputes, enforce our agreements, and satisfy record-keeping obligations.",
+      },
+      {
+        heading: "Your privacy choices",
+        body:
+          "You are responsible for keeping your profile information accurate. Subject to applicable law, you may request access to your personal data, ask for corrections, object to certain processing, or request account closure, although some records may still be retained for compliance purposes.",
+      },
+    ],
+  },
+  service: {
+    title: "Terms of service",
+    icon: FileText,
+    description: "The main rules that govern use of the Kuntai Money platform and wallet services.",
+    sections: [
+      {
+        heading: "Account eligibility and acceptance",
+        body:
+          "By creating or using a Kuntai Money account, you confirm that the information you provide is true, complete, and belongs to you. You must be legally permitted to use financial services in your jurisdiction and must not act on behalf of another person without authority.",
+      },
+      {
+        heading: "Use of the platform",
+        body:
+          "You may use the service for lawful personal or approved business transactions only. You must not use the platform for fraud, money laundering, terrorism financing, unauthorized cash cycling, abusive chargebacks, sanctions evasion, or any activity that exposes the service or other users to harm.",
+      },
+      {
+        heading: "Security responsibilities",
+        body:
+          "You must keep your password, PIN, OTPs, and device access credentials confidential at all times. Transactions confirmed through your authenticated session may be treated as authorized unless we determine there is evidence of system error, compromise, or prohibited activity.",
+      },
+      {
+        heading: "Service availability and limits",
+        body:
+          "Some features may be subject to eligibility checks, transaction limits, maintenance windows, partner availability, or regulatory restrictions. We may delay, decline, reverse, or place a hold on a transaction where additional review is required to protect customers, partners, or the platform.",
+      },
+      {
+        heading: "Suspension and termination",
+        body:
+          "We may restrict, suspend, or close an account where we detect false information, suspicious activity, non-compliance, security risk, prolonged inactivity, or a breach of these terms. Where appropriate, remaining balances will be handled in line with law, partner rules, and ongoing investigations.",
+      },
+    ],
+  },
+  fees: {
+    title: "Fees and charges",
+    icon: CreditCard,
+    description: "A clear summary of how service charges may apply across wallet activity.",
+    sections: [
+      {
+        heading: "General charging principle",
+        body:
+          "Kuntai Money aims to display applicable fees before you confirm a transaction. Charges may vary by service type, transaction amount, payment rail, currency, destination, partner network, card scheme, or whether a transaction requires manual review or reversal handling.",
+      },
+      {
+        heading: "Common fee categories",
+        body:
+          "Fees may apply to cash-in by card, cash-out to bank or mobile money, merchant payments, bill payments, foreign exchange, account servicing, failed reversal handling, or premium support channels where offered. Taxes, levies, and third-party charges may be added where required.",
+      },
+      {
+        heading: "When fees are charged",
+        body:
+          "Transaction fees are generally deducted at the time the transaction is processed or reflected in the quoted total before confirmation. If a transfer fails after partner processing has started, non-refundable third-party charges may still apply where permitted by law.",
+      },
+      {
+        heading: "Changes to pricing",
+        body:
+          "We may update fees from time to time to reflect market conditions, partner pricing, regulation, or product changes. Where required, we will provide notice through the app, website, SMS, email, or other official communication channels before updated charges take effect.",
+      },
+      {
+        heading: "Customer responsibility",
+        body:
+          "You should review the fee summary shown before submitting any payment or transfer. By proceeding with a transaction, you authorize Kuntai Money to debit the applicable fees, charges, taxes, and partner costs from the funding source or account balance used for that transaction.",
+      },
+    ],
+  },
+  kyc: {
+    title: "KYC / compliance rules",
+    icon: Shield,
+    description: "Identity verification and compliance obligations that support a safe financial platform.",
+    sections: [
+      {
+        heading: "Verification requirement",
+        body:
+          "All customers must complete the required Know Your Customer checks before gaining access to certain features, limits, or account tiers. We may request government-issued identification, a selfie, proof of address, business documents, source-of-funds information, or other supporting records.",
+      },
+      {
+        heading: "Customer obligations",
+        body:
+          "You must submit valid, current, and unaltered information and documents that belong to you or to an entity you are authorized to represent. If your profile details change, you must update them promptly and cooperate with any refresh or enhanced due diligence request.",
+      },
+      {
+        heading: "Monitoring and review",
+        body:
+          "We monitor accounts and transactions to detect suspicious patterns, fraud risk, sanctions exposure, unusual activity, or other indicators that require investigation. Reviews may be automated or manual and may result in temporary limits, document requests, or delayed processing.",
+      },
+      {
+        heading: "Restricted activity",
+        body:
+          "Accounts must not be used to conceal identity, move funds for third parties without disclosure, process proceeds of crime, structure transactions to avoid limits, or engage in any activity prohibited by anti-money laundering, counter-terrorist financing, or sanctions laws.",
+      },
+      {
+        heading: "Compliance actions",
+        body:
+          "Where risk, legal, or regulatory concerns arise, Kuntai Money may refuse a transaction, freeze funds where permitted, file required reports, request additional explanation, or suspend account access until review is completed. Decisions are taken to protect customers, partners, and the wider financial system.",
+      },
+    ],
+  },
+};
+
+function PolicyViewer({ policy, onBack }) {
+  const Icon = policy.icon || FileText;
+
+  return (
+    <div className="space-y-4">
+      <SubmenuHeader title={policy.title} description={policy.description} onBack={onBack} />
+      <MenuGroup>
+        <div className="border-b border-slate-200 px-5 py-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+              <Icon size={18} />
+            </span>
+            <div>
+              <p className="text-[1.02rem] font-semibold text-slate-950">{policy.title}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">{policy.description}</p>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-0">
+          {policy.sections.map((section, index) => (
+            <div key={section.heading}>
+              <div className="px-5 py-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">{section.heading}</p>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{section.body}</p>
+              </div>
+              {index !== policy.sections.length - 1 ? <MenuDivider /> : null}
+            </div>
+          ))}
+        </div>
+      </MenuGroup>
+    </div>
+  );
+}
+
+function PolicyFullscreenScreen({ policy, onBack, isDarkMode }) {
+  const Icon = policy.icon || FileText;
+
+  return (
+    <div
+      className={`min-h-screen ${
+        isDarkMode
+          ? "bg-[linear-gradient(180deg,#0f172a_0%,#111827_32%,#162033_100%)]"
+          : "bg-[linear-gradient(180deg,#f8fafc_0%,#eef4ff_28%,#f8fafc_100%)]"
+      }`}
+    >
+      <div className={`border-b backdrop-blur-xl ${isDarkMode ? "border-slate-800 bg-slate-950/90" : "border-white/60 bg-white/80"}`}>
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-5 md:px-8">
+          <BackTab onBack={onBack} />
+          <div className="min-w-0 flex-1">
+            <p className={`text-[0.7rem] font-semibold uppercase tracking-[0.32em] ${isDarkMode ? "text-slate-300" : "text-slate-400"}`}>
+              Terms & Conditions
+            </p>
+            <h2 className={`mt-1 truncate text-xl font-bold ${isDarkMode ? "text-slate-50" : "text-slate-950"}`}>{policy.title}</h2>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
+        <div className="rounded-[28px] bg-[#f3f4f6] p-3 sm:p-4">
+          <div className="mb-4 flex justify-center">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm">
+              <Icon size={26} />
+            </span>
+          </div>
+          <MenuGroup>
+            <div className="border-b border-slate-200 px-5 py-5">
+              <p className="text-[1.02rem] font-semibold text-slate-950">{policy.title}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{policy.description}</p>
+            </div>
+            <div>
+              {policy.sections.map((section, index) => (
+                <div key={section.heading}>
+                  <div className="px-5 py-5">
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">{section.heading}</p>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">{section.body}</p>
+                  </div>
+                  {index !== policy.sections.length - 1 ? <MenuDivider /> : null}
+                </div>
+              ))}
+            </div>
+          </MenuGroup>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileScreen({
   name,
   profile,
@@ -213,15 +431,15 @@ export default function ProfileScreen({
   onOpenNotifications,
   isAdmin,
   onOpenAdmin,
-  onOpenTerms,
   onOpenHelp,
   onSignOut,
   biometrics,
   onToggleBiometrics,
   appearance,
   onToggleAppearance,
-  hiddenDashboardItems = [],
+  isMainAccountNumberHidden = false,
   hiddenOtherAccounts = [],
+  onShowMainAccountNumber,
   onShowOtherAccount,
 }) {
   const { isDarkMode } = useAppearance();
@@ -238,6 +456,7 @@ export default function ProfileScreen({
     [name]
   );
   const [activeMenu, setActiveMenu] = useState(null);
+  const [activePolicy, setActivePolicy] = useState(null);
   const [notificationState, setNotificationState] = useState({
     transactions: true,
     security: true,
@@ -248,6 +467,49 @@ export default function ProfileScreen({
     language: "English",
     textSize: "Medium",
   });
+  const scrollPositionsRef = useRef({
+    root: null,
+    menus: {},
+  });
+  const pendingRestoreRef = useRef(null);
+
+  const getScrollPosition = () => window.scrollY || window.pageYOffset || 0;
+
+  const openMenu = (menuKey) => {
+    scrollPositionsRef.current.root = getScrollPosition();
+    setActivePolicy(null);
+    setActiveMenu(menuKey);
+  };
+
+  const closeMenu = () => {
+    pendingRestoreRef.current = scrollPositionsRef.current.root;
+    setActivePolicy(null);
+    setActiveMenu(null);
+  };
+
+  const openPolicy = (policyKey) => {
+    if (!activeMenu) {
+      return;
+    }
+
+    scrollPositionsRef.current.menus[activeMenu] = getScrollPosition();
+    setActivePolicy(policyKey);
+  };
+
+  const closePolicy = () => {
+    pendingRestoreRef.current = activeMenu ? scrollPositionsRef.current.menus[activeMenu] : null;
+    setActivePolicy(null);
+  };
+
+  useLayoutEffect(() => {
+    if (typeof pendingRestoreRef.current !== "number") {
+      return;
+    }
+
+    const targetScroll = pendingRestoreRef.current;
+    pendingRestoreRef.current = null;
+    window.scrollTo({ top: targetScroll, behavior: "auto" });
+  }, [activeMenu, activePolicy]);
 
   const menuCards = [
     {
@@ -296,7 +558,7 @@ export default function ProfileScreen({
     if (activeMenu === "security") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Security" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Shield} />
+          <MenuScreenHeader title="Security" onBack={closeMenu} icon={activeMenuItem?.icon || Shield} />
           {biometrics?.message ? (
             <div className="mb-4">
               <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
@@ -329,7 +591,7 @@ export default function ProfileScreen({
     if (activeMenu === "notifications") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Notifications" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Bell} />
+          <MenuScreenHeader title="Notifications" onBack={closeMenu} icon={activeMenuItem?.icon || Bell} />
           <MenuGroup>
             <MenuItem
               icon={Bell}
@@ -397,7 +659,7 @@ export default function ProfileScreen({
     if (activeMenu === "settings") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Settings" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Monitor} />
+          <MenuScreenHeader title="Settings" onBack={closeMenu} icon={activeMenuItem?.icon || Monitor} />
           <MenuGroup>
             <MenuItem
               icon={Palette}
@@ -427,7 +689,7 @@ export default function ProfileScreen({
     if (activeMenu === "other-accounts") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Other Accounts" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || Wallet} />
+          <MenuScreenHeader title="Other Accounts" onBack={closeMenu} icon={activeMenuItem?.icon || Wallet} />
           {hiddenOtherAccounts.length ? (
             <MenuGroup>
               {hiddenOtherAccounts.map((item, index) => (
@@ -440,17 +702,17 @@ export default function ProfileScreen({
                       <p className="text-[1.02rem] font-semibold text-slate-950">
                         {item.account_name || "Other Account"}
                       </p>
-                      <p className="mt-1 break-all text-xs text-slate-500">
-                        {item.account_number || "Account number pending"}
-                      </p>
+                      <div className="mt-1 flex items-center justify-between gap-3">
+                        <p className="break-all text-xs text-slate-500">{item.account_number || "Account number pending"}</p>
+                        <button
+                          type="button"
+                          onClick={() => onShowOtherAccount?.(item.id)}
+                          className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Show
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => onShowOtherAccount?.(item.id)}
-                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Show
-                    </button>
                   </div>
                   {index !== hiddenOtherAccounts.length - 1 ? <MenuDivider /> : null}
                 </div>
@@ -470,15 +732,15 @@ export default function ProfileScreen({
     if (activeMenu === "terms") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Terms & Conditions" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || FileText} />
+          <MenuScreenHeader title="Terms & Conditions" onBack={closeMenu} icon={activeMenuItem?.icon || FileText} />
           <MenuGroup>
-            <MenuItem icon={FileText} title="Privacy policy" onClick={onOpenTerms} />
+            <MenuItem icon={FileText} title="Privacy policy" onClick={() => openPolicy("privacy")} />
             <MenuDivider />
-            <MenuItem icon={FileText} title="Terms of service" onClick={onOpenTerms} />
+            <MenuItem icon={FileText} title="Terms of service" onClick={() => openPolicy("service")} />
             <MenuDivider />
-            <MenuItem icon={CreditCard} title="Fees and charges" onClick={onOpenTerms} />
+            <MenuItem icon={CreditCard} title="Fees and charges" onClick={() => openPolicy("fees")} />
             <MenuDivider />
-            <MenuItem icon={Shield} title="KYC / compliance rules" onClick={onOpenTerms} />
+            <MenuItem icon={Shield} title="KYC / compliance rules" onClick={() => openPolicy("kyc")} />
           </MenuGroup>
         </MenuShell>
       );
@@ -487,7 +749,7 @@ export default function ProfileScreen({
     if (activeMenu === "help") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Help" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || CircleHelp} />
+          <MenuScreenHeader title="Help" onBack={closeMenu} icon={activeMenuItem?.icon || CircleHelp} />
           <MenuGroup>
             <MenuItem icon={MessageCircle} title="Live chat" onClick={onOpenHelp} />
             <MenuDivider />
@@ -512,7 +774,7 @@ export default function ProfileScreen({
     if (activeMenu === "logout") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Logout" onBack={() => setActiveMenu(null)} icon={activeMenuItem?.icon || LogOut} />
+          <MenuScreenHeader title="Logout" onBack={closeMenu} icon={activeMenuItem?.icon || LogOut} />
           <MenuGroup>
             <MenuItem
               icon={LogOut}
@@ -544,7 +806,7 @@ export default function ProfileScreen({
               .filter((item) => !item.danger)
               .map((item, index, items) => (
                 <div key={item.key}>
-                  <MenuItem icon={item.icon} title={item.title} onClick={() => setActiveMenu(item.key)} />
+                  <MenuItem icon={item.icon} title={item.title} onClick={() => openMenu(item.key)} />
                   {index !== items.length - 1 ? <MenuDivider /> : null}
                 </div>
               ))}
@@ -558,7 +820,7 @@ export default function ProfileScreen({
                   key={item.key}
                   icon={item.icon}
                   title={item.title}
-                  onClick={() => setActiveMenu(item.key)}
+                  onClick={() => openMenu(item.key)}
                   danger
                 />
               ))}
@@ -567,6 +829,10 @@ export default function ProfileScreen({
       </MenuShell>
     );
   };
+
+  if (activePolicy && activeMenu === "terms") {
+    return <PolicyFullscreenScreen policy={TERMS_CONTENT[activePolicy]} onBack={closePolicy} isDarkMode={isDarkMode} />;
+  }
 
   return (
     <div
@@ -641,8 +907,23 @@ export default function ProfileScreen({
 
                 <div className="mt-6 grid gap-4 md:grid-cols-3">
                   <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Account Number</p>
-                    <p className={`mt-2 break-all text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{account?.account_number || "Pending"}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Account Number</p>
+                        <p className={`mt-2 break-all text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
+                          {account?.account_number || "Pending"}
+                        </p>
+                      </div>
+                      {isMainAccountNumberHidden && account?.account_number ? (
+                        <button
+                          type="button"
+                          onClick={onShowMainAccountNumber}
+                          className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Show
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
                     <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Phone Number</p>
@@ -660,51 +941,6 @@ export default function ProfileScreen({
                   </div>
                 </div>
 
-                {hiddenDashboardItems.length ? (
-                  <div className={`mt-5 rounded-[24px] px-5 py-5 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                          Hidden From Dashboard
-                        </p>
-                        <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
-                          Hidden account items are restored here
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                        {hiddenDashboardItems.length}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
-                      {hiddenDashboardItems.map((item) => (
-                        <div
-                          key={item.key}
-                          className={`flex flex-col gap-3 rounded-[22px] px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${
-                            isDarkMode ? "bg-slate-950/80" : "bg-slate-50"
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <p className={`text-sm font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
-                              {item.title}
-                            </p>
-                            <p className={`mt-1 break-all text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                              {item.description}
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={item.onShow}
-                            className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                          >
-                            Show to dashboard
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
               </div>
             </section>
 

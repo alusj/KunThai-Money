@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
-  Download,
   Hash,
   Loader2,
   ReceiptText,
@@ -67,11 +66,27 @@ function resolveErrorMessage(error, fallback) {
     return "The transfer table in this database is missing the new reference fields. Run the account transfer schema repair SQL in Supabase, then try again.";
   }
 
+  if (/column\s+"?balance"?\s+does\s+not\s+exist/i.test(message)) {
+    return "Wallet conversion is not fully enabled in this database yet. Run the latest own-wallet conversion SQL in Supabase so other accounts get a balance column, then try again.";
+  }
+
   if (/transactions_transaction_type_check/i.test(message) || /violates check constraint.*transaction_type/i.test(message)) {
     return "The transactions table in this database is using an older allowed-type list. Run the transactions schema repair SQL in Supabase, then try again.";
   }
 
   return message;
+}
+
+function resolvePinBannerTitle(message = "") {
+  if (
+    /incorrect transaction pin/i.test(message) ||
+    /transaction pin/i.test(message) ||
+    /pin/i.test(message)
+  ) {
+    return "PIN check failed";
+  }
+
+  return "Transfer setup issue";
 }
 
 function initialsFromName(name = "") {
@@ -255,6 +270,165 @@ function RecipientAvatar({ name, image }) {
   );
 }
 
+async function renderReceiptImage(receiptElement) {
+  const rect = receiptElement.getBoundingClientRect();
+  const clone = receiptElement.cloneNode(true);
+  clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+
+  const markup = new XMLSerializer().serializeToString(clone);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(rect.width)}" height="${Math.ceil(rect.height)}">
+      <foreignObject width="100%" height="100%">${markup}</foreignObject>
+    </svg>
+  `;
+
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(rect.width * 2);
+    canvas.height = Math.ceil(rect.height * 2);
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Canvas is not supported.");
+    }
+
+    context.scale(2, 2);
+    context.drawImage(image, 0, 0, rect.width, rect.height);
+
+    const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+
+    if (!pngBlob) {
+      throw new Error("Receipt image could not be generated.");
+    }
+
+    return pngBlob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function imageBlobToJpegData(imageBlob) {
+  const url = URL.createObjectURL(imageBlob);
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Canvas is not supported.");
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0);
+
+    const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+
+    if (!jpegBlob) {
+      throw new Error("PDF image could not be prepared.");
+    }
+
+    return { blob: jpegBlob, width: image.width, height: image.height };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function concatUint8Arrays(chunks) {
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const merged = new Uint8Array(totalLength);
+  let offset = 0;
+
+  chunks.forEach((chunk) => {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  });
+
+  return merged;
+}
+
+function buildPdfBlobFromJpegBytes(jpegBytes, imageWidth, imageHeight) {
+  const encoder = new TextEncoder();
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const margin = 36;
+  const ratio = Math.min(
+    (pageWidth - margin * 2) / imageWidth,
+    (pageHeight - margin * 2) / imageHeight
+  );
+  const renderWidth = imageWidth * ratio;
+  const renderHeight = imageHeight * ratio;
+  const x = (pageWidth - renderWidth) / 2;
+  const y = (pageHeight - renderHeight) / 2;
+  const contentStream = `q\n${renderWidth.toFixed(2)} 0 0 ${renderHeight.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm\n/Im0 Do\nQ`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth.toFixed(2)} ${pageHeight.toFixed(2)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`,
+    null,
+    `<< /Length ${encoder.encode(contentStream).length} >>\nstream\n${contentStream}\nendstream`,
+  ];
+
+  const chunks = [encoder.encode("%PDF-1.4\n")];
+  const offsets = [0];
+  let currentLength = chunks[0].length;
+
+  objects.forEach((objectBody, index) => {
+    offsets.push(currentLength);
+
+    if (index === 3) {
+      const header = encoder.encode(
+        `${index + 1} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+      );
+      const footer = encoder.encode("\nendstream\nendobj\n");
+      chunks.push(header, jpegBytes, footer);
+      currentLength += header.length + jpegBytes.length + footer.length;
+      return;
+    }
+
+    const body = encoder.encode(`${index + 1} 0 obj\n${objectBody}\nendobj\n`);
+    chunks.push(body);
+    currentLength += body.length;
+  });
+
+  const xrefOffset = currentLength;
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    xref += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  chunks.push(encoder.encode(xref), encoder.encode(trailer));
+
+  return new Blob([concatUint8Arrays(chunks)], { type: "application/pdf" });
+}
+
+async function createReceiptPdfBlob(receiptElement) {
+  const imageBlob = await renderReceiptImage(receiptElement);
+  const jpegData = await imageBlobToJpegData(imageBlob);
+  const jpegBytes = new Uint8Array(await jpegData.blob.arrayBuffer());
+  return buildPdfBlobFromJpegBytes(jpegBytes, jpegData.width, jpegData.height);
+}
+
 export default function AccountNumber({
   account,
   user,
@@ -286,11 +460,14 @@ export default function AccountNumber({
   const [pin, setPin] = useState("");
   const [recipientLookup, setRecipientLookup] = useState(null);
   const [receipt, setReceipt] = useState(null);
+  const [pendingSuccessTransfer, setPendingSuccessTransfer] = useState(null);
+  const [sharePickerOpen, setSharePickerOpen] = useState(false);
   const [fxState, setFxState] = useState({
     loading: false,
     error: "",
     rate: null,
   });
+  const receiptRef = useRef(null);
   const ownerName =
     profile?.first_name || profile?.last_name
       ? [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(" ")
@@ -424,6 +601,33 @@ export default function AccountNumber({
     };
   }, [currency, isConversionFlow, targetCurrency]);
 
+  useEffect(() => {
+    if (!pendingSuccessTransfer || step !== "receipt") {
+      return;
+    }
+
+    let isActive = true;
+
+    async function finalizeSuccessfulTransfer() {
+      try {
+        await refreshAccount?.();
+        if (isActive) {
+          await onTransferSuccess?.(pendingSuccessTransfer);
+        }
+      } finally {
+        if (isActive) {
+          setPendingSuccessTransfer(null);
+        }
+      }
+    }
+
+    finalizeSuccessfulTransfer();
+
+    return () => {
+      isActive = false;
+    };
+  }, [onTransferSuccess, pendingSuccessTransfer, refreshAccount, step]);
+
   const recipientStateIcon = useMemo(() => {
     if (isCheckingRecipient) {
       return <Loader2 size={18} className="animate-spin text-slate-400" />;
@@ -540,9 +744,6 @@ export default function AccountNumber({
             },
           });
 
-      await refreshAccount?.();
-      await onTransferSuccess?.(transfer);
-
       setReceipt({
         status: transfer?.status || "completed",
         recipientName: transfer?.recipient_name || effectiveRecipientLookup?.recipient_name || form.accountNumber.trim(),
@@ -566,6 +767,7 @@ export default function AccountNumber({
       });
       setPin("");
       setStep("receipt");
+      setPendingSuccessTransfer(transfer);
     } catch (submitError) {
       setError(resolveErrorMessage(submitError, "The transfer could not be completed."));
     } finally {
@@ -573,70 +775,50 @@ export default function AccountNumber({
     }
   };
 
-  const handleDownloadReceipt = () => {
-    if (!receipt) {
+  const handleShareReceiptFile = async (format) => {
+    if (!receipt || !receiptRef.current) {
       return;
     }
 
-    const content = [
-      "KunThai Money Transaction Receipt",
-      `Status: ${receipt.status}`,
-      `Recipient: ${receipt.recipientName}`,
-      `Account Number: ${receipt.recipientAccountNumber}`,
-      `Transaction ID: ${receipt.transactionId}`,
-      `Reference Number: ${receipt.referenceNumber}`,
-      `Amount: ${formatCurrency(receipt.amount, currency)}`,
-      `Tax: ${formatCurrency(receipt.taxAmount, currency)}`,
-      `Fee: ${formatCurrency(receipt.transactionFee, currency)}`,
-      `Total: ${formatCurrency(receipt.totalAmount, currency)}`,
-      `Reason: ${receipt.reason}`,
-      `Date & Time: ${new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(new Date(receipt.createdAt))}`,
-      `Sender Account: ${receipt.senderAccountNumber}`,
-      `Payment Method: ${receipt.paymentMethod}`,
-    ].join("\n");
+    try {
+      const blob =
+        format === "pdf"
+          ? await createReceiptPdfBlob(receiptRef.current)
+          : await renderReceiptImage(receiptRef.current);
+      const extension = format === "pdf" ? "pdf" : "png";
+      const mimeType = format === "pdf" ? "application/pdf" : "image/png";
+      const file = new File([blob], `receipt-${receipt.referenceNumber}.${extension}`, {
+        type: mimeType,
+      });
 
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `receipt-${receipt.referenceNumber}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+      setSharePickerOpen(false);
 
-  const handleShareReceipt = async () => {
-    if (!receipt) {
-      return;
-    }
-
-    const shareText = [
-      "KunThai Money Transaction Receipt",
-      `Recipient: ${receipt.recipientName}`,
-      `Amount: ${formatCurrency(receipt.amount, currency)}`,
-      `Transaction ID: ${receipt.transactionId}`,
-      `Reference Number: ${receipt.referenceNumber}`,
-      `Status: ${receipt.status}`,
-    ].join("\n");
-
-    if (navigator.share) {
-      try {
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           title: "Transaction Receipt",
-          text: shareText,
+          files: [file],
         });
         return;
-      } catch {
-        return;
       }
-    }
 
-    await navigator.clipboard?.writeText?.(shareText);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      const fallbackText = [
+        "KunThai Money Transaction Receipt",
+        `Recipient: ${receipt.recipientName}`,
+        `Amount: ${formatCurrency(receipt.amount, currency)}`,
+        `Transaction ID: ${receipt.transactionId}`,
+        `Reference Number: ${receipt.referenceNumber}`,
+        `Status: ${receipt.status}`,
+      ].join("\n");
+
+      await navigator.clipboard?.writeText?.(fallbackText);
+    }
   };
 
   const handleReset = () => {
@@ -652,14 +834,16 @@ export default function AccountNumber({
     setError("");
     setRecipientLookup(null);
     setReceipt(null);
+    setPendingSuccessTransfer(null);
+    setSharePickerOpen(false);
   };
 
   if (step === "receipt" && receipt) {
     return (
       <div className={`rounded-2xl border p-4 shadow-sm ${isDarkMode ? "border-slate-700 bg-slate-950" : "border-slate-200 bg-white"}`}>
         <div className="mb-4">
-          <ActionBanner tone="success" title="Cash Out Successful">
-            Your transfer was completed successfully. The cash out receipt is ready below.
+          <ActionBanner tone="success" title="Transaction Successful">
+            Your cash out receipt is ready below.
           </ActionBanner>
         </div>
 
@@ -689,7 +873,7 @@ export default function AccountNumber({
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div ref={receiptRef} className="space-y-4">
           <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center gap-4">
               <RecipientAvatar name={receipt.recipientName} image={receipt.recipientProfileImage} />
@@ -742,22 +926,41 @@ export default function AccountNumber({
             </div>
           </section>
 
+          {sharePickerOpen ? (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleShareReceiptFile("image")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <Share2 size={16} />
+                <span>Share as Image</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShareReceiptFile("pdf")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <ReceiptText size={16} />
+                <span>Share as PDF</span>
+              </button>
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={handleDownloadReceipt}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              <Download size={16} />
-              <span>Download</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleShareReceipt}
+              onClick={() => setSharePickerOpen((current) => !current)}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               <Share2 size={16} />
-              <span>Share Receipt</span>
+              <span>{sharePickerOpen ? "Close Share" : "Share"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Done
             </button>
           </div>
         </div>
@@ -785,7 +988,7 @@ export default function AccountNumber({
 
         {error ? (
           <div className="mb-4">
-            <ActionBanner tone="danger" title="PIN check failed">
+            <ActionBanner tone="danger" title={resolvePinBannerTitle(error)}>
               {error}
             </ActionBanner>
           </div>
@@ -926,14 +1129,6 @@ export default function AccountNumber({
         <div className="mb-4">
           <ActionBanner tone="danger" title="Cash out unsuccessful">
             {error}
-          </ActionBanner>
-        </div>
-      ) : null}
-
-      {effectiveRecipientLookup?.is_valid && !isConversionFlow ? (
-        <div className="mb-4">
-          <ActionBanner tone="success" title="Recipient verified">
-            {effectiveRecipientLookup.recipient_name} is ready to receive this transfer.
           </ActionBanner>
         </div>
       ) : null}
