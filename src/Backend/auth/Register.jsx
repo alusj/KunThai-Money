@@ -115,11 +115,11 @@ export default function Register() {
       <AuthShell
         eyebrow="New Customer"
         title="Create your account"
-        subtitle="Register with your mobile number and password, then verify your phone with OTP to start onboarding."
+        subtitle="Register with your mobile number and a secure password, then verify your phone with OTP to start onboarding."
         footer={
           <>
             Already registered?{" "}
-            <button className="font-semibold text-cyan-200" onClick={() => navigate("/login")}>
+            <button className="font-semibold text-sky-300" onClick={() => navigate("/login")}>
               Sign in here
             </button>
           </>
@@ -131,14 +131,14 @@ export default function Register() {
               <button
                 type="button"
                 onClick={() => setOpen((current) => !current)}
-                className="flex h-12 w-16 items-center justify-center gap-1 rounded-lg border bg-white px-2"
+                className="flex h-12 w-16 items-center justify-center gap-1 rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-slate-100"
               >
                 <FlagIcon code={selected.flag} className="h-5 w-7 rounded-[4px] shadow-sm" />
                 <ChevronDown size={14} />
               </button>
 
               {open && (
-                <div className="absolute left-0 top-14 z-30 max-h-60 w-56 overflow-y-auto rounded-lg bg-white shadow-xl">
+                <div className="absolute left-0 top-14 z-30 max-h-60 w-56 overflow-y-auto rounded-2xl border border-[#28456f] bg-[#0d1b34] shadow-2xl">
                   {ecowasCountries.map((country) => (
                     <div
                       key={country.code}
@@ -148,7 +148,7 @@ export default function Register() {
                         setPhone("");
                         setError("");
                       }}
-                      className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100"
+                      className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-100 transition hover:bg-white/5"
                     >
                       <FlagIcon code={country.flag} className="h-4 w-6 rounded-[3px] shadow-sm" />
                       <span>{country.name}</span>
@@ -158,7 +158,7 @@ export default function Register() {
               )}
             </div>
 
-            <div className="flex h-12 min-w-[65px] flex-shrink-0 items-center justify-center rounded-lg border px-2 text-sm">
+            <div className="flex h-12 min-w-[65px] flex-shrink-0 items-center justify-center rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-sm text-slate-100">
               {selected.code}
             </div>
 
@@ -171,7 +171,7 @@ export default function Register() {
                 setExistingPhone("");
               }}
               placeholder={selected.format}
-              className="h-12 min-w-0 flex-1 rounded-lg border px-2 text-sm focus:outline-none sm:px-3 sm:text-base"
+              className="h-12 min-w-0 flex-1 rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-sm text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 sm:px-3 sm:text-base"
             />
           </div>
 
@@ -184,7 +184,7 @@ export default function Register() {
               setExistingPhone("");
             }}
             placeholder="Create password"
-            className="h-12 w-full rounded-lg border px-3 text-sm focus:outline-none sm:text-base"
+            className="h-12 w-full rounded-xl border border-[#28456f] bg-[#10213f] px-3 text-sm text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 sm:text-base"
           />
 
           <input
@@ -196,7 +196,7 @@ export default function Register() {
               setExistingPhone("");
             }}
             placeholder="Confirm password"
-            className="h-12 w-full rounded-lg border px-3 text-sm focus:outline-none sm:text-base"
+            className="h-12 w-full rounded-xl border border-[#28456f] bg-[#10213f] px-3 text-sm text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 sm:text-base"
           />
 
           {error && (
@@ -208,7 +208,7 @@ export default function Register() {
                 <button
                   type="button"
                   onClick={handleGoToLogin}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="w-full rounded-2xl border border-[#31507f] bg-[#10213f] px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-[#14284d]"
                 >
                   Sign in instead
                 </button>
@@ -220,7 +220,7 @@ export default function Register() {
             onClick={handleVerify}
             disabled={loading}
             className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
-              loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+              loading ? "bg-[#31507f]" : "bg-[#2563eb] hover:bg-[#3b82f6]"
             }`}
           >
             {loading ? "Sending OTP..." : "Create Account"}

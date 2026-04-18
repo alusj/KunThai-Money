@@ -20,7 +20,10 @@ export default function CashOut({ account, user, profile, refreshAccount, otherA
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setActiveOption("account");
+          setOpen(true);
+        }}
         className="inline-flex w-full items-center justify-between rounded-2xl bg-bank-primary px-4 py-3 text-sm font-semibold text-white shadow-soft"
       >
         <span>Cash Out</span>
@@ -32,7 +35,7 @@ export default function CashOut({ account, user, profile, refreshAccount, otherA
         onClose={handleClose}
         title={
           activeOption === "account"
-            ? "Transfer Flow"
+            ? "Account Number"
             : activeOption === "foreign-convert"
               ? "Convert to Foreign Account"
               : "Cash Out to"

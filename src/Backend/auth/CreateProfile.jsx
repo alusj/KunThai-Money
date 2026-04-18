@@ -275,8 +275,8 @@ export default function CreateProfile() {
       subtitle="Tell us a little about you so we can personalize your wallet and prepare your account."
     >
       <div className="w-full">
-        <h2 className="mb-2 text-center text-2xl font-bold sm:text-3xl">Create Your Profile</h2>
-        <p className="mb-2 text-center text-gray-500">Personalize your account</p>
+        <h2 className="mb-2 text-center text-2xl font-bold text-slate-50 sm:text-3xl">Create Your Profile</h2>
+        <p className="mb-2 text-center text-slate-300">Personalize your account</p>
         {phone && <p className="mb-6 text-center text-sm text-slate-400">{maskPhoneNumber(phone)}</p>}
 
         {error && (
@@ -287,15 +287,15 @@ export default function CreateProfile() {
 
         <form onSubmit={handleCreateProfile} className="space-y-5">
           <div className="flex flex-col items-center">
-            <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+            <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-[#31507f] bg-[#10213f]">
               {avatarPreview ? (
                 <img src={avatarPreview} className="h-full w-full object-cover" />
               ) : (
-                <span className="text-xl font-bold text-gray-500">U</span>
+                <span className="text-xl font-bold text-slate-300">U</span>
               )}
             </div>
 
-            <label className="mt-3 cursor-pointer text-sm text-blue-600">
+            <label className="mt-3 cursor-pointer text-sm font-medium text-sky-300">
               Upload Photo
               <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </label>
@@ -307,7 +307,7 @@ export default function CreateProfile() {
               placeholder="First Name"
               value={firstName}
               onChange={(event) => setFirstName(event.target.value)}
-              className="w-full rounded-xl border px-4 py-3 focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
             />
 
             <input
@@ -315,7 +315,7 @@ export default function CreateProfile() {
               placeholder="Middle Name (optional)"
               value={middleName}
               onChange={(event) => setMiddleName(event.target.value)}
-              className="w-full rounded-xl border px-4 py-3 focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
             />
           </div>
 
@@ -324,7 +324,7 @@ export default function CreateProfile() {
             placeholder="Surname / Last Name"
             value={lastName}
             onChange={(event) => setLastName(event.target.value)}
-            className="w-full rounded-xl border px-4 py-3 focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
           />
 
           <input
@@ -332,14 +332,14 @@ export default function CreateProfile() {
             placeholder="Email (optional)"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-xl border px-4 py-3 focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
           />
 
           <button
             type="submit"
             disabled={loading}
             className={`w-full rounded-2xl py-3 font-semibold text-white ${
-              loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+              loading ? "bg-[#31507f]" : "bg-[#2563eb] hover:bg-[#3b82f6]"
             }`}
           >
             {loading ? "Creating..." : "Finish Setup"}
@@ -349,7 +349,7 @@ export default function CreateProfile() {
 
       {showCrop && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-[90%] max-w-md rounded-xl bg-white p-4">
+          <div className="w-[90%] max-w-md rounded-[24px] border border-[#28456f] bg-[#0d1b34] p-4 text-slate-100 shadow-2xl">
             <div className="relative h-64 w-full">
               <Cropper
                 image={avatarPreview}
@@ -364,7 +364,7 @@ export default function CreateProfile() {
 
             <button
               onClick={() => setShowCrop(false)}
-              className="mt-4 w-full rounded-lg bg-blue-600 py-2 text-white"
+              className="mt-4 w-full rounded-lg bg-[#2563eb] py-2 text-white transition hover:bg-[#3b82f6]"
             >
               Done
             </button>

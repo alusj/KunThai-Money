@@ -5,6 +5,10 @@ import supabase from "../../Backend/lib/supabaseClient";
 import FlagIcon from "../../components/FlagIcon";
 import { fetchOnboardingStatus } from "../hooks/useOnboardingStatus";
 import { ecowasCountries } from "../utils/ecowasCountries";
+import {
+  clearTransactionPinResetPhone,
+  getTransactionPinResetPhone,
+} from "../utils/onboardingStorage";
 import { getGreetingName } from "../utils/profileName";
 
 function getCircularPosition(index, total, radius) {
@@ -82,6 +86,23 @@ export default function WelcomeLoader() {
           if (!user) {
             navigate("/login?reason=session-expired", { replace: true });
             return;
+          }
+
+          const pendingPinResetPhone = getTransactionPinResetPhone();
+          if (pendingPinResetPhone) {
+            if (pendingPinResetPhone === user.phone) {
+              navigate("/security-setup", {
+                replace: true,
+                state: {
+                  phone: user.phone,
+                  returnTo: "/home",
+                  resetReason: "transaction-pin",
+                },
+              });
+              return;
+            }
+
+            clearTransactionPinResetPhone();
           }
 
           const status = await fetchOnboardingStatus(user.id);

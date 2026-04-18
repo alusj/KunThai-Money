@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 
 import Welcome from "../components/Welcome";
 import Login from "../Backend/auth/Login";
+import RegisterAgreement from "../Backend/auth/RegisterAgreement";
 import Register from "../Backend/auth/Register";
 import ForgotPassword from "../Backend/auth/ForgotPassword";
 import ResetPassword from "../Backend/auth/ResetPassword";
@@ -10,6 +11,7 @@ import SecuritySetup from "../Backend/auth/SecuritySetup";
 import CreateProfile from "../Backend/auth/CreateProfile";
 import KYC from "../Backend/auth/KYC";
 import WelcomeLoader from "../Backend/auth/WelcomeLoader";
+import PublicLegalScreen from "../components/legal/PublicLegalScreen";
 import KuntaiHome from "../components/KuntaiHome/KuntaiHome";
 import CardTopupCallback from "../components/KuntaiHome/wallet/CardTopupCallback";
 import AdminRoute from "../components/AdminRoute";
@@ -41,6 +43,14 @@ export default function AppRoutes() {
         path="/register"
         element={
           <PublicRoute>
+            <RegisterAgreement />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/register/details"
+        element={
+          <PublicRoute>
             <Register />
           </PublicRoute>
         }
@@ -55,6 +65,7 @@ export default function AppRoutes() {
       />
       <Route path="/verify" element={<VerifyOTP />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/legal/:policyKey" element={<PublicLegalScreen />} />
       <Route
         path="/security"
         element={

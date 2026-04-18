@@ -10,6 +10,7 @@ import {
   getCountryByCode,
   validateNationalPhone,
 } from "../utils/ecowasCountries";
+import { clearStoredHomeScreen } from "../utils/homeScreenSession";
 import { getPhoneAuthStatus } from "../services/authPhoneService";
 import { setOnboardingPhone } from "../utils/onboardingStorage";
 import PageTransition from "../../components/animations/PageTransition";
@@ -25,7 +26,7 @@ export default function Login() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [passwordHint, setPasswordHint] = useState("");
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -63,13 +64,20 @@ export default function Login() {
       };
     }
 
+    if (reason === "pin-reset") {
+      return {
+        tone: "info",
+        title: "Reset your transaction PIN",
+        body: "Sign in with your password to create a new transaction PIN before returning to your account.",
+      };
+    }
+
     return null;
   }, [location.search]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
     setError("");
-    setPasswordHint("");
 
     const validation = validateNationalPhone(selected, phone);
 
@@ -78,7 +86,7 @@ export default function Login() {
       return;
     }
 
-    if (!password.trim()) {
+    if (!password) {
       setError("Enter your password.");
       return;
     }
@@ -106,9 +114,12 @@ export default function Login() {
           normalizedMessage.includes("invalid login credentials") ||
           normalizedMessage.includes("invalid credentials")
         ) {
-          setError("Incorrect phone number or password.");
-          setPasswordHint(
-            "If this account was created before password sign-in was added, tap 'Forgot password?' to create a password with OTP."
+          const nextFailedAttempts = failedAttempts + 1;
+          setFailedAttempts(nextFailedAttempts);
+          setError(
+            nextFailedAttempts >= 3
+              ? "Incorrect phone number or password. Forgot password? Reset it with OTP below."
+              : "Incorrect phone number or password."
           );
           return;
         }
@@ -125,6 +136,8 @@ export default function Login() {
       }
 
       setOnboardingPhone(fullPhone);
+      clearStoredHomeScreen();
+      setFailedAttempts(0);
       navigate("/welcome-loader", { replace: true });
     } catch (err) {
       const normalizedMessage = err.message?.toLowerCase?.() || "";
@@ -148,7 +161,7 @@ export default function Login() {
         footer={
           <>
             Don&apos;t have an account?{" "}
-            <button className="font-semibold text-cyan-200" onClick={() => navigate("/register")}>
+            <button className="font-semibold text-sky-300" onClick={() => navigate("/register")}>
               Create one now
             </button>
           </>
@@ -167,14 +180,14 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setOpen((current) => !current)}
-                  className="flex h-12 w-16 items-center justify-center gap-1 rounded-lg border bg-white px-2"
+                  className="flex h-12 w-16 items-center justify-center gap-1 rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-slate-100"
                 >
                   <FlagIcon code={selected.flag} className="h-5 w-7 rounded-[4px] shadow-sm" />
                   <ChevronDown size={14} />
                 </button>
 
                 {open && (
-                  <div className="absolute left-0 top-14 z-30 max-h-60 w-56 overflow-y-auto rounded-lg bg-white shadow-xl">
+                  <div className="absolute left-0 top-14 z-30 max-h-60 w-56 overflow-y-auto rounded-2xl border border-[#28456f] bg-[#0d1b34] shadow-2xl">
                     {ecowasCountries.map((country) => (
                       <div
                         key={country.code}
@@ -184,7 +197,7 @@ export default function Login() {
                           setPhone("");
                           setError("");
                         }}
-                        className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100"
+                        className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-100 transition hover:bg-white/5"
                       >
                         <FlagIcon code={country.flag} className="h-4 w-6 rounded-[3px] shadow-sm" />
                         <span>{country.name}</span>
@@ -194,7 +207,7 @@ export default function Login() {
                 )}
               </div>
 
-              <div className="flex h-12 min-w-[65px] flex-shrink-0 items-center justify-center rounded-lg border px-2 text-sm">
+              <div className="flex h-12 min-w-[65px] flex-shrink-0 items-center justify-center rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-sm text-slate-100">
                 {selected.code}
               </div>
 
@@ -204,9 +217,10 @@ export default function Login() {
                 onChange={(event) => {
                   setPhone(formatPhoneInput(event.target.value, selected.format));
                   setError("");
+                  setFailedAttempts(0);
                 }}
                 placeholder={selected.format}
-                className="h-12 min-w-0 flex-1 rounded-lg border px-2 text-sm focus:outline-none sm:px-3 sm:text-base"
+                className="h-12 min-w-0 flex-1 rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-sm text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 sm:px-3 sm:text-base"
               />
             </div>
 
@@ -218,7 +232,7 @@ export default function Login() {
                 setError("");
               }}
               placeholder="Password"
-              className="h-12 w-full rounded-lg border px-3 text-sm focus:outline-none sm:text-base"
+              className="h-12 w-full rounded-xl border border-[#28456f] bg-[#10213f] px-3 text-sm text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 sm:text-base"
             />
 
             {error && (
@@ -227,17 +241,11 @@ export default function Login() {
             </AuthNotice>
           )}
 
-          {passwordHint ? (
-            <AuthNotice tone="info" title="Need to create a password first?">
-              {passwordHint}
-            </AuthNotice>
-          ) : null}
-
             <button
               type="submit"
               disabled={loading}
               className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
-                loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+                loading ? "bg-[#31507f]" : "bg-[#2563eb] hover:bg-[#3b82f6]"
               }`}
             >
               {loading ? "Signing in..." : "Sign In"}
@@ -253,9 +261,9 @@ export default function Login() {
                   },
                 })
               }
-              className="w-full text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+              className="w-full text-sm font-semibold text-sky-200 transition hover:text-sky-100"
             >
-              Forgot password?
+              {failedAttempts >= 3 ? "Forgot password? Request OTP" : "Forgot password?"}
             </button>
           </form>
         </div>

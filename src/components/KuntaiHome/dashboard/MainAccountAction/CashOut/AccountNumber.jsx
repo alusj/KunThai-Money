@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -18,9 +19,11 @@ import {
   createAccountTransfer,
   getAccountTransferRecipient,
 } from "../../../../../Backend/services/transferService";
+import supabase from "../../../../../Backend/lib/supabaseClient";
 import { convertOwnAccounts } from "../../../../../Backend/services/walletConversionService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { normalizeCurrencyCode } from "../../../../../Backend/utils/currency";
+import { setTransactionPinResetPhone } from "../../../../../Backend/utils/onboardingStorage";
 
 const INITIAL_FORM = {
   accountNumber: "",
@@ -55,7 +58,7 @@ function resolveErrorMessage(error, fallback) {
   const message = error.message || error.error_description || error.details || fallback;
 
   if (/function\s+crypt\(text,\s*text\)\s+does\s+not\s+exist/i.test(message)) {
-    return "Transaction PIN verification is not ready in this database yet. Run the PIN security SQL fix in Supabase, then try again.";
+    return "PIN verification is not ready in this database yet. Run the PIN security SQL fix in Supabase, then try again.";
   }
 
   if (/function\s+gen_random_bytes\(integer\)\s+does\s+not\s+exist/i.test(message)) {
@@ -440,6 +443,7 @@ export default function AccountNumber({
   backLabel = "Back",
   conversionConfig = null,
 }) {
+  const navigate = useNavigate();
   const { isDarkMode } = useAppearance();
   const currency = normalizeCurrencyCode(account?.currency) || "SLL";
   const availableBalance = Number(account?.balance || 0);
@@ -601,33 +605,6 @@ export default function AccountNumber({
     };
   }, [currency, isConversionFlow, targetCurrency]);
 
-  useEffect(() => {
-    if (!pendingSuccessTransfer || step !== "receipt") {
-      return;
-    }
-
-    let isActive = true;
-
-    async function finalizeSuccessfulTransfer() {
-      try {
-        await refreshAccount?.();
-        if (isActive) {
-          await onTransferSuccess?.(pendingSuccessTransfer);
-        }
-      } finally {
-        if (isActive) {
-          setPendingSuccessTransfer(null);
-        }
-      }
-    }
-
-    finalizeSuccessfulTransfer();
-
-    return () => {
-      isActive = false;
-    };
-  }, [onTransferSuccess, pendingSuccessTransfer, refreshAccount, step]);
-
   const recipientStateIcon = useMemo(() => {
     if (isCheckingRecipient) {
       return <Loader2 size={18} className="animate-spin text-slate-400" />;
@@ -775,21 +752,57 @@ export default function AccountNumber({
     }
   };
 
+  const buildReceiptFile = async (format) => {
+    const blob =
+      format === "pdf"
+        ? await createReceiptPdfBlob(receiptRef.current)
+        : await renderReceiptImage(receiptRef.current);
+    const extension = format === "pdf" ? "pdf" : "png";
+    const mimeType = format === "pdf" ? "application/pdf" : "image/png";
+
+    return {
+      blob,
+      extension,
+      file: new File([blob], `receipt-${receipt.referenceNumber}.${extension}`, {
+        type: mimeType,
+      }),
+    };
+  };
+
+  const handleShareReceipt = async () => {
+    if (!receipt || !receiptRef.current) {
+      return;
+    }
+
+    try {
+      const [imageAsset, pdfAsset] = await Promise.all([
+        buildReceiptFile("image"),
+        buildReceiptFile("pdf"),
+      ]);
+
+      const shareFiles = [imageAsset.file, pdfAsset.file];
+
+      if (navigator.share && navigator.canShare?.({ files: shareFiles })) {
+        await navigator.share({
+          title: "Transaction Receipt",
+          files: shareFiles,
+        });
+        return;
+      }
+    } catch {
+      // Fall through to manual save options below.
+    }
+
+    setSharePickerOpen(true);
+  };
+
   const handleShareReceiptFile = async (format) => {
     if (!receipt || !receiptRef.current) {
       return;
     }
 
     try {
-      const blob =
-        format === "pdf"
-          ? await createReceiptPdfBlob(receiptRef.current)
-          : await renderReceiptImage(receiptRef.current);
-      const extension = format === "pdf" ? "pdf" : "png";
-      const mimeType = format === "pdf" ? "application/pdf" : "image/png";
-      const file = new File([blob], `receipt-${receipt.referenceNumber}.${extension}`, {
-        type: mimeType,
-      });
+      const { blob, extension, file } = await buildReceiptFile(format);
 
       setSharePickerOpen(false);
 
@@ -849,20 +862,27 @@ export default function AccountNumber({
 
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
-          >
+          
+  type="button"
+  onClick={() => {
+    handleReset();
+    onClose();
+  }}
+>
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
           </button>
           <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-          >
-            <X size={16} />
-          </button>
+          
+  type="button"
+  onClick={() => {
+    handleReset();
+    onClose();
+  }}
+  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+>
+  Done
+</button>
         </div>
 
         <div className="mb-5">
@@ -934,7 +954,7 @@ export default function AccountNumber({
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 <Share2 size={16} />
-                <span>Share as Image</span>
+                <span>Save as Image</span>
               </button>
               <button
                 type="button"
@@ -942,18 +962,18 @@ export default function AccountNumber({
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 <ReceiptText size={16} />
-                <span>Share as PDF</span>
+                <span>Save as PDF</span>
               </button>
             </div>
           ) : null}
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setSharePickerOpen((current) => !current)}
+              onClick={handleShareReceipt}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               <Share2 size={16} />
-              <span>{sharePickerOpen ? "Close Share" : "Share"}</span>
+              <span>Share</span>
             </button>
             <button
               type="button"
@@ -1009,6 +1029,23 @@ export default function AccountNumber({
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[16px] text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
           />
         </label>
+
+        <button
+          type="button"
+          onClick={async () => {
+            const phone = profile?.phone || user?.phone || "";
+
+            if (phone) {
+              setTransactionPinResetPhone(phone);
+            }
+
+            await supabase.auth.signOut();
+            navigate("/login?reason=pin-reset", { replace: true });
+          }}
+          className="mt-4 w-full text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+        >
+          Forgot transaction PIN?
+        </button>
 
         <button
           type="button"
@@ -1147,7 +1184,7 @@ export default function AccountNumber({
               onChange={(event) => handleChange("accountNumber", event.target.value.replace(/\D/g, "").slice(0, 16))}
               placeholder="Enter recipient account number"
               disabled={isConversionFlow}
-            className="w-full bg-transparent py-3 text-[16px] text-slate-900 outline-none disabled:cursor-not-allowed disabled:text-slate-500"
+              className="w-full bg-transparent py-3 text-[16px] text-slate-900 outline-none disabled:cursor-not-allowed disabled:text-slate-500"
             />
             {recipientStateIcon}
           </div>

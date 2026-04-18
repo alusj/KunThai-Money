@@ -27,6 +27,14 @@ import {
 import { normalizeCurrencyRecord } from "../../Backend/utils/currency";
 import { formatCurrency } from "../../Backend/utils/formatCurrency";
 import { buildHeaderNotifications } from "../../Backend/utils/headerNotifications";
+import {
+  clearStoredHomeScreen,
+  getHomeScreenLastActiveAt,
+  HOME_SCREEN_RESUME_WINDOW_MS,
+  markHomeScreenActiveNow,
+  persistHomeScreen,
+  readStoredHomeScreen,
+} from "../../Backend/utils/homeScreenSession";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";
 import AuthNotice from "../auth/AuthNotice";
@@ -44,7 +52,6 @@ import SearchScreen from "./header/SearchScreen";
 import TransactionsScreen from "./header/Transactions/TransactionScreen";
 import ActionBanner from "../feedback/ActionBanner";
 
-const HOME_SCREEN_KEY = "kuntai-home-active-screen";
 const SEEN_NOTIFICATION_IDS_KEY = "kuntai-seen-notification-ids";
 const SEEN_TRANSACTION_IDS_KEY = "kuntai-seen-transaction-ids";
 const DASHBOARD_ACCOUNT_NUMBER_HIDDEN_KEY = "kuntai-dashboard-account-number-hidden";
@@ -97,14 +104,9 @@ export default function KunTaiHome() {
   const { isDarkMode, toggleTheme } = useAppearance();
   const { user } = useAuth();
   const { status, loading: statusLoading } = useOnboardingStatus(user?.id);
-  const [activeScreen, setActiveScreen] = useState(() => {
-    if (typeof window === "undefined") {
-      return "dashboard";
-    }
-
-    const saved = window.sessionStorage.getItem(HOME_SCREEN_KEY);
-    return PERSISTED_HOME_SCREENS.has(saved) ? saved : "dashboard";
-  });
+  const [activeScreen, setActiveScreen] = useState(() =>
+    readStoredHomeScreen(PERSISTED_HOME_SCREENS, "dashboard")
+  );
   const [account, setAccount] = useState(null);
   const [profileName, setProfileName] = useState("User");
   const [profile, setProfile] = useState(null);
@@ -474,6 +476,8 @@ export default function KunTaiHome() {
   };
 
   const handleSignOut = async (scope = "current") => {
+    clearStoredHomeScreen();
+    setActiveScreen("dashboard");
     await supabase.auth.signOut(scope === "all" ? { scope: "global" } : undefined);
     navigate("/login?reason=signed-out", { replace: true });
   };
@@ -540,9 +544,49 @@ export default function KunTaiHome() {
     }
 
     if (PERSISTED_HOME_SCREENS.has(activeScreen)) {
-      window.sessionStorage.setItem(HOME_SCREEN_KEY, activeScreen);
+      persistHomeScreen(activeScreen, PERSISTED_HOME_SCREENS);
+      markHomeScreenActiveNow();
     }
   }, [activeScreen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        markHomeScreenActiveNow();
+        return;
+      }
+
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      const lastActiveAt = getHomeScreenLastActiveAt();
+
+      if (lastActiveAt && Date.now() - lastActiveAt > HOME_SCREEN_RESUME_WINDOW_MS) {
+        clearStoredHomeScreen();
+        setActiveScreen("dashboard");
+        return;
+      }
+
+      markHomeScreenActiveNow();
+    };
+
+    const handlePageHide = () => {
+      markHomeScreenActiveNow();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {

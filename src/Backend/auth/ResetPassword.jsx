@@ -32,7 +32,7 @@ export default function ResetPassword() {
     }
 
     if (newPassword !== confirmPassword) {
-      setError("New password and confirmation do not match.");
+      setError("Password and confirmation do not match.");
       return;
     }
 
@@ -96,26 +96,26 @@ export default function ResetPassword() {
           )}
 
           <label className="block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
               New Password
             </span>
             <input
               type="password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              className="w-full rounded-2xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-300">
               Confirm New Password
             </span>
             <input
               type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              className="w-full rounded-2xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20"
             />
           </label>
 
@@ -123,7 +123,7 @@ export default function ResetPassword() {
             type="submit"
             disabled={loading}
             className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
-              loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+              loading ? "bg-[#31507f]" : "bg-[#2563eb] hover:bg-[#3b82f6]"
             }`}
           >
             {loading ? "Saving new password..." : "Save new password"}

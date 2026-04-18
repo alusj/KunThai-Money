@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import supabase from "../../../Backend/lib/supabaseClient";
+import { setTransactionPinResetPhone } from "../../../Backend/utils/onboardingStorage";
 import ActionBanner from "../../feedback/ActionBanner";
 import BackTab from "./Transactions/BackTab";
 
@@ -27,6 +29,7 @@ function resolveErrorMessage(error, fallback) {
 }
 
 export default function ChangePinScreen({ user, onBack }) {
+  const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -173,6 +176,21 @@ export default function ChangePinScreen({ user, onBack }) {
             }`}
           >
             {loading ? "Saving PIN..." : "Save PIN"}
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              if (user?.phone) {
+                setTransactionPinResetPhone(user.phone);
+              }
+
+              await supabase.auth.signOut();
+              navigate("/login?reason=pin-reset", { replace: true });
+            }}
+            className="mt-4 w-full text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+          >
+            Forgot transaction PIN?
           </button>
         </div>
       </div>

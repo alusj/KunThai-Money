@@ -5,7 +5,6 @@ import Cropper from "react-easy-crop";
 import supabase from "../lib/supabaseClient";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
-import { useAppearance } from "../../components/AppearanceProvider";
 
 function isMissingBucketError(error) {
   const message = error?.message?.toLowerCase?.() || "";
@@ -21,7 +20,6 @@ function getKycUploadErrorMessage(error) {
 }
 
 export default function KYC() {
-  const { isDarkMode } = useAppearance();
   const navigate = useNavigate();
   const [idType, setIdType] = useState("");
   const [idNumber, setIdNumber] = useState("");
@@ -181,10 +179,10 @@ export default function KYC() {
       subtitle="Identity verification strengthens trust on the platform and unlocks higher-value features."
     >
       <div className="w-full max-w-md">
-        <h2 className={`mb-2 text-center text-2xl font-bold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
+        <h2 className="mb-2 text-center text-2xl font-bold text-slate-50">
           Verify Your Identity
         </h2>
-        <p className={`mb-6 text-center text-sm ${isDarkMode ? "text-slate-300" : "text-gray-500"}`}>
+        <p className="mb-6 text-center text-sm text-slate-300">
           Complete your KYC to unlock full features
         </p>
 
@@ -198,11 +196,7 @@ export default function KYC() {
           <select
             value={idType}
             onChange={(event) => setIdType(event.target.value)}
-            className={`w-full rounded-xl border p-3 ${
-              isDarkMode
-                ? "border-slate-700 bg-slate-900 text-slate-100"
-                : "border-slate-200 bg-white text-slate-900"
-            }`}
+            className="w-full rounded-xl border border-[#28456f] bg-[#10213f] p-3 text-slate-100 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
           >
             <option value="">Select ID Type</option>
             <option>National ID</option>
@@ -214,40 +208,24 @@ export default function KYC() {
             placeholder="ID Number"
             value={idNumber}
             onChange={(event) => setIdNumber(event.target.value)}
-            className={`w-full rounded-xl border p-3 ${
-              isDarkMode
-                ? "border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-400"
-                : "border-slate-200 bg-white text-slate-900"
-            }`}
+            className="w-full rounded-xl border border-[#28456f] bg-[#10213f] p-3 text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
           />
 
           <input
             value={issuedBy}
             disabled
-            className={`w-full rounded-xl border p-3 ${
-              isDarkMode
-                ? "border-slate-700 bg-slate-800 text-slate-300"
-                : "border-slate-200 bg-gray-100 text-slate-700"
-            }`}
+            className="w-full rounded-xl border border-[#28456f] bg-[#0c1830] p-3 text-slate-400"
           />
 
           <input
             placeholder="National Identification Number (NIN)"
             value={nin}
             onChange={(event) => setNin(event.target.value)}
-            className={`w-full rounded-xl border p-3 ${
-              isDarkMode
-                ? "border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-400"
-                : "border-slate-200 bg-white text-slate-900"
-            }`}
+            className="w-full rounded-xl border border-[#28456f] bg-[#10213f] p-3 text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
           />
 
           <label
-            className={`block cursor-pointer rounded-xl border-2 border-dashed p-4 text-center ${
-              isDarkMode
-                ? "border-slate-500 text-slate-100"
-                : "border-slate-300 text-slate-900"
-            }`}
+            className="block cursor-pointer rounded-xl border-2 border-dashed border-[#31507f] bg-[#0f1f3b] p-4 text-center text-slate-100 transition hover:border-sky-400/70"
           >
             Upload ID (Front Only)
             <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
@@ -260,10 +238,8 @@ export default function KYC() {
             disabled={loading}
             className={`w-full rounded-2xl py-3 text-white ${
               loading
-                ? "bg-slate-500"
-                : isDarkMode
-                  ? "bg-emerald-500 hover:bg-emerald-400"
-                  : "bg-slate-950 hover:bg-slate-800"
+                ? "bg-[#31507f]"
+                : "bg-[#2563eb] hover:bg-[#3b82f6]"
             }`}
           >
             {loading ? "Submitting..." : "Verify Identity"}
@@ -271,11 +247,7 @@ export default function KYC() {
 
           <button
             onClick={() => setShowSkipConfirm(true)}
-            className={`mt-3 w-full rounded-xl border py-3 transition ${
-              isDarkMode
-                ? "border-slate-600 bg-slate-900 text-slate-100 hover:bg-slate-800"
-                : "border-slate-200 bg-white text-gray-700 hover:bg-gray-100"
-            }`}
+            className="mt-3 w-full rounded-xl border border-[#31507f] bg-[#10213f] py-3 text-slate-100 transition hover:bg-[#14284d]"
           >
             Skip for now
           </button>
@@ -284,7 +256,7 @@ export default function KYC() {
 
       {showCrop && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-[90%] max-w-md rounded-xl bg-white p-4">
+          <div className="w-[90%] max-w-md rounded-[24px] border border-[#28456f] bg-[#0d1b34] p-4 text-slate-100 shadow-2xl">
             <div className="relative h-64 w-full">
               <Cropper
                 image={frontPreview}
@@ -299,7 +271,7 @@ export default function KYC() {
 
             <button
               onClick={() => setShowCrop(false)}
-              className="mt-4 w-full rounded-lg bg-blue-600 py-2 text-white"
+              className="mt-4 w-full rounded-lg bg-[#2563eb] py-2 text-white transition hover:bg-[#3b82f6]"
             >
               Done
             </button>
@@ -309,23 +281,23 @@ export default function KYC() {
 
       {showSkipConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4">
-          <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-white p-6 shadow-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-600">Before You Continue</p>
-            <h3 className="mt-3 text-2xl font-semibold text-slate-950">KYC is required for full access</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
+          <div className="w-full max-w-md rounded-[28px] border border-[#31507f] bg-[#0d1b34] p-6 shadow-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">Before You Continue</p>
+            <h3 className="mt-3 text-2xl font-semibold text-slate-50">KYC is required for full access</h3>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
               You can enter the dashboard now, but you will need to verify your identity before accessing full account capabilities, higher-value activity, and future protected features.
             </p>
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 onClick={() => setShowSkipConfirm(false)}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="rounded-2xl border border-[#31507f] px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-[#14284d]"
               >
                 Go back
               </button>
               <button
                 onClick={() => navigate("/welcome-loader")}
-                className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="rounded-2xl bg-[#2563eb] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#3b82f6]"
               >
                 Continue for now
               </button>

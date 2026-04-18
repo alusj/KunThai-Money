@@ -205,7 +205,7 @@ export default function VerifyOTP() {
           >
             {otp.map((digit, index) => (
               <div key={index} className="flex flex-1 items-center justify-center">
-                <span className="text-lg text-gray-400">[</span>
+                <span className="text-lg text-slate-500">[</span>
                 <input
                   ref={(element) => {
                     inputs.current[index] = element;
@@ -215,9 +215,9 @@ export default function VerifyOTP() {
                   onKeyDown={(event) => handleKeyDown(event, index)}
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  className="w-full border-b-2 border-gray-300 bg-transparent text-center text-xl font-semibold transition focus:scale-110 focus:border-blue-600 focus:outline-none"
+                  className="w-full border-b-2 border-[#31507f] bg-transparent text-center text-xl font-semibold text-slate-100 transition focus:scale-110 focus:border-sky-400 focus:outline-none"
                 />
-                <span className="text-lg text-gray-400">]</span>
+                <span className="text-lg text-slate-500">]</span>
               </div>
             ))}
           </div>
@@ -226,17 +226,17 @@ export default function VerifyOTP() {
             onClick={() => verifyOtp(otp.join(""))}
             disabled={loading}
             className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
-              loading ? "bg-slate-400" : success ? "bg-green-500" : "bg-slate-950 hover:bg-slate-800"
+              loading ? "bg-[#31507f]" : success ? "bg-emerald-500" : "bg-[#2563eb] hover:bg-[#3b82f6]"
             }`}
           >
             {loading ? "Verifying..." : success ? "Verified" : "Verify Code"}
           </button>
 
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-slate-300">
             {timer > 0 ? (
               <span>Resend code in {timer}s</span>
             ) : (
-              <span onClick={resendOtp} className="cursor-pointer font-medium text-blue-600">
+              <span onClick={resendOtp} className="cursor-pointer font-medium text-sky-300">
                 Resend Code
               </span>
             )}

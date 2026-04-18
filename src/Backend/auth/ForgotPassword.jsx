@@ -102,7 +102,7 @@ export default function ForgotPassword() {
         title="Forgot your password?"
         subtitle="Enter your registered phone number and we will send you a secure OTP to reset your password."
         footer={
-          <button className="font-semibold text-cyan-200" onClick={() => navigate("/login")}>
+          <button className="font-semibold text-sky-300" onClick={() => navigate("/login")}>
             Return to sign in
           </button>
         }
@@ -114,14 +114,14 @@ export default function ForgotPassword() {
                 <button
                   type="button"
                   onClick={() => setOpen((current) => !current)}
-                  className="flex h-12 w-16 items-center justify-center gap-1 rounded-lg border bg-white px-2"
+                  className="flex h-12 w-16 items-center justify-center gap-1 rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-slate-100"
                 >
                   <FlagIcon code={selected.flag} className="h-5 w-7 rounded-[4px] shadow-sm" />
                   <ChevronDown size={14} />
                 </button>
 
                 {open && (
-                  <div className="absolute left-0 top-14 z-30 max-h-60 w-56 overflow-y-auto rounded-lg bg-white shadow-xl">
+                  <div className="absolute left-0 top-14 z-30 max-h-60 w-56 overflow-y-auto rounded-2xl border border-[#28456f] bg-[#0d1b34] shadow-2xl">
                     {ecowasCountries.map((country) => (
                       <div
                         key={country.code}
@@ -131,7 +131,7 @@ export default function ForgotPassword() {
                           setPhone("");
                           setError("");
                         }}
-                        className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100"
+                        className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-100 transition hover:bg-white/5"
                       >
                         <FlagIcon code={country.flag} className="h-4 w-6 rounded-[3px] shadow-sm" />
                         <span>{country.name}</span>
@@ -141,7 +141,7 @@ export default function ForgotPassword() {
                 )}
               </div>
 
-              <div className="flex h-12 min-w-[65px] flex-shrink-0 items-center justify-center rounded-lg border px-2 text-sm">
+              <div className="flex h-12 min-w-[65px] flex-shrink-0 items-center justify-center rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-sm text-slate-100">
                 {selected.code}
               </div>
 
@@ -153,7 +153,7 @@ export default function ForgotPassword() {
                   setError("");
                 }}
                 placeholder={selected.format}
-                className="h-12 min-w-0 flex-1 rounded-lg border px-2 text-sm focus:outline-none sm:px-3 sm:text-base"
+                className="h-12 min-w-0 flex-1 rounded-xl border border-[#28456f] bg-[#10213f] px-2 text-sm text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 sm:px-3 sm:text-base"
               />
             </div>
 
@@ -167,10 +167,10 @@ export default function ForgotPassword() {
               type="submit"
               disabled={loading}
               className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
-                loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+                loading ? "bg-[#31507f]" : "bg-[#2563eb] hover:bg-[#3b82f6]"
               }`}
             >
-              {loading ? "Sending OTP..." : "Send reset OTP"}
+              {loading ? "Sending OTP..." : "Send password reset OTP"}
             </button>
           </form>
         </div>

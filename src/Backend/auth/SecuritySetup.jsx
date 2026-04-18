@@ -3,7 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import { useAuth } from "../hooks/useAuth";
-import { getOnboardingPhone } from "../utils/onboardingStorage";
+import {
+  clearTransactionPinResetPhone,
+  getOnboardingPhone,
+} from "../utils/onboardingStorage";
 import { maskPhoneNumber } from "../utils/maskPhoneNumber";
 import PageTransition from "../../components/animations/PageTransition";
 import AuthNotice from "../../components/auth/AuthNotice";
@@ -13,6 +16,7 @@ export default function SecuritySetup() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const isPinReset = location.state?.resetReason === "transaction-pin";
   const [phone, setPhone] = useState(location.state?.phone || getOnboardingPhone() || "");
   const [step, setStep] = useState(1);
   const [pin, setPin] = useState(["", "", "", "", "", ""]);
@@ -153,10 +157,16 @@ export default function SecuritySetup() {
       const returnTo = location.state?.returnTo;
 
       if (returnTo) {
+        if (location.state?.resetReason === "transaction-pin") {
+          clearTransactionPinResetPhone();
+        }
         navigate(returnTo, { replace: true });
         return;
       }
 
+      if (location.state?.resetReason === "transaction-pin") {
+        clearTransactionPinResetPhone();
+      }
       navigate("/create-profile", { replace: true });
     } catch (err) {
       setErrorMessage(err.message || "Failed to secure your PIN");
@@ -169,14 +179,30 @@ export default function SecuritySetup() {
     <PageTransition>
       <AuthShell
         eyebrow="Account Protection"
-        title={step === 1 ? "Create your transaction PIN" : "Confirm your transaction PIN"}
-        subtitle="This 6-digit PIN protects sensitive account actions and keeps your wallet secure."
+        title={
+          step === 1
+            ? isPinReset
+              ? "Create your new transaction PIN"
+              : "Create your transaction PIN"
+            : isPinReset
+              ? "Confirm your new transaction PIN"
+              : "Confirm your transaction PIN"
+        }
+        subtitle={
+          isPinReset
+            ? "Set a fresh 6-digit transaction PIN for transfers and other protected money actions."
+            : "This 6-digit PIN protects sensitive account actions and keeps your wallet secure."
+        }
       >
         <div className="text-center">
-          <h1 className="mb-2 text-xl font-semibold text-slate-950 sm:text-2xl">
+          <h1 className="mb-2 text-xl font-semibold text-slate-50 sm:text-2xl">
             {step === 1 ? "Create PIN" : "Confirm PIN"}
           </h1>
-          <p className="mb-6 text-sm text-slate-500">Secure your account with a 6-digit PIN</p>
+          <p className="mb-6 text-sm text-slate-300">
+            {isPinReset
+              ? "Create a new 6-digit PIN for transaction approval"
+              : "Secure your account with a 6-digit PIN"}
+          </p>
 
           {errorMessage && (
             <AuthNotice tone="danger" title="PIN setup incomplete">
@@ -184,8 +210,8 @@ export default function SecuritySetup() {
             </AuthNotice>
           )}
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-            <div className="mb-4 text-sm text-slate-500">
+          <div className="rounded-2xl border border-[#28456f] bg-[#0f1f3b] p-6 shadow-[0_18px_48px_rgba(3,8,20,0.24)]">
+            <div className="mb-4 text-sm text-slate-300">
               {phone ? maskPhoneNumber(phone) : "Secure onboarding in progress"}
             </div>
 
@@ -193,9 +219,9 @@ export default function SecuritySetup() {
               {(step === 1 ? pin : confirmPin).map((digit, index) => (
                 <div
                   key={index}
-                  className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 transition"
+                    className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#31507f] bg-[#10213f] transition"
                 >
-                  <div className={`h-3 w-3 rounded-full ${digit ? "bg-blue-600" : "bg-gray-300"}`} />
+                  <div className={`h-3 w-3 rounded-full ${digit ? "bg-sky-400" : "bg-slate-500"}`} />
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -218,7 +244,7 @@ export default function SecuritySetup() {
               onClick={step === 2 ? savePin : undefined}
               disabled={loading}
               className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
-                loading ? "bg-slate-400" : "bg-slate-950 hover:bg-slate-800"
+                loading ? "bg-[#31507f]" : "bg-[#2563eb] hover:bg-[#3b82f6]"
               }`}
             >
               {step === 1 ? "Continue" : loading ? "Saving..." : "Finish Setup"}
