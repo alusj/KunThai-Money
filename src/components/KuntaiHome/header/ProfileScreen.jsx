@@ -16,6 +16,7 @@ import {
   Monitor,
   Palette,
   Shield,
+  Ticket,
   Type,
   Wallet,
 } from "lucide-react";
@@ -311,6 +312,9 @@ export default function ProfileScreen({
   hiddenOtherAccounts = [],
   onShowMainAccountNumber,
   onShowOtherAccount,
+  hasEventAccount = false,
+  onOpenEventTickets,
+  onOpenEventManager,
 }) {
   const { isDarkMode } = useAppearance();
   const verification = getVerificationCopy(status);
@@ -815,6 +819,31 @@ export default function ProfileScreen({
             </section>
 
             <div className="mt-6 space-y-5">
+              <SectionCard
+                title="Events"
+                subtitle="Manage event tickets from your profile without mixing them into the regular settings menu."
+              >
+                <RowAction
+                  icon={Ticket}
+                  title="Event Tickets"
+                  description="Open your purchased tickets, see ticket codes, and generate QR codes only when you want them."
+                  end={<ChevronEnd />}
+                  onClick={onOpenEventTickets}
+                />
+                {hasEventAccount ? (
+                  <>
+                    <MenuDivider />
+                    <RowAction
+                      icon={Shield}
+                      title="Events"
+                      description="Validate buyers by code or QR image and mark tickets as used at the gate."
+                      end={<ChevronEnd />}
+                      onClick={onOpenEventManager}
+                    />
+                  </>
+                ) : null}
+              </SectionCard>
+
               {renderMenuContent()}
 
               {isAdmin ? (

@@ -1,5 +1,6 @@
 export const MAIN_ACCOUNT_TYPE = "main";
 export const FOREIGN_ACCOUNT_TYPE = "foreign";
+export const EVENT_ACCOUNT_TYPE = "tickets";
 
 export const AUTO_CREATED_ACCOUNT_TYPES = ["business", "transport"];
 
@@ -16,7 +17,7 @@ export const MANUAL_OTHER_ACCOUNT_TYPES = [
   "restaurant",
   "school_fees",
   "supermarket",
-  "tickets",
+  EVENT_ACCOUNT_TYPE,
   "tv_subscription",
   "donation",
   FOREIGN_ACCOUNT_TYPE,
@@ -37,7 +38,7 @@ export const ACCOUNT_TYPE_OPTIONS = [
   { value: "restaurant", label: "Restaurant Account", currency: "local" },
   { value: "school_fees", label: "School Fees Account", currency: "local" },
   { value: "supermarket", label: "Supermarket Account", currency: "local" },
-  { value: "tickets", label: "Tickets Account", currency: "local" },
+  { value: EVENT_ACCOUNT_TYPE, label: "Event Account", currency: "local" },
   { value: "tv_subscription", label: "TV Subscription Account", currency: "local" },
   { value: "donation", label: "Donation Account", currency: "local" },
   { value: FOREIGN_ACCOUNT_TYPE, label: "Foreign Account", currency: "USD" },

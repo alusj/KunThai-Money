@@ -126,6 +126,90 @@ export async function getAdminAgentReviews() {
   });
 }
 
+export async function getAdminInsuranceReviews() {
+  const { data, error } = await supabase
+    .from("kuntai_other_accounts")
+    .select("*")
+    .eq("account_type", "insurance")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const items = data || [];
+  const profiles = await getProfileMap(items.map((item) => item.user_id));
+
+  return items.map((item) => {
+    const profile = profiles.get(item.user_id);
+    const insuranceProfile = item.metadata?.insurance_profile || {};
+
+    return {
+      ...item,
+      profile,
+      displayName: resolveRegisteredName(profile, null),
+      insuranceReviewStatus: insuranceProfile.review_status || item.status || "pending",
+      rejectionReason: insuranceProfile.rejection_reason || insuranceProfile.rejection_comment || "",
+      insuranceCategory: insuranceProfile.insurance_category || "",
+      supportPhone: insuranceProfile.support_phone || "",
+      paymentReferenceFormat: insuranceProfile.payment_reference_format || "",
+      acceptedPaymentTypes: insuranceProfile.accepted_payment_types || "",
+      requestedBusinessDocuments: insuranceProfile.requested_business_documents || [],
+      businessDocumentNote: insuranceProfile.business_document_note || "",
+      businessDocumentFiles: (insuranceProfile.business_document_files || []).map((file, index) => ({
+        id: file.path || file.name || `insurance-document-${index}`,
+        name: file.name || `Document ${index + 1}`,
+        size: file.size || 0,
+        type: file.type || "",
+        bucket: file.bucket || "kyc",
+        path: file.path || "",
+      })),
+    };
+  });
+}
+
+export async function getAdminDonationReviews() {
+  const { data, error } = await supabase
+    .from("kuntai_other_accounts")
+    .select("*")
+    .eq("account_type", "donation")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const items = data || [];
+  const profiles = await getProfileMap(items.map((item) => item.user_id));
+
+  return items.map((item) => {
+    const profile = profiles.get(item.user_id);
+    const donationProfile = item.metadata?.donation_profile || {};
+
+    return {
+      ...item,
+      profile,
+      displayName: resolveRegisteredName(profile, null),
+      donationReviewStatus: donationProfile.review_status || item.status || "pending",
+      rejectionReason: donationProfile.rejection_reason || donationProfile.rejection_comment || "",
+      organizationName: donationProfile.organization_name || "",
+      causeCategory: donationProfile.cause_category || "",
+      supportPhone: donationProfile.support_phone || "",
+      mission: donationProfile.mission || "",
+      requestedBusinessDocuments: donationProfile.requested_business_documents || [],
+      businessDocumentNote: donationProfile.business_document_note || "",
+      businessDocumentFiles: (donationProfile.business_document_files || []).map((file, index) => ({
+        id: file.path || file.name || `donation-document-${index}`,
+        name: file.name || `Document ${index + 1}`,
+        size: file.size || 0,
+        type: file.type || "",
+        bucket: file.bucket || "kyc",
+        path: file.path || "",
+      })),
+    };
+  });
+}
+
 export async function updateAgentAccountStatus({ accountId, status, comment = "" }) {
   const { data: existing, error: fetchError } = await supabase
     .from("kuntai_other_accounts")
@@ -141,6 +225,92 @@ export async function updateAgentAccountStatus({ accountId, status, comment = ""
     ...(existing.metadata || {}),
     agent_profile: {
       ...(existing.metadata?.agent_profile || {}),
+      review_status: status,
+      reviewed_at: new Date().toISOString(),
+      rejected_at: status === "rejected" ? new Date().toISOString() : null,
+      rejection_reason: status === "rejected" ? comment.trim() : "",
+      rejection_comment: status === "rejected" ? comment.trim() : "",
+    },
+  };
+
+  const normalizedStatus = status === "approved" ? "active" : status;
+
+  const { data, error } = await supabase
+    .from("kuntai_other_accounts")
+    .update({
+      status: normalizedStatus,
+      metadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", accountId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function updateInsuranceAccountStatus({ accountId, status, comment = "" }) {
+  const { data: existing, error: fetchError } = await supabase
+    .from("kuntai_other_accounts")
+    .select("id,metadata")
+    .eq("id", accountId)
+    .single();
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  const metadata = {
+    ...(existing.metadata || {}),
+    insurance_profile: {
+      ...(existing.metadata?.insurance_profile || {}),
+      review_status: status,
+      reviewed_at: new Date().toISOString(),
+      rejected_at: status === "rejected" ? new Date().toISOString() : null,
+      rejection_reason: status === "rejected" ? comment.trim() : "",
+      rejection_comment: status === "rejected" ? comment.trim() : "",
+    },
+  };
+
+  const normalizedStatus = status === "approved" ? "active" : status;
+
+  const { data, error } = await supabase
+    .from("kuntai_other_accounts")
+    .update({
+      status: normalizedStatus,
+      metadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", accountId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function updateDonationAccountStatus({ accountId, status, comment = "" }) {
+  const { data: existing, error: fetchError } = await supabase
+    .from("kuntai_other_accounts")
+    .select("id,metadata")
+    .eq("id", accountId)
+    .single();
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  const metadata = {
+    ...(existing.metadata || {}),
+    donation_profile: {
+      ...(existing.metadata?.donation_profile || {}),
       review_status: status,
       reviewed_at: new Date().toISOString(),
       rejected_at: status === "rejected" ? new Date().toISOString() : null,

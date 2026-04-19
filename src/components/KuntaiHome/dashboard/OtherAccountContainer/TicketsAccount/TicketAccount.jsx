@@ -26,7 +26,7 @@ export default function TicketAccount() {
       {/* LEFT SIDE: Account Info */}
       <div>
         <h3 className="font-semibold text-gray-800">
-          Ticket Account
+          Event Account
         </h3>
         <p className="text-sm text-gray-500">
           Balance: $2,450

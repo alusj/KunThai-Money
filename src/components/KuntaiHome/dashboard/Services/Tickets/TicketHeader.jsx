@@ -9,7 +9,7 @@ export default function TicketHeader({ onBack }) {
       </div>
 
       <h1 className="text-lg font-semibold">
-        Ticket Payment
+        Events
       </h1>
 
     </div>

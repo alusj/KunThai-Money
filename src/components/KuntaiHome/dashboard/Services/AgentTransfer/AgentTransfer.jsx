@@ -1,32 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
-import { BedDouble, Loader2, MapPin, ReceiptText, Search, User, Wallet } from "lucide-react";
+import { Loader2, MapPin, Phone, Search, User, Wallet } from "lucide-react";
 
-import { getDiscoverableHotelAccounts } from "../../../../../Backend/services/otherAccountService";
+import { getDiscoverableAgentAccounts } from "../../../../../Backend/services/otherAccountService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import AccountNumber from "../../MainAccountAction/CashOut/AccountNumber";
 import BottomSheet from "../../MainAccountAction/CashOut/BottomSheet";
-import HotelHeader from "./HotelHeader";
+import AgentTransferHeader from "./AgentTransferHeader";
 
-function HotelCard({ hotel, onSelect }) {
+function AgentCard({ agent, onSelect }) {
   return (
     <button
       type="button"
-      onClick={() => onSelect(hotel)}
+      onClick={() => onSelect(agent)}
       className="w-full rounded-[28px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-sky-300 hover:shadow-lg"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-sky-700">Hotel Account</p>
-          <h3 className="mt-3 truncate text-xl font-semibold text-slate-950">{hotel.hotel_name}</h3>
-          <p className="mt-2 text-sm font-medium text-slate-500">{hotel.account_number}</p>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-sky-700">Agent Account</p>
+          <h3 className="mt-3 truncate text-xl font-semibold text-slate-950">{agent.agent_name}</h3>
+          <p className="mt-2 text-sm font-medium text-slate-500">{agent.account_number}</p>
         </div>
 
         <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
-          {hotel.distance_km != null && Number.isFinite(hotel.distance_km)
-            ? `${hotel.distance_km.toFixed(hotel.distance_km >= 10 ? 0 : 1)} km away`
-            : hotel.same_city
+          {agent.distance_km != null && Number.isFinite(agent.distance_km)
+            ? `${agent.distance_km.toFixed(agent.distance_km >= 10 ? 0 : 1)} km away`
+            : agent.same_city
               ? "Near you"
-              : hotel.same_country
+              : agent.same_country
                 ? "Same country"
                 : "Available"}
         </span>
@@ -34,31 +34,29 @@ function HotelCard({ hotel, onSelect }) {
 
       <div className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
         <MapPin size={16} className="mt-0.5 text-sky-700" />
-        <p className="leading-6">{hotel.hotel_location}</p>
+        <p className="leading-6">{agent.agent_location}</p>
       </div>
     </button>
   );
 }
 
-export default function Hotel({ onBack, refreshAccount, account, user, profile }) {
-  const [hotels, setHotels] = useState([]);
+export default function AgentTransfer({ onBack, refreshAccount, account, user, profile }) {
+  const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedHotel, setSelectedHotel] = useState(null);
-  const [paymentForm, setPaymentForm] = useState({
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [transferForm, setTransferForm] = useState({
     amount: "",
-    roomNumber: "",
-    bookingReference: "",
-    note: "",
+    reason: "",
   });
 
-  const guestName =
+  const buyerName =
     [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
-    "Guest";
-  const guestPhone = profile?.phone || user?.phone || "";
+    "User";
+  const buyerPhone = profile?.phone || user?.phone || "";
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -68,27 +66,27 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
       city: account?.city || "",
     };
 
-    const loadHotels = async (context = viewerContext) => {
+    const loadAgents = async (context = viewerContext) => {
       setLoading(true);
       setError("");
 
       try {
-        const data = await getDiscoverableHotelAccounts(context);
-        setHotels(data);
+        const data = await getDiscoverableAgentAccounts(context);
+        setAgents(data);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Nearby hotels could not be loaded.");
-        setHotels([]);
+        setError(loadError instanceof Error ? loadError.message : "Nearby agents could not be loaded.");
+        setAgents([]);
       } finally {
         setLoading(false);
       }
     };
 
-    void loadHotels();
+    void loadAgents();
 
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          void loadHotels({
+          void loadAgents({
             ...viewerContext,
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -104,42 +102,42 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
     };
   }, [account?.city, account?.country]);
 
-  const filteredHotels = useMemo(() => {
+  const filteredAgents = useMemo(() => {
     const searchTerm = search.trim().toLowerCase();
 
     if (!searchTerm) {
-      return hotels;
+      return agents;
     }
 
-    return hotels.filter((hotel) =>
-      [hotel.hotel_name, hotel.account_number, hotel.hotel_location]
+    return agents.filter((agent) =>
+      [agent.agent_name, agent.account_number, agent.agent_location]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(searchTerm))
     );
-  }, [hotels, search]);
+  }, [agents, search]);
 
-  const numericAmount = Number(paymentForm.amount || 0);
+  const numericAmount = Number(transferForm.amount || 0);
   const canContinue =
-    Boolean(selectedHotel) &&
+    Boolean(selectedAgent) &&
     Number.isFinite(numericAmount) &&
     numericAmount > 0 &&
-    Boolean(guestName.trim()) &&
-    Boolean(guestPhone.trim());
+    Boolean(buyerName.trim()) &&
+    Boolean(buyerPhone.trim());
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[radial-gradient(circle_at_top,#e0f2fe_0%,#f8fafc_28%,#ffffff_62%)]">
-      <HotelHeader onBack={onBack} />
+      <AgentTransferHeader onBack={onBack} />
 
       <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
         <section className="rounded-[32px] border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-sky-700">
-                Hotel Payments
+                Agent Transfer
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-slate-950">Pay nearby hotels professionally</h2>
+              <h2 className="mt-3 text-3xl font-semibold text-slate-950">Send through the nearest agents</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Choose a nearby hotel account, add the stay details you have, and continue to payment without leaving the services area.
+                Choose a nearby agent, enter the amount, and continue with a fast transfer using your saved profile details.
               </p>
             </div>
 
@@ -151,7 +149,7 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search hotel name, account, or location"
+                placeholder="Search agent name, account, or location"
                 className="w-full rounded-full border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white"
               />
             </label>
@@ -163,25 +161,25 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
             <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
               <div className="flex items-center gap-3 text-slate-600">
                 <Loader2 size={18} className="animate-spin" />
-                <span className="text-sm font-medium">Loading nearby hotels...</span>
+                <span className="text-sm font-medium">Loading nearby agents...</span>
               </div>
             </div>
           ) : error ? (
             <div className="rounded-[32px] border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700 shadow-sm">
               {error}
             </div>
-          ) : filteredHotels.length === 0 ? (
+          ) : filteredAgents.length === 0 ? (
             <div className="rounded-[32px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
-              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-400">No hotels yet</p>
-              <h3 className="mt-4 text-2xl font-semibold text-slate-950">No discoverable hotel accounts right now</h3>
+              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-400">No agents yet</p>
+              <h3 className="mt-4 text-2xl font-semibold text-slate-950">No discoverable agents right now</h3>
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-                Once hotels enable nearby discovery, they will show here with their account name and location.
+                Once agent accounts enable nearby discovery, they will show here with their account name and location.
               </p>
             </div>
           ) : (
             <div className="grid gap-4">
-              {filteredHotels.map((hotel) => (
-                <HotelCard key={hotel.id} hotel={hotel} onSelect={setSelectedHotel} />
+              {filteredAgents.map((agent) => (
+                <AgentCard key={agent.id} agent={agent} onSelect={setSelectedAgent} />
               ))}
             </div>
           )}
@@ -189,17 +187,17 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
       </div>
 
       <BottomSheet
-        isOpen={Boolean(selectedHotel)}
-        onClose={() => setSelectedHotel(null)}
-        title={selectedHotel ? `Pay hotel: ${selectedHotel.hotel_name}` : "Hotel payment"}
+        isOpen={Boolean(selectedAgent)}
+        onClose={() => setSelectedAgent(null)}
+        title={selectedAgent ? `Transfer with ${selectedAgent.agent_name}` : "Agent transfer"}
       >
-        {selectedHotel ? (
+        {selectedAgent ? (
           <div className="space-y-5">
             <div className="rounded-[26px] border border-sky-200 bg-sky-50 px-5 py-4">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-sky-700">Selected Hotel</p>
-              <h3 className="mt-3 text-xl font-semibold text-slate-950">{selectedHotel.hotel_name}</h3>
-              <p className="mt-2 text-sm text-slate-600">{selectedHotel.account_number}</p>
-              <p className="mt-2 text-sm text-slate-600">{selectedHotel.hotel_location}</p>
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-sky-700">Selected Agent</p>
+              <h3 className="mt-3 text-xl font-semibold text-slate-950">{selectedAgent.agent_name}</h3>
+              <p className="mt-2 text-sm text-slate-600">{selectedAgent.account_number}</p>
+              <p className="mt-2 text-sm text-slate-600">{selectedAgent.agent_location}</p>
             </div>
 
             <div className="rounded-[26px] border border-slate-200 bg-white px-5 py-4">
@@ -215,9 +213,9 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
                       type="number"
                       min="0.01"
                       step="0.01"
-                      value={paymentForm.amount}
+                      value={transferForm.amount}
                       onChange={(event) =>
-                        setPaymentForm((current) => ({ ...current, amount: event.target.value }))
+                        setTransferForm((current) => ({ ...current, amount: event.target.value }))
                       }
                       placeholder="0.00"
                       className="w-full bg-transparent px-3 py-3 text-[16px] text-slate-900 outline-none"
@@ -226,50 +224,16 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
                 </label>
 
                 <label className="block">
-                  <span className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    <BedDouble size={14} />
-                    Room Number
-                  </span>
-                  <input
-                    type="text"
-                    value={paymentForm.roomNumber}
-                    onChange={(event) =>
-                      setPaymentForm((current) => ({ ...current, roomNumber: event.target.value }))
-                    }
-                    placeholder="Optional room number"
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    <ReceiptText size={14} />
-                    Booking Reference
-                  </span>
-                  <input
-                    type="text"
-                    value={paymentForm.bookingReference}
-                    onChange={(event) =>
-                      setPaymentForm((current) => ({ ...current, bookingReference: event.target.value }))
-                    }
-                    placeholder="Optional booking or reservation number"
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
-                  />
-                </label>
-
-                <label className="block">
                   <span className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    Note
+                    Reason
                   </span>
                   <input
                     type="text"
-                    value={paymentForm.note}
+                    value={transferForm.reason}
                     onChange={(event) =>
-                      setPaymentForm((current) => ({ ...current, note: event.target.value }))
+                      setTransferForm((current) => ({ ...current, reason: event.target.value }))
                     }
-                    placeholder="Optional payment note"
+                    placeholder="Optional short note"
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
                   />
                 </label>
@@ -279,21 +243,22 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                   <p className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
                     <User size={14} />
-                    Guest Name
+                    Your Name
                   </p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">{guestName || "Name unavailable"}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{buyerName || "Name unavailable"}</p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    Guest Phone
+                  <p className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    <Phone size={14} />
+                    Your Phone
                   </p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">{guestPhone || "Phone unavailable"}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{buyerPhone || "Phone unavailable"}</p>
                 </div>
               </div>
 
               <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                Total payment:{" "}
+                Total transfer:{" "}
                 <span className="font-semibold text-slate-950">
                   {formatCurrency(numericAmount || 0, account?.currency || "SLL")}
                 </span>
@@ -305,51 +270,44 @@ export default function Hotel({ onBack, refreshAccount, account, user, profile }
                 account={account}
                 user={user}
                 profile={profile}
-                onClose={() => setSelectedHotel(null)}
+                onClose={() => setSelectedAgent(null)}
                 refreshAccount={refreshAccount}
                 startStep="confirm"
                 disableFormEditing
-                backLabel="Back to hotel form"
+                backLabel="Back to agent form"
                 prefilledRecipientLookup={{
                   is_valid: true,
-                  recipient_name: selectedHotel.hotel_name,
+                  recipient_name: selectedAgent.agent_name,
                   recipient_profile_image: "",
-                  recipient_account_number: selectedHotel.account_number,
-                  message: "Hotel account verified.",
+                  recipient_account_number: selectedAgent.account_number,
+                  message: "Agent account verified.",
                 }}
                 initialValues={{
-                  accountNumber: selectedHotel.account_number,
-                  amount: paymentForm.amount,
-                  reason: paymentForm.note.trim() || `Hotel payment${paymentForm.roomNumber ? ` for room ${paymentForm.roomNumber}` : ""}`,
+                  accountNumber: selectedAgent.account_number,
+                  amount: transferForm.amount,
+                  reason: transferForm.reason.trim(),
                 }}
                 transferMetadata={{
-                  flow: "hotel_payment",
-                  hotel_account_name: selectedHotel.hotel_name,
-                  hotel_location: selectedHotel.hotel_location,
-                  room_number: paymentForm.roomNumber.trim(),
-                  booking_reference: paymentForm.bookingReference.trim(),
-                  guest_name: guestName,
-                  guest_phone: guestPhone,
-                  hotel_note: paymentForm.note.trim(),
-                  note: paymentForm.note.trim(),
+                  flow: "agent_transfer",
+                  agent_account_name: selectedAgent.agent_name,
+                  agent_location: selectedAgent.agent_location,
+                  sender_name: buyerName,
+                  buyer_name: buyerName,
+                  buyer_phone: buyerPhone,
                 }}
                 receiptOverrides={{
-                  paymentMethod: "Hotel payment",
-                  reason:
-                    paymentForm.note.trim() ||
-                    (paymentForm.roomNumber
-                      ? `Hotel payment for room ${paymentForm.roomNumber}`
-                      : "Hotel payment"),
+                  paymentMethod: "Agent transfer",
+                  reason: transferForm.reason.trim() || "No note added",
                 }}
                 successBanner={{
                   title: "Transaction Successful",
-                  message: "Your hotel payment receipt is ready below.",
+                  message: "Your agent transfer receipt is ready below.",
                 }}
-                errorTitle="Hotel payment unsuccessful"
+                errorTitle="Agent transfer unsuccessful"
               />
             ) : (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Add the amount first. Your guest name and phone are already pulled from profile.
+                Add the amount first. Your name and phone are already pulled from profile for the agent.
               </div>
             )}
           </div>

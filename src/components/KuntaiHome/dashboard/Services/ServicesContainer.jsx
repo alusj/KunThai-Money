@@ -5,7 +5,7 @@
 import ServiceCard from "./ServiceCard";
 import { useAppearance } from "../../../AppearanceProvider";
 
-import { FaStore, FaShieldAlt, FaHotel, FaUtensils, FaShoppingCart, FaBus, FaCapsules } from "react-icons/fa";
+import { FaStore, FaShieldAlt, FaHotel, FaUtensils, FaShoppingCart, FaCapsules, FaUserTie } from "react-icons/fa";
 import { MdElectricBolt, MdWifi, MdSchool, MdTv } from "react-icons/md";
 import { BsQrCodeScan } from "react-icons/bs";
 import { GiReceiveMoney } from "react-icons/gi";
@@ -17,6 +17,7 @@ export default function ServicesContainer({ setActiveService }) {
   const { isDarkMode } = useAppearance();
 
   const services = [
+    { key: "agent", title: "Agent Transfer", icon: <FaUserTie size={22} /> },
     { key: "merchant", title: "Pay Merchant", icon: <FaStore size={22} /> },
     { key: "electricity", title: "Electricity", icon: <MdElectricBolt size={22} /> },
     { key: "internet", title: "Internet", icon: <MdWifi size={22} /> },
@@ -27,8 +28,7 @@ export default function ServicesContainer({ setActiveService }) {
     { key: "restaurant", title: "Restaurant", icon: <FaUtensils size={22} /> },
     { key: "supermarket", title: "Supermarket", icon: <FaShoppingCart size={22} /> },
     { key: "pharmacy", title: "Pharmacy", icon: <FaCapsules size={22} /> },
-    { key: "transport", title: "Transport", icon: <FaBus size={22} /> },
-    { key: "tickets", title: "Tickets", icon: <IoTicketOutline size={22} /> },
+    { key: "events", title: "Events", icon: <IoTicketOutline size={22} /> },
     { key: "insurance", title: "Insurance", icon: <FaShieldAlt size={22} /> },
     { key: "investment", title: "Investments", icon: <HiOutlineTrendingUp size={22} /> },
     { key: "donation", title: "Donations", icon: <GiReceiveMoney size={22} /> },

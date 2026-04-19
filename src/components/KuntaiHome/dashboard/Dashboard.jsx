@@ -13,6 +13,7 @@ import UrBankSkeleton from "../UrBankSkeleton";
 import OtherAccountContainer from "./OtherAccountContainer/OtherAccountContainer";
 import ServicesContainer from "./Services/ServicesContainer";
 import PayMerchant from "./Services/PayMerchant/PayMerchant";
+import AgentTransfer from "./Services/AgentTransfer/AgentTransfer";
 import ElectricityPay from "./Services/Electricity/ElectricityPay";
 import InternetPay from "./Services/InternetPay/InternetPay";
 import TVSubscription from "./Services/TVSubscription/TVSubscription";
@@ -41,6 +42,8 @@ export default function Dashboard({
   onHideOtherAccount,
   onMoveOtherAccountToMain,
   onEditRejectedAgent,
+  onEditRejectedInsurance,
+  onEditRejectedDonation,
 }) {
   const { isDarkMode } = useAppearance();
   const [activeService, setActiveService] = useState(() => {
@@ -48,7 +51,16 @@ export default function Dashboard({
       return null;
     }
 
-    return window.sessionStorage.getItem(DASHBOARD_SERVICE_KEY) || null;
+    const storedService = window.sessionStorage.getItem(DASHBOARD_SERVICE_KEY) || null;
+    if (storedService === "tickets") {
+      return "events";
+    }
+
+    if (storedService === "transport") {
+      return null;
+    }
+
+    return storedService;
   });
 
   useEffect(() => {
@@ -99,6 +111,8 @@ export default function Dashboard({
                 onHideAccountFromDashboard={onHideOtherAccount}
                 onMoveAccountToMain={onMoveOtherAccountToMain}
                 onEditRejectedAgent={onEditRejectedAgent}
+                onEditRejectedInsurance={onEditRejectedInsurance}
+                onEditRejectedDonation={onEditRejectedDonation}
               />
               <ServicesContainer setActiveService={setActiveService} />
             </>
@@ -110,6 +124,19 @@ export default function Dashboard({
         <PayMerchant
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
+        />
+      )}
+
+      {activeService === "agent" && (
+        <AgentTransfer
+          onBack={() => setActiveService(null)}
+          refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
@@ -138,6 +165,9 @@ export default function Dashboard({
         <SchoolFees
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
@@ -159,6 +189,9 @@ export default function Dashboard({
         <Donation
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
@@ -166,13 +199,19 @@ export default function Dashboard({
         <Insurance
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
-      {activeService === "tickets" && (
+      {activeService === "events" && (
         <Ticket
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
@@ -180,6 +219,9 @@ export default function Dashboard({
         <Restaurant
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
@@ -187,6 +229,9 @@ export default function Dashboard({
         <Hotel
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
@@ -194,6 +239,9 @@ export default function Dashboard({
         <Supermarket
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
 
@@ -201,6 +249,9 @@ export default function Dashboard({
         <Pharmacy
           onBack={() => setActiveService(null)}
           refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
         />
       )}
     </main>

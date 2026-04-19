@@ -6,6 +6,22 @@ import { normalizeCurrencyCode } from "../../../../Backend/utils/currency";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import TransactionsHeader from "./TransactionsHeader";
 
+const ALL_ENTRIES_ONLY_FLOWS = new Set([
+  "merchant_payment",
+  "agent_transfer",
+  "hotel_payment",
+  "school_payment",
+  "restaurant_payment",
+  "supermarket_payment",
+  "pharmacy_payment",
+  "insurance_payment",
+  "donation_payment",
+]);
+
+function isAllEntriesOnlyTransaction(transaction) {
+  return ALL_ENTRIES_ONLY_FLOWS.has(transaction?.metadata?.flow);
+}
+
 function formatDateTime(dateString) {
   if (!dateString) {
     return "Date unavailable";
@@ -111,6 +127,7 @@ function resolveReason(transaction) {
 
 function resolveReference(transaction) {
   return (
+    transaction.metadata?.payment_reference ||
     transaction.metadata?.reference_number ||
     transaction.metadata?.reference ||
     transaction.metadata?.transaction_reference ||
@@ -168,6 +185,78 @@ function resolvePartyAccount(transaction, account) {
 }
 
 function buildTransactionMessage(transaction, account, profile) {
+  if (transaction?.metadata?.flow === "merchant_payment") {
+    const merchantLabel =
+      transaction.metadata?.merchant_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have done payment to ${merchantLabel} for ${amount}.`;
+  }
+
+  if (transaction?.metadata?.flow === "agent_transfer") {
+    const agentLabel =
+      transaction.metadata?.agent_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have sent payment to ${agentLabel} for ${amount}.`;
+  }
+
+  if (transaction?.metadata?.flow === "hotel_payment") {
+    const hotelLabel =
+      transaction.metadata?.hotel_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have paid ${amount} to ${hotelLabel}.`;
+  }
+
+  if (transaction?.metadata?.flow === "school_payment") {
+    const schoolLabel =
+      transaction.metadata?.school_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have paid school fees to ${schoolLabel} for ${amount}.`;
+  }
+
+  if (transaction?.metadata?.flow === "restaurant_payment") {
+    const restaurantLabel =
+      transaction.metadata?.restaurant_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have paid ${amount} to ${restaurantLabel}.`;
+  }
+
+  if (transaction?.metadata?.flow === "supermarket_payment") {
+    const supermarketLabel =
+      transaction.metadata?.supermarket_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have paid ${amount} to ${supermarketLabel}.`;
+  }
+
+  if (transaction?.metadata?.flow === "pharmacy_payment") {
+    const pharmacyLabel =
+      transaction.metadata?.pharmacy_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have paid ${amount} to ${pharmacyLabel}.`;
+  }
+
+  if (transaction?.metadata?.flow === "insurance_payment") {
+    const insuranceLabel =
+      transaction.metadata?.insurance_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have paid ${amount} to ${insuranceLabel}.`;
+  }
+
+  if (transaction?.metadata?.flow === "donation_payment") {
+    const donationLabel =
+      transaction.metadata?.donation_account_name ||
+      resolvePersonLabel(transaction, account, profile);
+    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
+    return `You have donated ${amount} to ${donationLabel}.`;
+  }
+
   const person = resolvePersonLabel(transaction, account, profile);
   const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
 
@@ -180,10 +269,40 @@ function deriveReceipt(transaction, account, profile) {
   const direction = transaction.direction === "credit" ? "credit" : "debit";
   const amount = Number(transaction.amount || 0);
   const currency = normalizeCurrencyCode(transaction.currency || account?.currency) || "SLL";
+  const flow = transaction?.metadata?.flow;
+  const isMerchantPayment = flow === "merchant_payment";
+  const isAgentTransfer = flow === "agent_transfer";
+  const isHotelPayment = flow === "hotel_payment";
+  const isSchoolPayment = flow === "school_payment";
+  const isRestaurantPayment = flow === "restaurant_payment";
+  const isSupermarketPayment = flow === "supermarket_payment";
+  const isPharmacyPayment = flow === "pharmacy_payment";
+  const isInsurancePayment = flow === "insurance_payment";
+  const isDonationPayment = flow === "donation_payment";
 
   return {
     direction,
-    title: direction === "credit" ? "Cash in Receipt:" : "Cash Out Receipt:",
+    title: isMerchantPayment
+      ? "Merchant Payment Receipt:"
+      : isAgentTransfer
+        ? "Agent Transfer Receipt:"
+        : isHotelPayment
+          ? "Hotel Payment Receipt:"
+        : isSchoolPayment
+          ? "School Fees Receipt:"
+        : isRestaurantPayment
+          ? "Restaurant Payment Receipt:"
+        : isSupermarketPayment
+          ? "Supermarket Payment Receipt:"
+        : isPharmacyPayment
+          ? "Pharmacy Payment Receipt:"
+        : isInsurancePayment
+          ? "Insurance Payment Receipt:"
+        : isDonationPayment
+          ? "Donation Receipt:"
+        : direction === "credit"
+        ? "Cash in Receipt:"
+        : "Cash Out Receipt:",
     personName: resolvePersonLabel(transaction, account, profile),
     personImage: resolvePartyImage(transaction, profile),
     personAccount: resolvePartyAccount(transaction, account),
@@ -192,7 +311,18 @@ function deriveReceipt(transaction, account, profile) {
     dateTime: transaction.created_at,
     transactionId: resolveTransactionId(transaction),
     referenceId: resolveReference(transaction),
-    reason: resolveReason(transaction),
+    reason:
+      transaction.metadata?.agent_note ||
+      transaction.metadata?.hotel_note ||
+      transaction.metadata?.school_note ||
+      transaction.metadata?.restaurant_note ||
+      transaction.metadata?.supermarket_note ||
+      transaction.metadata?.pharmacy_note ||
+      transaction.metadata?.insurance_note ||
+      transaction.metadata?.donation_note ||
+      transaction.metadata?.purchase_description ||
+      transaction.metadata?.note ||
+      resolveReason(transaction),
     fee: Number(transaction.metadata?.transaction_fee || transaction.metadata?.fee || 0),
     tax: Number(transaction.metadata?.tax_amount || transaction.metadata?.tax || 0),
     totalSent:
@@ -608,7 +738,13 @@ function ReceiptView({ receipt, onBack }) {
   );
 }
 
-export default function TransactionsScreen({ setActiveScreen, account, profile }) {
+export default function TransactionsScreen({
+  setActiveScreen,
+  account,
+  profile,
+  initialSelectedTransactionId = null,
+  onReceiptOpened,
+}) {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [transactions, setTransactions] = useState([]);
@@ -651,7 +787,9 @@ export default function TransactionsScreen({ setActiveScreen, account, profile }
     const searchTerm = search.trim().toLowerCase();
 
     return transactions.filter((transaction) => {
-      const matchesTab = activeTab === "all" || transaction.direction === activeTab;
+      const matchesTab =
+        activeTab === "all" ||
+        (transaction.direction === activeTab && !isAllEntriesOnlyTransaction(transaction));
       const matchesSearch =
         !searchTerm ||
         [
@@ -674,7 +812,10 @@ export default function TransactionsScreen({ setActiveScreen, account, profile }
     const today = new Date().toDateString();
 
     return summarizeTransactions(
-      transactions.filter((transaction) => new Date(transaction.created_at).toDateString() === today)
+      transactions.filter(
+        (transaction) =>
+          new Date(transaction.created_at).toDateString() === today && !isAllEntriesOnlyTransaction(transaction)
+      )
     );
   }, [transactions]);
   const selectedReceipt = useMemo(
@@ -699,6 +840,21 @@ export default function TransactionsScreen({ setActiveScreen, account, profile }
 
     return groups;
   }, [filteredTransactions]);
+
+  useEffect(() => {
+    if (!initialSelectedTransactionId || !transactions.length) {
+      return;
+    }
+
+    const matchingTransaction = transactions.find(
+      (transaction) => String(transaction.id) === String(initialSelectedTransactionId)
+    );
+
+    if (matchingTransaction) {
+      setSelectedTransaction(matchingTransaction);
+      onReceiptOpened?.();
+    }
+  }, [initialSelectedTransactionId, onReceiptOpened, transactions]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#eefbf4_0%,#f8fafc_42%,#f8fafc_100%)]">

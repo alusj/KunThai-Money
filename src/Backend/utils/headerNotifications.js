@@ -76,6 +76,222 @@ function buildOwnAccountNotification(transaction) {
   };
 }
 
+function buildMerchantPaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "merchant_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const merchantLabel =
+    transaction.metadata?.merchant_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "merchant account";
+
+  return {
+    id: `merchant-payment-${transaction.id}`,
+    tone: "info",
+    title: "Merchant payment completed",
+    body: `You have done payment to ${merchantLabel} for ${amount}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildAgentTransferNotification(transaction) {
+  if (transaction?.metadata?.flow !== "agent_transfer") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const agentLabel =
+    transaction.metadata?.agent_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "agent account";
+
+  return {
+    id: `agent-transfer-${transaction.id}`,
+    tone: "info",
+    title: "Agent transfer completed",
+    body: `You have sent payment to ${agentLabel} for ${amount}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildHotelPaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "hotel_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const hotelLabel =
+    transaction.metadata?.hotel_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "hotel account";
+
+  return {
+    id: `hotel-payment-${transaction.id}`,
+    tone: "info",
+    title: "Hotel payment completed",
+    body: `You have paid ${amount} to ${hotelLabel}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildSchoolPaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "school_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const schoolLabel =
+    transaction.metadata?.school_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "school account";
+
+  return {
+    id: `school-payment-${transaction.id}`,
+    tone: "info",
+    title: "School fees paid",
+    body: `You have paid school fees to ${schoolLabel} for ${amount}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildRestaurantPaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "restaurant_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const restaurantLabel =
+    transaction.metadata?.restaurant_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "restaurant account";
+
+  return {
+    id: `restaurant-payment-${transaction.id}`,
+    tone: "info",
+    title: "Restaurant payment completed",
+    body: `You have paid ${amount} to ${restaurantLabel}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildSupermarketPaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "supermarket_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const supermarketLabel =
+    transaction.metadata?.supermarket_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "supermarket account";
+
+  return {
+    id: `supermarket-payment-${transaction.id}`,
+    tone: "info",
+    title: "Supermarket payment completed",
+    body: `You have paid ${amount} to ${supermarketLabel}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildPharmacyPaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "pharmacy_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const pharmacyLabel =
+    transaction.metadata?.pharmacy_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "pharmacy account";
+
+  return {
+    id: `pharmacy-payment-${transaction.id}`,
+    tone: "info",
+    title: "Pharmacy payment completed",
+    body: `You have paid ${amount} to ${pharmacyLabel}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildInsurancePaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "insurance_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const insuranceLabel =
+    transaction.metadata?.insurance_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "insurance account";
+
+  return {
+    id: `insurance-payment-${transaction.id}`,
+    tone: "info",
+    title: "Insurance payment completed",
+    body: `You have paid ${amount} to ${insuranceLabel}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
+function buildDonationPaymentNotification(transaction) {
+  if (transaction?.metadata?.flow !== "donation_payment") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const donationLabel =
+    transaction.metadata?.donation_account_name ||
+    transaction.counterparty_name ||
+    transaction.metadata?.recipient_name ||
+    "donation account";
+
+  return {
+    id: `donation-payment-${transaction.id}`,
+    tone: "info",
+    title: "Donation completed",
+    body: `You have donated ${amount} to ${donationLabel}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    created_at: transaction.created_at,
+  };
+}
+
 export function buildHeaderNotifications({
   status,
   paymentRequests = [],
@@ -172,8 +388,117 @@ export function buildHeaderNotifications({
       });
     });
 
+  otherAccounts
+    .filter((account) => {
+      const reviewStatus = account?.metadata?.insurance_profile?.review_status || account?.status || "pending";
+      return account?.account_type === "insurance" && reviewStatus === "rejected";
+    })
+    .slice(0, 2)
+    .forEach((account, index) => {
+      const rejectionReason =
+        account?.metadata?.insurance_profile?.rejection_reason ||
+        account?.metadata?.insurance_profile?.rejection_comment ||
+        "Please review your insurance details and upload fresh verification documents before resubmitting.";
+
+      items.push({
+        id: `insurance-rejected-${account.id || index}`,
+        tone: "warning",
+        title: `${account.account_name || "Insurance account"} needs changes`,
+        body: `Reason: ${rejectionReason}`,
+        action: "insurance-account-resubmit",
+        actionLabel: "Open",
+        accountId: account.id,
+      });
+    });
+
+  otherAccounts
+    .filter((account) => {
+      const reviewStatus = account?.metadata?.donation_profile?.review_status || account?.status || "pending";
+      return account?.account_type === "donation" && reviewStatus === "rejected";
+    })
+    .slice(0, 2)
+    .forEach((account, index) => {
+      const rejectionReason =
+        account?.metadata?.donation_profile?.rejection_reason ||
+        account?.metadata?.donation_profile?.rejection_comment ||
+        "Please review your donation details and upload fresh verification documents before resubmitting.";
+
+      items.push({
+        id: `donation-rejected-${account.id || index}`,
+        tone: "warning",
+        title: `${account.account_name || "Donation account"} needs changes`,
+        body: `Reason: ${rejectionReason}`,
+        action: "donation-account-resubmit",
+        actionLabel: "Open",
+        accountId: account.id,
+      });
+    });
+
   recentTransactions
     .map(buildOwnAccountNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildMerchantPaymentNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildAgentTransferNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildHotelPaymentNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildSchoolPaymentNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildRestaurantPaymentNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildSupermarketPaymentNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildPharmacyPaymentNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildInsurancePaymentNotification)
+    .filter(Boolean)
+    .forEach((item) => {
+      items.push(item);
+    });
+
+  recentTransactions
+    .map(buildDonationPaymentNotification)
     .filter(Boolean)
     .forEach((item) => {
       items.push(item);

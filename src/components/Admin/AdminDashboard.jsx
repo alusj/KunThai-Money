@@ -3,10 +3,14 @@ import { CheckCircle2, Clock3, RefreshCw, ShieldAlert, ShieldCheck, XCircle } fr
 
 import {
   getAdminAgentReviews,
+  getAdminDonationReviews,
+  getAdminInsuranceReviews,
   getAdminKycReviews,
   getSignedKycDocument,
   getSignedStoredDocument,
   updateAgentAccountStatus,
+  updateDonationAccountStatus,
+  updateInsuranceAccountStatus,
   updateKycStatus,
 } from "../../Backend/services/adminService";
 import {
@@ -605,6 +609,427 @@ function AgentReviewCard({ item, onApprove, onReject }) {
   );
 }
 
+function InsuranceReviewCard({ item, onApprove, onReject }) {
+  const displayStatus = formatReviewStatusLabel(item.insuranceReviewStatus);
+  const [documentPreviews, setDocumentPreviews] = useState([]);
+  const [rejectionComment, setRejectionComment] = useState(item.rejectionReason || "");
+
+  useEffect(() => {
+    setRejectionComment(item.rejectionReason || "");
+  }, [item.rejectionReason, item.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDocuments = async () => {
+      if (!item.businessDocumentFiles.length) {
+        setDocumentPreviews([]);
+        return;
+      }
+
+      const previews = await Promise.all(
+        item.businessDocumentFiles.map(async (file, index) => {
+          if (!file.path) {
+            return {
+              ...file,
+              id: file.id || `insurance-document-${index}`,
+              signedUrl: null,
+            };
+          }
+
+          try {
+            const signedUrl = await getSignedStoredDocument({
+              bucket: file.bucket || "kyc",
+              path: file.path,
+            });
+
+            return {
+              ...file,
+              id: file.id || file.path || `insurance-document-${index}`,
+              signedUrl,
+            };
+          } catch {
+            return {
+              ...file,
+              id: file.id || file.path || `insurance-document-${index}`,
+              signedUrl: null,
+            };
+          }
+        })
+      );
+
+      if (isMounted) {
+        setDocumentPreviews(previews);
+      }
+    };
+
+    loadDocuments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [item.businessDocumentFiles]);
+
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-xl font-semibold text-slate-950">
+              {item.account_name || "Insurance Account"}
+            </h3>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusTone(displayStatus)}`}>
+              {displayStatus}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-slate-500">
+            {item.displayName || "Unknown user"} • {item.profile?.phone || "No phone found"}
+          </p>
+        </div>
+
+        <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <Clock3 size={14} />
+          {formatAdminDate(item.updated_at || item.created_at)}
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Account Number</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.account_number || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Insurance Category</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.insuranceCategory || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Support Phone</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.supportPhone || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Policy Reference Format</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.paymentReferenceFormat || "Not provided"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Accepted Payment Types</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.acceptedPaymentTypes || "Not provided"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Verification Documents Requested</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.requestedBusinessDocuments.length
+                ? item.requestedBusinessDocuments.join(", ")
+                : "No document type was selected"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Admin Note</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.businessDocumentNote || "No note added"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Rejection Reason For User
+            </p>
+            <textarea
+              value={rejectionComment}
+              onChange={(event) => setRejectionComment(event.target.value)}
+              rows={4}
+              placeholder="Explain what must be corrected before this insurance account can be approved."
+              className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+            />
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              This message will appear on the user's dashboard and inside their notification center if you reject the request.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Uploaded Verification Documents</p>
+          {documentPreviews.length ? (
+            <div className="mt-3 space-y-3">
+              {documentPreviews.map((file, index) => (
+                <div key={file.id || `${file.name || "file"}-${index}`} className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-950">{file.name || `Document ${index + 1}`}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {file.type || "Unknown type"}
+                    {file.size ? ` • ${Math.max(1, Math.round(file.size / 1024))} KB` : ""}
+                  </p>
+                  {file.signedUrl ? (
+                    <div className="mt-3 overflow-hidden rounded-[16px] border border-slate-200 bg-white">
+                      {String(file.type || "").toLowerCase() === "application/pdf" ? (
+                        <iframe
+                          src={file.signedUrl}
+                          title={file.name || `Document ${index + 1}`}
+                          className="h-72 w-full"
+                        />
+                      ) : (
+                        <img
+                          src={file.signedUrl}
+                          alt={file.name || `Document ${index + 1}`}
+                          className="h-72 w-full object-contain"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-[16px] border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-500">
+                      Preview unavailable for this document.
+                    </div>
+                  )}
+                  {file.signedUrl ? (
+                    <a
+                      href={file.signedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Open document
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 flex h-40 items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+              No uploaded verification documents
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => onApprove(item)}
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+        >
+          <CheckCircle2 size={16} />
+          <span>Approve</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(item, rejectionComment)}
+          className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+        >
+          <XCircle size={16} />
+          <span>Reject</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DonationReviewCard({ item, onApprove, onReject }) {
+  const displayStatus = formatReviewStatusLabel(item.donationReviewStatus);
+  const [documentPreviews, setDocumentPreviews] = useState([]);
+  const [rejectionComment, setRejectionComment] = useState(item.rejectionReason || "");
+
+  useEffect(() => {
+    setRejectionComment(item.rejectionReason || "");
+  }, [item.rejectionReason, item.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDocuments = async () => {
+      if (!item.businessDocumentFiles.length) {
+        setDocumentPreviews([]);
+        return;
+      }
+
+      const previews = await Promise.all(
+        item.businessDocumentFiles.map(async (file, index) => {
+          if (!file.path) {
+            return {
+              ...file,
+              id: file.id || `donation-document-${index}`,
+              signedUrl: null,
+            };
+          }
+
+          try {
+            const signedUrl = await getSignedStoredDocument({
+              bucket: file.bucket || "kyc",
+              path: file.path,
+            });
+
+            return {
+              ...file,
+              id: file.id || file.path || `donation-document-${index}`,
+              signedUrl,
+            };
+          } catch {
+            return {
+              ...file,
+              id: file.id || file.path || `donation-document-${index}`,
+              signedUrl: null,
+            };
+          }
+        })
+      );
+
+      if (isMounted) {
+        setDocumentPreviews(previews);
+      }
+    };
+
+    loadDocuments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [item.businessDocumentFiles]);
+
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-xl font-semibold text-slate-950">
+              {item.account_name || "Donation Account"}
+            </h3>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusTone(displayStatus)}`}>
+              {displayStatus}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-slate-500">
+            {item.displayName || "Unknown user"} • {item.profile?.phone || "No phone found"}
+          </p>
+        </div>
+
+        <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <Clock3 size={14} />
+          {formatAdminDate(item.updated_at || item.created_at)}
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Account Number</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.account_number || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Organization Name</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.organizationName || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Cause Category</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.causeCategory || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Support Phone</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.supportPhone || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Mission</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.mission || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Verification Documents Requested</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.requestedBusinessDocuments.length
+                ? item.requestedBusinessDocuments.join(", ")
+                : "No document type was selected"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Admin Note</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              {item.businessDocumentNote || "No note added"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Rejection Reason For User
+            </p>
+            <textarea
+              value={rejectionComment}
+              onChange={(event) => setRejectionComment(event.target.value)}
+              rows={4}
+              placeholder="Explain what must be corrected before this donation account can be approved."
+              className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Uploaded Verification Documents</p>
+          {documentPreviews.length ? (
+            <div className="mt-3 space-y-3">
+              {documentPreviews.map((file, index) => (
+                <div key={file.id || `${file.name || "file"}-${index}`} className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-950">{file.name || `Document ${index + 1}`}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {file.type || "Unknown type"}
+                    {file.size ? ` • ${Math.max(1, Math.round(file.size / 1024))} KB` : ""}
+                  </p>
+                  {file.signedUrl ? (
+                    <div className="mt-3 overflow-hidden rounded-[16px] border border-slate-200 bg-white">
+                      {String(file.type || "").toLowerCase() === "application/pdf" ? (
+                        <iframe src={file.signedUrl} title={file.name || `Document ${index + 1}`} className="h-72 w-full" />
+                      ) : (
+                        <img
+                          src={file.signedUrl}
+                          alt={file.name || `Document ${index + 1}`}
+                          className="h-72 w-full object-contain"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-[16px] border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-500">
+                      Preview unavailable for this document.
+                    </div>
+                  )}
+                  {file.signedUrl ? (
+                    <a
+                      href={file.signedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Open document
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 flex h-40 items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+              No uploaded verification documents
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => onApprove(item)}
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+        >
+          <CheckCircle2 size={16} />
+          <span>Approve</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(item, rejectionComment)}
+          className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+        >
+          <XCircle size={16} />
+          <span>Reject</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReviewStatusSection({
   eyebrow,
   title,
@@ -666,6 +1091,8 @@ function QueuePlaceholder() {
 export default function AdminDashboard() {
   const [items, setItems] = useState([]);
   const [agentItems, setAgentItems] = useState([]);
+  const [insuranceItems, setInsuranceItems] = useState([]);
+  const [donationItems, setDonationItems] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -686,13 +1113,17 @@ export default function AdminDashboard() {
     setError("");
 
     try {
-      const [data, agentReviews, notifications] = await Promise.all([
+      const [data, agentReviews, insuranceReviews, donationReviews, notifications] = await Promise.all([
         getAdminKycReviews(),
         getAdminAgentReviews(),
+        getAdminInsuranceReviews(),
+        getAdminDonationReviews(),
         getAdminNotifications({ status: "active", limit: 8 }),
       ]);
       setItems(data);
       setAgentItems(agentReviews);
+      setInsuranceItems(insuranceReviews);
+      setDonationItems(donationReviews);
       setAdminNotifications(notifications);
     } catch (err) {
       setError(err.message || "Admin KYC review could not be loaded.");
@@ -750,6 +1181,36 @@ export default function AdminDashboard() {
     () => rejectedAgentItems.length,
     [rejectedAgentItems]
   );
+  const pendingInsuranceItems = useMemo(
+    () => insuranceItems.filter((item) => formatReviewStatusLabel(item.insuranceReviewStatus) === "pending"),
+    [insuranceItems]
+  );
+  const approvedInsuranceItems = useMemo(
+    () => insuranceItems.filter((item) => formatReviewStatusLabel(item.insuranceReviewStatus) === "approved"),
+    [insuranceItems]
+  );
+  const rejectedInsuranceItems = useMemo(
+    () => insuranceItems.filter((item) => formatReviewStatusLabel(item.insuranceReviewStatus) === "rejected"),
+    [insuranceItems]
+  );
+  const pendingInsuranceCount = useMemo(() => pendingInsuranceItems.length, [pendingInsuranceItems]);
+  const approvedInsuranceCount = useMemo(() => approvedInsuranceItems.length, [approvedInsuranceItems]);
+  const rejectedInsuranceCount = useMemo(() => rejectedInsuranceItems.length, [rejectedInsuranceItems]);
+  const pendingDonationItems = useMemo(
+    () => donationItems.filter((item) => formatReviewStatusLabel(item.donationReviewStatus) === "pending"),
+    [donationItems]
+  );
+  const approvedDonationItems = useMemo(
+    () => donationItems.filter((item) => formatReviewStatusLabel(item.donationReviewStatus) === "approved"),
+    [donationItems]
+  );
+  const rejectedDonationItems = useMemo(
+    () => donationItems.filter((item) => formatReviewStatusLabel(item.donationReviewStatus) === "rejected"),
+    [donationItems]
+  );
+  const pendingDonationCount = useMemo(() => pendingDonationItems.length, [pendingDonationItems]);
+  const approvedDonationCount = useMemo(() => approvedDonationItems.length, [approvedDonationItems]);
+  const rejectedDonationCount = useMemo(() => rejectedDonationItems.length, [rejectedDonationItems]);
   const reviewQueues = useMemo(
     () => [
       {
@@ -854,18 +1315,132 @@ export default function AdminDashboard() {
           />
         ),
       },
+      {
+        key: "insurance-pending",
+        eyebrow: "Insurance Verification",
+        title: "Pending Insurance Accounts",
+        count: pendingInsuranceCount,
+        tone: "amber",
+        emptyLabel: "No pending insurance accounts right now.",
+        items: pendingInsuranceItems,
+        renderCard: (item) => (
+          <InsuranceReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleInsuranceStatusChange(item, "approved")}
+            onReject={(_, comment) => handleInsuranceStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "insurance-approved",
+        eyebrow: "Insurance Verification",
+        title: "Approved Insurance Accounts",
+        count: approvedInsuranceCount,
+        tone: "emerald",
+        emptyLabel: "No approved insurance accounts yet.",
+        items: approvedInsuranceItems,
+        renderCard: (item) => (
+          <InsuranceReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleInsuranceStatusChange(item, "approved")}
+            onReject={(_, comment) => handleInsuranceStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "insurance-rejected",
+        eyebrow: "Insurance Verification",
+        title: "Rejected Insurance Accounts",
+        count: rejectedInsuranceCount,
+        tone: "rose",
+        emptyLabel: "No rejected insurance accounts right now.",
+        items: rejectedInsuranceItems,
+        renderCard: (item) => (
+          <InsuranceReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleInsuranceStatusChange(item, "approved")}
+            onReject={(_, comment) => handleInsuranceStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "donation-pending",
+        eyebrow: "Donation Verification",
+        title: "Pending Donation Accounts",
+        count: pendingDonationCount,
+        tone: "amber",
+        emptyLabel: "No pending donation accounts right now.",
+        items: pendingDonationItems,
+        renderCard: (item) => (
+          <DonationReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleDonationStatusChange(item, "approved")}
+            onReject={(_, comment) => handleDonationStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "donation-approved",
+        eyebrow: "Donation Verification",
+        title: "Approved Donation Accounts",
+        count: approvedDonationCount,
+        tone: "emerald",
+        emptyLabel: "No approved donation accounts yet.",
+        items: approvedDonationItems,
+        renderCard: (item) => (
+          <DonationReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleDonationStatusChange(item, "approved")}
+            onReject={(_, comment) => handleDonationStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "donation-rejected",
+        eyebrow: "Donation Verification",
+        title: "Rejected Donation Accounts",
+        count: rejectedDonationCount,
+        tone: "rose",
+        emptyLabel: "No rejected donation accounts right now.",
+        items: rejectedDonationItems,
+        renderCard: (item) => (
+          <DonationReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleDonationStatusChange(item, "approved")}
+            onReject={(_, comment) => handleDonationStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
     ],
     [
       approvedAgentCount,
       approvedAgentItems,
+      approvedDonationCount,
+      approvedDonationItems,
+      approvedInsuranceCount,
+      approvedInsuranceItems,
       approvedCount,
       approvedItems,
       pendingAgentCount,
       pendingAgentItems,
+      pendingDonationCount,
+      pendingDonationItems,
+      pendingInsuranceCount,
+      pendingInsuranceItems,
       pendingCount,
       pendingItems,
       rejectedAgentCount,
       rejectedAgentItems,
+      rejectedDonationCount,
+      rejectedDonationItems,
+      rejectedInsuranceCount,
+      rejectedInsuranceItems,
       rejectedCount,
       rejectedItems,
     ]
@@ -913,6 +1488,74 @@ export default function AdminDashboard() {
       await load();
     } catch (err) {
       setError(err.message || "Agent account status could not be updated.");
+    }
+  }
+
+  async function handleInsuranceStatusChange(item, nextStatus, comment = "") {
+    try {
+      const trimmedComment = comment.trim();
+
+      if (nextStatus === "rejected" && !trimmedComment) {
+        setError("Add a rejection reason before rejecting an insurance account.");
+        return;
+      }
+
+      await updateInsuranceAccountStatus({
+        accountId: item.id,
+        status: nextStatus,
+        comment: trimmedComment,
+      });
+      await createAdminNotification({
+        title:
+          nextStatus === "approved"
+            ? "Insurance account approved"
+            : "Insurance account needs attention",
+        body:
+          nextStatus === "approved"
+            ? `Your ${item.account_name || "insurance"} account has been approved by the admin team and is now ready to use.`
+            : `Your ${item.account_name || "insurance"} account request was rejected by the admin team. Reason: ${trimmedComment}. Please update your insurance details and upload fresh documents before resubmitting.`,
+        audienceType: "single_user",
+        targetUserId: item.user_id,
+        tone: nextStatus === "approved" ? "success" : "warning",
+        isPopup: true,
+      });
+      await load();
+    } catch (err) {
+      setError(err.message || "Insurance account status could not be updated.");
+    }
+  }
+
+  async function handleDonationStatusChange(item, nextStatus, comment = "") {
+    try {
+      const trimmedComment = comment.trim();
+
+      if (nextStatus === "rejected" && !trimmedComment) {
+        setError("Add a rejection reason before rejecting a donation account.");
+        return;
+      }
+
+      await updateDonationAccountStatus({
+        accountId: item.id,
+        status: nextStatus,
+        comment: trimmedComment,
+      });
+      await createAdminNotification({
+        title:
+          nextStatus === "approved"
+            ? "Donation account approved"
+            : "Donation account needs attention",
+        body:
+          nextStatus === "approved"
+            ? `Your ${item.account_name || "donation"} account has been approved by the admin team and is now ready to use.`
+            : `Your ${item.account_name || "donation"} account request was rejected by the admin team. Reason: ${trimmedComment}. Please update your donation details and upload fresh documents before resubmitting.`,
+        audienceType: "single_user",
+        targetUserId: item.user_id,
+        tone: nextStatus === "approved" ? "success" : "warning",
+        isPopup: true,
+      });
+      await load();
+    } catch (err) {
+      setError(err.message || "Donation account status could not be updated.");
     }
   }
 

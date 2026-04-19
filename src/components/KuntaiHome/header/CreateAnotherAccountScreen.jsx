@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ACCOUNT_TYPE_OPTIONS } from "../../../Backend/utils/accountTypes";
 import { countryMap } from "../../../Backend/utils/countryMap";
+import { EVENT_ACCOUNT_TYPE } from "../../../Backend/utils/eventAccounts";
 import BackTab from "./Transactions/BackTab";
 
 export default function CreateAnotherAccountScreen({
@@ -31,16 +32,67 @@ export default function CreateAnotherAccountScreen({
   const [permissionState, setPermissionState] = useState("prompt");
   const [showLocationHelp, setShowLocationHelp] = useState(false);
   const [requestedBusinessDocuments, setRequestedBusinessDocuments] = useState(
-    editAccount?.metadata?.agent_profile?.requested_business_documents || []
+    editAccount?.metadata?.agent_profile?.requested_business_documents ||
+      editAccount?.metadata?.insurance_profile?.requested_business_documents ||
+      []
   );
   const [businessDocumentNote, setBusinessDocumentNote] = useState(
-    editAccount?.metadata?.agent_profile?.business_document_note || ""
+    editAccount?.metadata?.agent_profile?.business_document_note ||
+      editAccount?.metadata?.insurance_profile?.business_document_note ||
+      ""
+  );
+  const [eventName, setEventName] = useState(editAccount?.metadata?.event_profile?.event_name || "");
+  const [eventCategory, setEventCategory] = useState(editAccount?.metadata?.event_profile?.event_category || "");
+  const [eventLocation, setEventLocation] = useState(editAccount?.metadata?.event_profile?.event_location || "");
+  const [eventDate, setEventDate] = useState(editAccount?.metadata?.event_profile?.event_date || "");
+  const [eventTime, setEventTime] = useState(editAccount?.metadata?.event_profile?.event_time || "");
+  const [ticketPrice, setTicketPrice] = useState(editAccount?.metadata?.event_profile?.ticket_price ? String(editAccount.metadata.event_profile.ticket_price) : "");
+  const [availableTickets, setAvailableTickets] = useState(
+    editAccount?.metadata?.event_profile?.available_tickets
+      ? String(editAccount.metadata.event_profile.available_tickets)
+      : ""
+  );
+  const [eventDescription, setEventDescription] = useState(
+    editAccount?.metadata?.event_profile?.description || ""
+  );
+  const [insuranceCategory, setInsuranceCategory] = useState(
+    editAccount?.metadata?.insurance_profile?.insurance_category || ""
+  );
+  const [insuranceSupportPhone, setInsuranceSupportPhone] = useState(
+    editAccount?.metadata?.insurance_profile?.support_phone || ""
+  );
+  const [insuranceReferenceFormat, setInsuranceReferenceFormat] = useState(
+    editAccount?.metadata?.insurance_profile?.payment_reference_format || ""
+  );
+  const [insurancePaymentTypes, setInsurancePaymentTypes] = useState(
+    editAccount?.metadata?.insurance_profile?.accepted_payment_types || ""
+  );
+  const [donationOrganizationName, setDonationOrganizationName] = useState(
+    editAccount?.metadata?.donation_profile?.organization_name || ""
+  );
+  const [donationCauseCategory, setDonationCauseCategory] = useState(
+    editAccount?.metadata?.donation_profile?.cause_category || ""
+  );
+  const [donationSupportPhone, setDonationSupportPhone] = useState(
+    editAccount?.metadata?.donation_profile?.support_phone || ""
+  );
+  const [donationMission, setDonationMission] = useState(
+    editAccount?.metadata?.donation_profile?.mission || ""
   );
   const [businessDocumentFiles, setBusinessDocumentFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const isEditMode = mode === "resubmit" && Boolean(editAccount?.id);
   const isResubmittingRejectedAgent = isEditMode && editAccount?.account_type === "agent";
+  const isInsuranceAccount = accountType === "insurance";
+  const isResubmittingRejectedInsurance = isEditMode && editAccount?.account_type === "insurance";
+  const isDonationAccount = accountType === "donation";
+  const isResubmittingRejectedDonation = isEditMode && editAccount?.account_type === "donation";
+  const resubmissionLabel = isResubmittingRejectedInsurance
+    ? "insurance"
+    : isResubmittingRejectedDonation
+      ? "donation"
+      : "agent";
 
   useEffect(() => {
     setAccountType(editAccount?.account_type || "");
@@ -51,8 +103,42 @@ export default function CreateAnotherAccountScreen({
     setLocationCity(editAccount?.location_city || "");
     setLocationAddress(editAccount?.location_address || "");
     setNearbyDiscoveryEnabled(editAccount?.nearby_discovery_enabled ?? true);
-    setRequestedBusinessDocuments(editAccount?.metadata?.agent_profile?.requested_business_documents || []);
-    setBusinessDocumentNote(editAccount?.metadata?.agent_profile?.business_document_note || "");
+    setRequestedBusinessDocuments(
+      editAccount?.metadata?.agent_profile?.requested_business_documents ||
+      editAccount?.metadata?.insurance_profile?.requested_business_documents ||
+      editAccount?.metadata?.donation_profile?.requested_business_documents ||
+      []
+    );
+    setBusinessDocumentNote(
+      editAccount?.metadata?.agent_profile?.business_document_note ||
+      editAccount?.metadata?.insurance_profile?.business_document_note ||
+      editAccount?.metadata?.donation_profile?.business_document_note ||
+      ""
+    );
+    setEventName(editAccount?.metadata?.event_profile?.event_name || "");
+    setEventCategory(editAccount?.metadata?.event_profile?.event_category || "");
+    setEventLocation(editAccount?.metadata?.event_profile?.event_location || "");
+    setEventDate(editAccount?.metadata?.event_profile?.event_date || "");
+    setEventTime(editAccount?.metadata?.event_profile?.event_time || "");
+    setTicketPrice(
+      editAccount?.metadata?.event_profile?.ticket_price
+        ? String(editAccount.metadata.event_profile.ticket_price)
+        : ""
+    );
+    setAvailableTickets(
+      editAccount?.metadata?.event_profile?.available_tickets
+        ? String(editAccount.metadata.event_profile.available_tickets)
+        : ""
+    );
+    setEventDescription(editAccount?.metadata?.event_profile?.description || "");
+    setInsuranceCategory(editAccount?.metadata?.insurance_profile?.insurance_category || "");
+    setInsuranceSupportPhone(editAccount?.metadata?.insurance_profile?.support_phone || "");
+    setInsuranceReferenceFormat(editAccount?.metadata?.insurance_profile?.payment_reference_format || "");
+    setInsurancePaymentTypes(editAccount?.metadata?.insurance_profile?.accepted_payment_types || "");
+    setDonationOrganizationName(editAccount?.metadata?.donation_profile?.organization_name || "");
+    setDonationCauseCategory(editAccount?.metadata?.donation_profile?.cause_category || "");
+    setDonationSupportPhone(editAccount?.metadata?.donation_profile?.support_phone || "");
+    setDonationMission(editAccount?.metadata?.donation_profile?.mission || "");
     setBusinessDocumentFiles([]);
     setError("");
   }, [editAccount, mainAccount?.country, mode]);
@@ -76,6 +162,7 @@ export default function CreateAnotherAccountScreen({
     availableOptions.find((option) => option.value === accountType) ||
     ACCOUNT_TYPE_OPTIONS.find((option) => option.value === accountType);
   const isAgentAccount = accountType === "agent";
+  const isEventAccount = accountType === EVENT_ACCOUNT_TYPE;
   const locationIsDevice = locationMode === "device" || useCurrentLocation;
   const isIOS =
     typeof navigator !== "undefined" &&
@@ -247,8 +334,81 @@ export default function CreateAnotherAccountScreen({
       return;
     }
 
+    if (isEventAccount && !eventName.trim()) {
+      setError("Enter the event name");
+      return;
+    }
+
+    if (isEventAccount && !eventLocation.trim()) {
+      setError("Enter the event location");
+      return;
+    }
+
+    if (isEventAccount && !eventDate) {
+      setError("Select the event date");
+      return;
+    }
+
+    if (isEventAccount && !eventTime) {
+      setError("Select the event time");
+      return;
+    }
+
+    if (isEventAccount && (!(Number(ticketPrice) > 0) || !Number.isFinite(Number(ticketPrice)))) {
+      setError("Enter a valid ticket price");
+      return;
+    }
+
+    if (isEventAccount && (!(Number(availableTickets) > 0) || !Number.isFinite(Number(availableTickets)))) {
+      setError("Enter the available ticket quantity");
+      return;
+    }
+
+    if (isInsuranceAccount && !insuranceCategory.trim()) {
+      setError("Enter the insurance category");
+      return;
+    }
+
+    if (isInsuranceAccount && !insuranceSupportPhone.trim()) {
+      setError("Enter the insurance support phone");
+      return;
+    }
+
+    if (isDonationAccount && !donationOrganizationName.trim()) {
+      setError("Enter the organization name");
+      return;
+    }
+
+    if (isDonationAccount && !donationCauseCategory.trim()) {
+      setError("Enter the cause category");
+      return;
+    }
+
+    if (isDonationAccount && !donationSupportPhone.trim()) {
+      setError("Enter the donation support phone");
+      return;
+    }
+
     if (isResubmittingRejectedAgent && !businessDocumentFiles.length) {
       setError("Upload fresh business documents before resubmitting this agent account.");
+      return;
+    }
+
+    if (isInsuranceAccount && !businessDocumentFiles.length) {
+      setError(
+        isResubmittingRejectedInsurance
+          ? "Upload fresh insurance documents before resubmitting this insurance account."
+          : "Upload at least one insurance document before creating this insurance account."
+      );
+      return;
+    }
+
+    if (isDonationAccount && !businessDocumentFiles.length) {
+      setError(
+        isResubmittingRejectedDonation
+          ? "Upload fresh donation documents before resubmitting this donation account."
+          : "Upload at least one donation document before creating this donation account."
+      );
       return;
     }
 
@@ -272,10 +432,29 @@ export default function CreateAnotherAccountScreen({
         latitude: locationIsDevice ? locatedCoordinates?.latitude || null : null,
         longitude: locationIsDevice ? locatedCoordinates?.longitude || null : null,
         nearby_discovery_enabled: nearbyDiscoveryEnabled,
-        requested_business_documents: isAgentAccount ? requestedBusinessDocuments : [],
-        business_document_note: isAgentAccount ? businessDocumentNote.trim() : "",
-        business_document_files: isAgentAccount ? businessDocumentFiles : [],
-        is_resubmission: isResubmittingRejectedAgent,
+        requested_business_documents:
+          isAgentAccount || isInsuranceAccount || isDonationAccount ? requestedBusinessDocuments : [],
+        business_document_note:
+          isAgentAccount || isInsuranceAccount || isDonationAccount ? businessDocumentNote.trim() : "",
+        business_document_files:
+          isAgentAccount || isInsuranceAccount || isDonationAccount ? businessDocumentFiles : [],
+        event_name: isEventAccount ? eventName.trim() : "",
+        event_category: isEventAccount ? eventCategory.trim() : "",
+        event_location: isEventAccount ? eventLocation.trim() : "",
+        event_date: isEventAccount ? eventDate : "",
+        event_time: isEventAccount ? eventTime : "",
+        ticket_price: isEventAccount ? Number(ticketPrice) : 0,
+        available_tickets: isEventAccount ? Number(availableTickets) : 0,
+        event_description: isEventAccount ? eventDescription.trim() : "",
+        insurance_category: isInsuranceAccount ? insuranceCategory.trim() : "",
+        support_phone: isInsuranceAccount ? insuranceSupportPhone.trim() : "",
+        payment_reference_format: isInsuranceAccount ? insuranceReferenceFormat.trim() : "",
+        accepted_payment_types: isInsuranceAccount ? insurancePaymentTypes.trim() : "",
+        organization_name: isDonationAccount ? donationOrganizationName.trim() : "",
+        cause_category: isDonationAccount ? donationCauseCategory.trim() : "",
+        mission: isDonationAccount ? donationMission.trim() : "",
+        is_resubmission:
+          isResubmittingRejectedAgent || isResubmittingRejectedInsurance || isResubmittingRejectedDonation,
       });
     } catch (err) {
       const message = err.message?.toLowerCase?.() || "";
@@ -302,10 +481,10 @@ export default function CreateAnotherAccountScreen({
           <BackTab onBack={onBack} />
             <div className="text-center">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              {isEditMode ? "Agent Review Update" : "Account Setup"}
+              {isEditMode ? `${resubmissionLabel} Review Update` : "Account Setup"}
               </p>
             <h1 className="mt-2 text-lg font-bold text-slate-950 md:text-xl">
-              {isEditMode ? "Update agent account" : "Create another account"}
+              {isEditMode ? `Update ${resubmissionLabel} account` : "Create another account"}
             </h1>
             </div>
           <div className="w-16" />
@@ -320,7 +499,8 @@ export default function CreateAnotherAccountScreen({
             </div>
           )}
 
-          {isResubmittingRejectedAgent && rejectionReason ? (
+          {(isResubmittingRejectedAgent || isResubmittingRejectedInsurance || isResubmittingRejectedDonation) &&
+          rejectionReason ? (
             <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <span className="font-semibold">Admin reason:</span> {rejectionReason}
             </div>
@@ -365,22 +545,312 @@ export default function CreateAnotherAccountScreen({
               />
             </label>
 
-            {isAgentAccount && (
+            {isEventAccount ? (
+              <div className="rounded-[28px] border border-sky-200 bg-[linear-gradient(180deg,#f6fbff_0%,#ffffff_100%)] px-5 py-5">
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-sky-700">
+                      Event Setup
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Add the event details buyers should see before paying for a ticket online.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 pt-2 md:grid-cols-2">
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Event Name
+                      </span>
+                      <input
+                        type="text"
+                        value={eventName}
+                        onChange={(event) => setEventName(event.target.value)}
+                        placeholder="Afro Future Live"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Event Category
+                      </span>
+                      <input
+                        type="text"
+                        value={eventCategory}
+                        onChange={(event) => setEventCategory(event.target.value)}
+                        placeholder="Concert, match, conference"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Event Location
+                      </span>
+                      <input
+                        type="text"
+                        value={eventLocation}
+                        onChange={(event) => setEventLocation(event.target.value)}
+                        placeholder="National Stadium, Freetown"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Event Date
+                      </span>
+                      <input
+                        type="date"
+                        value={eventDate}
+                        onChange={(event) => setEventDate(event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Event Time
+                      </span>
+                      <input
+                        type="time"
+                        value={eventTime}
+                        onChange={(event) => setEventTime(event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Ticket Price
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={ticketPrice}
+                        onChange={(event) => setTicketPrice(event.target.value)}
+                        placeholder="0.00"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Available Tickets
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={availableTickets}
+                        onChange={(event) => setAvailableTickets(event.target.value)}
+                        placeholder="300"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Event Description
+                      </span>
+                      <textarea
+                        rows={4}
+                        value={eventDescription}
+                        onChange={(event) => setEventDescription(event.target.value)}
+                        placeholder="Tell buyers what to expect at this event."
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {isInsuranceAccount ? (
+              <div className="rounded-[28px] border border-emerald-200 bg-[linear-gradient(180deg,#f0fdf4_0%,#ffffff_100%)] px-5 py-5">
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+                      Insurance Setup
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Insurance accounts require admin review before they can appear for nearby premium payments.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 pt-2 md:grid-cols-2">
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Insurance Category
+                      </span>
+                      <input
+                        type="text"
+                        value={insuranceCategory}
+                        onChange={(event) => setInsuranceCategory(event.target.value)}
+                        placeholder="Health, vehicle, life, travel"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Support Phone
+                      </span>
+                      <input
+                        type="text"
+                        value={insuranceSupportPhone}
+                        onChange={(event) => setInsuranceSupportPhone(event.target.value)}
+                        placeholder="+232 79 000 000"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Policy Reference Format
+                      </span>
+                      <input
+                        type="text"
+                        value={insuranceReferenceFormat}
+                        onChange={(event) => setInsuranceReferenceFormat(event.target.value)}
+                        placeholder="Example: policy number or premium reference"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Accepted Payment Types
+                      </span>
+                      <input
+                        type="text"
+                        value={insurancePaymentTypes}
+                        onChange={(event) => setInsurancePaymentTypes(event.target.value)}
+                        placeholder="Monthly premium, annual premium"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {isDonationAccount ? (
+              <div className="rounded-[28px] border border-teal-200 bg-[linear-gradient(180deg,#f0fdfa_0%,#ffffff_100%)] px-5 py-5">
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-teal-700">
+                      Donation Setup
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Donation accounts require admin review before they can appear publicly for donors.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 pt-2 md:grid-cols-2">
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Organization Name
+                      </span>
+                      <input
+                        type="text"
+                        value={donationOrganizationName}
+                        onChange={(event) => setDonationOrganizationName(event.target.value)}
+                        placeholder="KunThai Care Foundation"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Cause Category
+                      </span>
+                      <input
+                        type="text"
+                        value={donationCauseCategory}
+                        onChange={(event) => setDonationCauseCategory(event.target.value)}
+                        placeholder="Children, education, health, community"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Support Phone
+                      </span>
+                      <input
+                        type="text"
+                        value={donationSupportPhone}
+                        onChange={(event) => setDonationSupportPhone(event.target.value)}
+                        placeholder="+232 77 000 000"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Mission
+                      </span>
+                      <textarea
+                        rows={4}
+                        value={donationMission}
+                        onChange={(event) => setDonationMission(event.target.value)}
+                        placeholder="Tell donors what this cause supports and why it matters."
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {(isAgentAccount || isInsuranceAccount || isDonationAccount) && (
               <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4">
                 <div className="flex flex-col gap-2">
                   <div>
                     <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                      {isResubmittingRejectedAgent ? "Business Documents Required" : "Optional Business Documents"}
+                      {isResubmittingRejectedAgent || isResubmittingRejectedInsurance || isResubmittingRejectedDonation
+                        ? "Business Documents Required"
+                        : isInsuranceAccount
+                          ? "Insurance Verification Documents"
+                          : isDonationAccount
+                            ? "Donation Verification Documents"
+                            : "Optional Business Documents"}
                     </p>
                     <p className="mt-2 text-sm text-amber-900">
                       {isResubmittingRejectedAgent
                         ? "This agent account was rejected. Upload fresh image or PDF business documents before sending it back for admin review."
-                        : "When someone opens an agent account, we can request supporting business documents, but keep them optional for a smoother setup."}
+                        : isResubmittingRejectedInsurance
+                        ? "This insurance account was rejected. Upload fresh image or PDF insurance documents before sending it back for admin review."
+                        : isInsuranceAccount
+                          ? "Insurance accounts must upload supporting image or PDF documents so the admin team can verify the provider before approval."
+                          : isResubmittingRejectedDonation
+                            ? "This donation account was rejected. Upload fresh image or PDF donation documents before sending it back for admin review."
+                            : isDonationAccount
+                              ? "Donation accounts must upload supporting image or PDF documents so the admin team can verify the organization before approval."
+                            : "When someone opens an agent account, we can request supporting business documents, but keep them optional for a smoother setup."}
                     </p>
                   </div>
 
                   <div className="grid gap-3 pt-1 sm:grid-cols-2">
-                    {agentDocumentOptions.map((documentName) => (
+                    {(isInsuranceAccount
+                      ? [
+                          "Business registration certificate",
+                          "Insurance license or regulator approval",
+                          "Proof of office address",
+                          "Tax identification or company ID",
+                        ]
+                      : isDonationAccount
+                        ? [
+                            "NGO or charity registration",
+                            "Organization certificate",
+                            "Proof of operating address",
+                            "Tax or organization ID",
+                          ]
+                      : agentDocumentOptions
+                    ).map((documentName) => (
                       <label
                         key={documentName}
                         className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-white/80 px-4 py-3 text-sm text-slate-700"
@@ -407,7 +877,15 @@ export default function CreateAnotherAccountScreen({
                       placeholder={
                         isResubmittingRejectedAgent
                           ? "Explain what you updated for the admin review team"
-                          : "Optional note for the agent review team"
+                          : isResubmittingRejectedInsurance
+                            ? "Explain what you updated for the insurance review team"
+                            : isResubmittingRejectedDonation
+                              ? "Explain what you updated for the donation review team"
+                          : isInsuranceAccount
+                            ? "Optional note for the insurance review team"
+                            : isDonationAccount
+                              ? "Optional note for the donation review team"
+                            : "Optional note for the agent review team"
                       }
                       className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
                     />
@@ -415,7 +893,13 @@ export default function CreateAnotherAccountScreen({
 
                   <label className="block">
                     <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                      Upload Business Documents {isResubmittingRejectedAgent ? "*" : ""}
+                      Upload Business Documents {(
+                        isResubmittingRejectedAgent ||
+                        isInsuranceAccount ||
+                        isDonationAccount
+                      )
+                        ? "*"
+                        : ""}
                     </span>
                     <input
                       type="file"
@@ -549,7 +1033,7 @@ export default function CreateAnotherAccountScreen({
                 ? "Sending update..."
                 : "Creating account..."
               : isEditMode
-                ? "Resubmit agent account"
+                ? `Resubmit ${resubmissionLabel} account`
                 : "Create account"}
           </button>
         </div>

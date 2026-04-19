@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { getAccountTypeLabel } from "../../../../Backend/utils/accountTypes";
+import { EVENT_ACCOUNT_TYPE, formatEventDateTime, getEventProfile } from "../../../../Backend/utils/eventAccounts";
 import { useAppearance } from "../../../AppearanceProvider";
 import BottomSheet from "../MainAccountAction/CashOut/BottomSheet";
 import AccountNumber from "../MainAccountAction/CashOut/AccountNumber";
@@ -71,6 +72,8 @@ function OtherAccountCard({
   onHideFromDashboard,
   onMoveToMain,
   onEditRejectedAgent,
+  onEditRejectedInsurance,
+  onEditRejectedDonation,
 }) {
   const { isDarkMode } = useAppearance();
   const [isConcealed, setIsConcealed] = useState(() =>
@@ -82,11 +85,25 @@ function OtherAccountCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const isForeignAccount = account.account_type === "foreign";
+  const isEventAccount = account.account_type === EVENT_ACCOUNT_TYPE;
+  const eventProfile = getEventProfile(account);
   const agentReviewStatus = account?.metadata?.agent_profile?.review_status || account?.status || "pending";
   const isRejectedAgent = account?.account_type === "agent" && agentReviewStatus === "rejected";
+  const insuranceReviewStatus =
+    account?.metadata?.insurance_profile?.review_status || account?.status || "pending";
+  const isRejectedInsurance =
+    account?.account_type === "insurance" && insuranceReviewStatus === "rejected";
+  const donationReviewStatus =
+    account?.metadata?.donation_profile?.review_status || account?.status || "pending";
+  const isRejectedDonation =
+    account?.account_type === "donation" && donationReviewStatus === "rejected";
   const rejectionReason =
     account?.metadata?.agent_profile?.rejection_reason ||
     account?.metadata?.agent_profile?.rejection_comment ||
+    account?.metadata?.insurance_profile?.rejection_reason ||
+    account?.metadata?.insurance_profile?.rejection_comment ||
+    account?.metadata?.donation_profile?.rejection_reason ||
+    account?.metadata?.donation_profile?.rejection_comment ||
     "";
   const [activeForeignAction, setActiveForeignAction] = useState(null);
 
@@ -143,6 +160,20 @@ function OtherAccountCard({
           <p className={`text-sm ${isDarkMode ? "text-slate-300" : "text-gray-500"}`}>
             {balanceLabel}
           </p>
+
+          {isEventAccount && eventProfile?.event_name ? (
+            <div className={`mt-3 rounded-2xl px-3 py-3 text-sm ${isDarkMode ? "bg-slate-800 text-slate-200" : "bg-slate-50 text-slate-600"}`}>
+              <p className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
+                {eventProfile.event_name}
+              </p>
+              <p className="mt-1 leading-5">
+                {eventProfile.event_location || "Venue pending"}
+              </p>
+              <p className="mt-1 leading-5">
+                {formatEventDateTime(eventProfile)}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {isConcealed ? (
@@ -235,7 +266,7 @@ function OtherAccountCard({
         </div>
       </div>
 
-      {isRejectedAgent ? (
+      {isRejectedAgent || isRejectedInsurance || isRejectedDonation ? (
         <div
           className={`mt-4 rounded-2xl border px-4 py-3 ${
             isDarkMode ? "border-amber-700/70 bg-amber-950/20 text-amber-100" : "border-amber-200 bg-amber-50 text-amber-900"
@@ -243,11 +274,22 @@ function OtherAccountCard({
         >
           <p className="text-xs font-semibold uppercase tracking-[0.18em]">Rejected by admin</p>
           <p className="mt-2 text-sm leading-6">
-            {rejectionReason || "This account needs fresh business documents before it can be approved."}
+            {rejectionReason ||
+              (isRejectedInsurance
+                ? "This insurance account needs fresh verification documents before it can be approved."
+                : isRejectedDonation
+                  ? "This donation account needs fresh verification documents before it can be approved."
+                : "This account needs fresh business documents before it can be approved.")}
           </p>
           <button
             type="button"
-            onClick={() => onEditRejectedAgent?.(account)}
+            onClick={() =>
+              isRejectedInsurance
+                ? onEditRejectedInsurance?.(account)
+                : isRejectedDonation
+                  ? onEditRejectedDonation?.(account)
+                  : onEditRejectedAgent?.(account)
+            }
             className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${
               isDarkMode ? "bg-slate-100 text-slate-950 hover:bg-white" : "bg-slate-950 text-white hover:bg-slate-800"
             }`}
@@ -306,6 +348,8 @@ export default function OtherAccountContainer({
   onHideAccountFromDashboard,
   onMoveAccountToMain,
   onEditRejectedAgent,
+  onEditRejectedInsurance,
+  onEditRejectedDonation,
 }) {
   const { isDarkMode } = useAppearance();
 
@@ -336,6 +380,8 @@ export default function OtherAccountContainer({
             onHideFromDashboard={onHideAccountFromDashboard}
             onMoveToMain={onMoveAccountToMain}
             onEditRejectedAgent={onEditRejectedAgent}
+            onEditRejectedInsurance={onEditRejectedInsurance}
+            onEditRejectedDonation={onEditRejectedDonation}
           />
         ))}
       </div>
