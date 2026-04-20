@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import supabase from "../../../../../Backend/lib/supabaseClient";
 import { createAccountTransfer } from "../../../../../Backend/services/transferService";
 import { convertOwnAccounts } from "../../../../../Backend/services/walletConversionService";
-import { setTransactionPinResetPhone } from "../../../../../Backend/utils/onboardingStorage";
 import { normalizeCurrencyCode } from "../../../../../Backend/utils/currency";
 import { useAppearance } from "../../../../AppearanceProvider";
 
@@ -20,6 +18,57 @@ import AccountNumberForm from "./components/AccountNumberForm";
 import AccountNumberConfirm from "./components/AccountNumberConfirm";
 import AccountNumberPin from "./components/AccountNumberPin";
 import AccountNumberReceipt from "./components/AccountNumberReceipt";
+
+function ForgotPinModal({ isOpen, onClose, onOpenChangePin }) {
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)]"
+      >
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-400">Transaction PIN Help</p>
+        <h3 className="mt-3 text-2xl font-semibold text-slate-950">Change your transaction PIN</h3>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          To change your PIN, go to settings, scroll down to security, and tap{" "}
+          <button
+            type="button"
+            onClick={onOpenChangePin}
+            className="font-semibold text-sky-600 underline decoration-sky-300 underline-offset-4 transition hover:text-sky-700"
+          >
+            Change PIN
+          </button>{" "}
+          to create another PIN before making more transactions.
+        </p>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={onOpenChangePin}
+            className="flex-1 rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Change PIN
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AccountNumber({
   account,
@@ -64,6 +113,7 @@ export default function AccountNumber({
   const [pin, setPin] = useState("");
   const [receipt, setReceipt] = useState(null);
   const [successfulTransfer, setSuccessfulTransfer] = useState(null);
+  const [showForgotPinModal, setShowForgotPinModal] = useState(false);
 
   const ownerName =
     profile?.first_name || profile?.last_name
@@ -324,12 +374,7 @@ export default function AccountNumber({
   };
 
   const handleForgotPin = async () => {
-    const phone = profile?.phone || user?.phone || "";
-    if (phone) {
-      setTransactionPinResetPhone(phone);
-    }
-    await supabase.auth.signOut();
-    navigate("/login?reason=pin-reset", { replace: true });
+    setShowForgotPinModal(true);
   };
 
   if (step === "receipt" && receipt) {
@@ -356,20 +401,37 @@ export default function AccountNumber({
 
   if (step === "pin") {
     return (
-      <AccountNumberPin
-        isDarkMode={isDarkMode}
-        error={error}
-        pin={pin}
-        backLabel={backLabel}
-        isSubmitting={isSubmitting}
-        onBack={() => setStep("confirm")}
-        onChangePin={(value) => {
-          setPin(value.replace(/\D/g, "").slice(0, 6));
-          setError("");
-        }}
-        onForgotPin={handleForgotPin}
-        onSubmit={handlePinSubmit}
-      />
+      <>
+        <AccountNumberPin
+          isDarkMode={isDarkMode}
+          error={error}
+          pin={pin}
+          backLabel={backLabel}
+          isSubmitting={isSubmitting}
+          onBack={() => setStep("confirm")}
+          onChangePin={(value) => {
+            setPin(value.replace(/\D/g, "").slice(0, 6));
+            setError("");
+          }}
+          onForgotPin={handleForgotPin}
+          onSubmit={handlePinSubmit}
+        />
+
+        <ForgotPinModal
+          isOpen={showForgotPinModal}
+          onClose={() => setShowForgotPinModal(false)}
+          onOpenChangePin={() => {
+            setShowForgotPinModal(false);
+            onClose?.();
+            navigate("/home", {
+              replace: true,
+              state: {
+                openScreen: "change-pin",
+              },
+            });
+          }}
+        />
+      </>
     );
   }
 
@@ -400,23 +462,40 @@ export default function AccountNumber({
   }
 
   return (
-    <AccountNumberForm
-      isDarkMode={isDarkMode}
-      error={error}
-      errorTitle={errorTitle}
-      availableBalance={availableBalance}
-      currency={currency}
-      form={form}
-      onChange={handleChange}
+    <>
+      <AccountNumberForm
+        isDarkMode={isDarkMode}
+        error={error}
+        errorTitle={errorTitle}
+        availableBalance={availableBalance}
+        currency={currency}
+        form={form}
+        onChange={handleChange}
       recipientStateIcon={recipientStateIcon}
       recipientLookup={effectiveRecipientLookup}
       isConversionFlow={isConversionFlow}
       convertedAmount={convertedAmount}
-      targetCurrency={targetCurrency}
-      fxState={fxState}
-      canVerify={canVerify}
-      onVerify={handleVerify}
-      disableAccountNumber={isConversionFlow}
-    />
+        targetCurrency={targetCurrency}
+        fxState={fxState}
+        canVerify={canVerify}
+        onVerify={handleVerify}
+        disableAccountNumber={isConversionFlow}
+      />
+
+      <ForgotPinModal
+        isOpen={showForgotPinModal}
+        onClose={() => setShowForgotPinModal(false)}
+        onOpenChangePin={() => {
+          setShowForgotPinModal(false);
+          onClose?.();
+          navigate("/home", {
+            replace: true,
+            state: {
+              openScreen: "change-pin",
+            },
+          });
+        }}
+      />
+    </>
   );
 }

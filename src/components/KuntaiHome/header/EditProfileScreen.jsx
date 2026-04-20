@@ -10,7 +10,6 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
   const [firstName, setFirstName] = useState(initialParts.firstName);
   const [middleName, setMiddleName] = useState(initialParts.middleName);
   const [lastName, setLastName] = useState(initialParts.lastName);
-  const [phone, setPhone] = useState(profile?.phone || user?.phone || "");
   const [avatar, setAvatar] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(profile?.profile_image || null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -25,7 +24,6 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
     setFirstName(initialParts.firstName);
     setMiddleName(initialParts.middleName);
     setLastName(initialParts.lastName);
-    setPhone(profile?.phone || user?.phone || "");
     setAvatar(null);
     setAvatarPreview(profile?.profile_image || null);
   }, [initialParts, profile, user]);
@@ -105,11 +103,6 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
       return;
     }
 
-    if (phone.trim().length < 7) {
-      setError("Enter a valid phone number");
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -134,7 +127,7 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
         first_name: cleanFirstName,
         middle_name: cleanMiddleName || null,
         last_name: cleanLastName,
-        phone: phone.trim(),
+        phone: profile?.phone || user?.phone || "",
         profile_image: avatarUrl,
         is_profile_complete: true,
       };
@@ -221,18 +214,18 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
       }
 
       const fullName = buildFullName(cleanFirstName, cleanMiddleName, cleanLastName);
-      const { error: authError } = await supabase.auth.updateUser({
-        data: {
-          name: fullName,
-          display_name: fullName,
-          full_name: fullName,
-          first_name: cleanFirstName,
-          middle_name: cleanMiddleName || null,
-          last_name: cleanLastName,
-          phone: phone.trim(),
-          profile_image: avatarUrl,
-        },
-      });
+        const { error: authError } = await supabase.auth.updateUser({
+          data: {
+            name: fullName,
+            display_name: fullName,
+            full_name: fullName,
+            first_name: cleanFirstName,
+            middle_name: cleanMiddleName || null,
+            last_name: cleanLastName,
+            phone: profile?.phone || user?.phone || "",
+            profile_image: avatarUrl,
+          },
+        });
 
       if (authError) {
         console.warn("Auth profile sync warning:", authError.message);
@@ -342,12 +335,10 @@ export default function EditProfileScreen({ profile, account, user, onBack, onSa
               <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
                 Phone Number
               </span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
-              />
+              <div className="mt-2 rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
+                <p className="text-base font-semibold text-slate-950">{profile?.phone || user?.phone || "Phone not available"}</p>
+                <p className="mt-1 text-xs text-slate-500">Phone number is protected and cannot be edited here.</p>
+              </div>
             </label>
 
             <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">

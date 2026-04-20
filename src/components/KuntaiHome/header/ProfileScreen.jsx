@@ -25,6 +25,117 @@ import AuthNotice from "../../auth/AuthNotice";
 import { useAppearance } from "../../AppearanceProvider";
 import { LEGAL_CONTENT } from "../../legal/legalContent";
 
+const HELP_CONTENT = {
+  faqs: {
+    title: "FAQs",
+    description: "Quick answers to the questions most customers ask while using KunThai Money.",
+    icon: CircleHelp,
+    sections: [
+      {
+        heading: "Getting Started",
+        body:
+          "Use your registered phone number and password to sign in securely. After login, your main wallet appears on the dashboard, while profile gives access to edit profile, change PIN, change password, notifications, legal documents, and support. If you are opening the app for the first time, complete profile setup, transaction PIN creation, and KYC when prompted so your account is ready for higher-trust features.",
+      },
+      {
+        heading: "Transfers And Receipts",
+        body:
+          "For normal wallet transfers, enter the recipient account number, verify the account, enter the amount, confirm the transfer, and approve with your transaction PIN. After a successful transfer, KunThai Money generates a receipt screen and also stores the transaction in history. Merchant, agent, school, hotel, restaurant, supermarket, pharmacy, insurance, donation, and event payments also keep receipts in transaction history, mainly under All Entries.",
+      },
+      {
+        heading: "Other Accounts",
+        body:
+          "Other accounts let you create extra service or foreign-account profiles under the same customer identity. Some account types, like agent, insurance, donation, and event-related business accounts, may require documents and admin review before they become active. If an account is hidden from dashboard, you can restore it again from profile.",
+      },
+      {
+        heading: "Security And Recovery",
+        body:
+          "Your sign-in uses password, while protected money actions use your transaction PIN. If you forget your transaction PIN, use Change PIN from Security settings instead of guessing repeatedly. If you forget your password, use the Forgot Password flow and complete OTP verification. For safer access, you can also enable biometrics on supported devices.",
+      },
+    ],
+  },
+  "missing-money": {
+    title: "Didn't receive money",
+    description: "Steps to follow when a sender has paid but the money has not reached the expected wallet yet.",
+    icon: Wallet,
+    sections: [
+      {
+        heading: "Check The Basics",
+        body:
+          "First confirm the sender used the correct account number and that the transfer shows as completed on their side. Ask for the receipt or transaction reference so you can compare the amount, time, recipient number, and payment type. If the sender made a service payment instead of a wallet transfer, the money may appear in transaction history rather than as a normal balance increase.",
+      },
+      {
+        heading: "Refresh And Review",
+        body:
+          "Open transaction history and notifications to see whether the transfer was received, held, reversed, or redirected to a different service flow. If your account number was hidden from dashboard, restore it first from profile so you can clearly see the correct account again. Also confirm you are checking the right wallet when you have multiple other accounts.",
+      },
+      {
+        heading: "Possible Causes",
+        body:
+          "Delays can happen when the sender entered the wrong account number, the transfer failed PIN verification, the receiving account is under review, the transfer was sent to another linked service account, or the transaction was still processing when you checked. Wallet conversions and service payments may also follow a different display path from standard cash in or account transfers.",
+      },
+      {
+        heading: "What To Send Support",
+        body:
+          "If the money still does not appear, contact support with the sender account number, your receiving account number, amount, transfer date and time, transaction ID or reference number, and a screenshot of the receipt. This helps the team trace the movement faster and confirm whether the transfer succeeded, failed, or needs manual review.",
+      },
+    ],
+  },
+  otp: {
+    title: "OTP not working",
+    description: "What to do when your one-time password is late, expired, or not accepted.",
+    icon: Shield,
+    sections: [
+      {
+        heading: "Before Requesting Again",
+        body:
+          "Make sure your phone number is entered correctly with the right country code and that your network is active. OTP codes can expire quickly, so use the latest code only and avoid entering an older message after requesting a new one. If several codes arrive together, the most recent code is the valid one.",
+      },
+      {
+        heading: "Common Fixes",
+        body:
+          "Wait briefly, then request a fresh OTP instead of retrying the same expired code. Close and reopen the screen if your session has stayed idle for a long time. If the app says the code is invalid, make sure there are no extra spaces when typing and that the number belongs to the same account you are verifying or recovering.",
+      },
+      {
+        heading: "Password And PIN Recovery",
+        body:
+          "KunThai Money uses OTP mainly for password and identity recovery flows. Transaction PIN changes are handled from Security settings through Change PIN, while password recovery uses Forgot Password and OTP verification. If you are trying to fix the wrong problem, return to the correct recovery flow before requesting more codes.",
+      },
+      {
+        heading: "When To Contact Support",
+        body:
+          "Contact support if multiple OTP requests fail over a longer period, if the code always expires before you can enter it, or if the code is accepted once and then blocked again unexpectedly. Share the phone number you used, the country code, the exact screen where OTP failed, and whether the issue happened during registration, login recovery, or another security step.",
+      },
+    ],
+  },
+  locked: {
+    title: "Account locked / suspended",
+    description: "Guidance when access is restricted for security, compliance, or review reasons.",
+    icon: LockKeyhole,
+    sections: [
+      {
+        heading: "Why Access May Be Limited",
+        body:
+          "An account may be locked or suspended when repeated security checks fail, verification information needs review, unusual activity is detected, required KYC details are missing, or a protected service account is still under admin review. Some restrictions are temporary, while others need action from the customer before access is restored.",
+      },
+      {
+        heading: "What You Should Check",
+        body:
+          "Open notifications and profile status first. Look for KYC review updates, admin review messages for agent or other service accounts, or alerts asking you to correct submitted details. If you recently changed your password, transaction PIN, or device, make sure you are logging in with the latest credentials and not using expired recovery information.",
+      },
+      {
+        heading: "How To Recover Safely",
+        body:
+          "If the problem is password-related, use Forgot Password and complete OTP recovery. If the issue is transaction PIN-related, go to Security and use Change PIN after confirming your login password. If your service account application was rejected, open the resubmission flow from the dashboard or notification prompt and upload corrected information and documents.",
+      },
+      {
+        heading: "Escalation To Support",
+        body:
+          "If the restriction continues after checking your status and completing any required steps, contact support with your registered phone number, account number, the exact message shown on screen, and any recent action that may have triggered the lock. Include whether the issue affects your main wallet, another linked account, login, or only specific transactions.",
+      },
+    ],
+  },
+};
+
 function getVerificationCopy(status) {
   if (!status?.hasKyc) {
     return { label: "KYC Required", tone: "bg-amber-100 text-amber-700" };
@@ -309,10 +420,12 @@ export default function ProfileScreen({
   appearance,
   onToggleAppearance,
   isMainAccountNumberHidden = false,
+  otherAccounts = [],
   hiddenOtherAccounts = [],
   onShowMainAccountNumber,
   onShowOtherAccount,
   hasEventAccount = false,
+  hasPurchasedEventTickets = false,
   onOpenEventTickets,
   onOpenEventManager,
 }) {
@@ -331,6 +444,7 @@ export default function ProfileScreen({
   );
   const [activeMenu, setActiveMenu] = useState(null);
   const [activePolicy, setActivePolicy] = useState(null);
+  const [activeHelpTopic, setActiveHelpTopic] = useState(null);
   const [notificationState, setNotificationState] = useState({
     transactions: true,
     security: true,
@@ -341,6 +455,10 @@ export default function ProfileScreen({
     language: "English",
     textSize: "Medium",
   });
+  const hiddenOtherAccountIds = useMemo(
+    () => new Set(hiddenOtherAccounts.map((item) => String(item.id))),
+    [hiddenOtherAccounts]
+  );
   const scrollPositionsRef = useRef({
     root: null,
     menus: {},
@@ -352,12 +470,14 @@ export default function ProfileScreen({
   const openMenu = (menuKey) => {
     scrollPositionsRef.current.root = getScrollPosition();
     setActivePolicy(null);
+    setActiveHelpTopic(null);
     setActiveMenu(menuKey);
   };
 
   const closeMenu = () => {
     pendingRestoreRef.current = scrollPositionsRef.current.root;
     setActivePolicy(null);
+    setActiveHelpTopic(null);
     setActiveMenu(null);
   };
 
@@ -373,6 +493,20 @@ export default function ProfileScreen({
   const closePolicy = () => {
     pendingRestoreRef.current = activeMenu ? scrollPositionsRef.current.menus[activeMenu] : null;
     setActivePolicy(null);
+  };
+
+  const openHelpTopic = (topicKey) => {
+    if (!activeMenu) {
+      return;
+    }
+
+    scrollPositionsRef.current.menus[activeMenu] = getScrollPosition();
+    setActiveHelpTopic(topicKey);
+  };
+
+  const closeHelpTopic = () => {
+    pendingRestoreRef.current = activeMenu ? scrollPositionsRef.current.menus[activeMenu] : null;
+    setActiveHelpTopic(null);
   };
 
   useLayoutEffect(() => {
@@ -418,14 +552,6 @@ export default function ProfileScreen({
       danger: true,
     },
   ];
-
-  if (hiddenOtherAccounts.length) {
-    menuCards.splice(3, 0, {
-      key: "other-accounts",
-      icon: Wallet,
-      title: "Other Accounts",
-    });
-  }
   const activeMenuItem = menuCards.find((item) => item.key === activeMenu);
 
   const renderMenuContent = () => {
@@ -564,38 +690,48 @@ export default function ProfileScreen({
       return (
         <MenuShell>
           <MenuScreenHeader title="Other Accounts" onBack={closeMenu} icon={activeMenuItem?.icon || Wallet} />
-          {hiddenOtherAccounts.length ? (
+          {otherAccounts.length ? (
             <MenuGroup>
-              {hiddenOtherAccounts.map((item, index) => (
-                <div key={item.id}>
-                  <div className="flex items-center gap-4 px-5 py-4">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700">
-                      <Wallet size={18} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[1.02rem] font-semibold text-slate-950">
-                        {item.account_name || "Other Account"}
-                      </p>
-                      <div className="mt-1 flex items-center justify-between gap-3">
-                        <p className="break-all text-xs text-slate-500">{item.account_number || "Account number pending"}</p>
-                        <button
-                          type="button"
-                          onClick={() => onShowOtherAccount?.(item.id)}
-                          className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-                        >
-                          Show
-                        </button>
+              {otherAccounts.map((item, index) => {
+                const isHidden = hiddenOtherAccountIds.has(String(item.id));
+
+                return (
+                  <div key={item.id}>
+                    <div className="flex items-center gap-4 px-5 py-4">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                        <Wallet size={18} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[1.02rem] font-semibold text-slate-950">
+                          {item.account_name || "Other Account"}
+                        </p>
+                        <div className="mt-1 flex items-center justify-between gap-3">
+                          <p className="break-all text-xs text-slate-500">{item.account_number || "Account number pending"}</p>
+                          {isHidden ? (
+                            <button
+                              type="button"
+                              onClick={() => onShowOtherAccount?.(item.id)}
+                              className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                            >
+                              Show
+                            </button>
+                          ) : (
+                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                              Visible
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    {index !== otherAccounts.length - 1 ? <MenuDivider /> : null}
                   </div>
-                  {index !== hiddenOtherAccounts.length - 1 ? <MenuDivider /> : null}
-                </div>
-              ))}
+                );
+              })}
             </MenuGroup>
           ) : (
             <MenuGroup>
               <div className="px-5 py-10 text-center text-sm text-slate-500">
-                No hidden other accounts right now.
+                No other accounts added yet.
               </div>
             </MenuGroup>
           )}
@@ -633,13 +769,13 @@ export default function ProfileScreen({
             <MenuDivider />
             <MenuItem icon={CircleHelp} title="Guides & tutorial" onClick={onOpenHelp} />
             <MenuDivider />
-            <MenuItem icon={CircleHelp} title="FAQs" onClick={onOpenHelp} />
+            <MenuItem icon={CircleHelp} title="FAQs" onClick={() => openHelpTopic("faqs")} />
             <MenuDivider />
-            <MenuItem icon={CircleHelp} title="Didn't receive money" onClick={onOpenHelp} />
+            <MenuItem icon={Wallet} title="Didn't receive money" onClick={() => openHelpTopic("missing-money")} />
             <MenuDivider />
-            <MenuItem icon={CircleHelp} title="OTP not working" onClick={onOpenHelp} />
+            <MenuItem icon={Shield} title="OTP not working" onClick={() => openHelpTopic("otp")} />
             <MenuDivider />
-            <MenuItem icon={CircleHelp} title="Account locked / suspended" onClick={onOpenHelp} />
+            <MenuItem icon={LockKeyhole} title="Account locked / suspended" onClick={() => openHelpTopic("locked")} />
           </MenuGroup>
         </MenuShell>
       );
@@ -706,6 +842,16 @@ export default function ProfileScreen({
 
   if (activePolicy && activeMenu === "terms") {
     return <PolicyFullscreenScreen policy={LEGAL_CONTENT[activePolicy]} onBack={closePolicy} isDarkMode={isDarkMode} />;
+  }
+
+  if (activeHelpTopic && activeMenu === "help") {
+    return (
+      <PolicyFullscreenScreen
+        policy={HELP_CONTENT[activeHelpTopic]}
+        onBack={closeHelpTopic}
+        isDarkMode={isDarkMode}
+      />
+    );
   }
 
   return (
@@ -779,7 +925,7 @@ export default function ProfileScreen({
                   </button>
                 </div>
 
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
@@ -803,6 +949,32 @@ export default function ProfileScreen({
                     <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Phone Number</p>
                     <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{profile?.phone || "Phone not available"}</p>
                   </div>
+                  {hiddenOtherAccounts.length ? (
+                    <button
+                      type="button"
+                      onClick={() => openMenu("other-accounts")}
+                      className={`rounded-[24px] px-5 py-4 text-left transition hover:-translate-y-0.5 ${
+                        isDarkMode
+                          ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)] hover:bg-slate-900"
+                          : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Other Accounts</p>
+                          <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
+                            {hiddenOtherAccounts.length} hidden
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-slate-100 p-2 text-slate-700">
+                          <ChevronRight size={16} />
+                        </span>
+                      </div>
+                      <p className="mt-3 text-xs text-slate-500">
+                        Restore hidden account numbers back to the dashboard from here.
+                      </p>
+                    </button>
+                  ) : null}
                   <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -819,20 +991,22 @@ export default function ProfileScreen({
             </section>
 
             <div className="mt-6 space-y-5">
-              <SectionCard
-                title="Events"
-                subtitle="Manage event tickets from your profile without mixing them into the regular settings menu."
-              >
-                <RowAction
-                  icon={Ticket}
-                  title="Event Tickets"
-                  description="Open your purchased tickets, see ticket codes, and generate QR codes only when you want them."
-                  end={<ChevronEnd />}
-                  onClick={onOpenEventTickets}
-                />
-                {hasEventAccount ? (
-                  <>
-                    <MenuDivider />
+              {hasPurchasedEventTickets || hasEventAccount ? (
+                <SectionCard
+                  title="Events"
+                  subtitle="Keep event tickets and event verification tools close to your profile when you need them."
+                >
+                  {hasPurchasedEventTickets ? (
+                    <RowAction
+                      icon={Ticket}
+                      title="Event Tickets"
+                      description="Open your purchased tickets, see ticket codes, and generate QR codes only when you want them."
+                      end={<ChevronEnd />}
+                      onClick={onOpenEventTickets}
+                    />
+                  ) : null}
+                  {hasPurchasedEventTickets && hasEventAccount ? <MenuDivider /> : null}
+                  {hasEventAccount ? (
                     <RowAction
                       icon={Shield}
                       title="Events"
@@ -840,9 +1014,9 @@ export default function ProfileScreen({
                       end={<ChevronEnd />}
                       onClick={onOpenEventManager}
                     />
-                  </>
-                ) : null}
-              </SectionCard>
+                  ) : null}
+                </SectionCard>
+              ) : null}
 
               {renderMenuContent()}
 

@@ -82,7 +82,9 @@ export default function AccountNumberForm({
 
         <div className="relative">
           <input
-            type="text"
+            type="tel"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={form.accountNumber}
             disabled={disableAccountNumber}
             onChange={(e) =>
@@ -100,7 +102,16 @@ export default function AccountNumberForm({
           </div>
         </div>
 
-        {recipientLookup?.message ? (
+        {recipientLookup?.is_valid && recipientLookup?.recipient_name ? (
+          <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <p className="text-sm font-semibold text-emerald-700">Account Number Verified.</p>
+            <p className="text-base font-semibold text-slate-950">
+              {recipientLookup.recipient_name}
+            </p>
+          </div>
+        ) : null}
+
+        {recipientLookup?.message && !recipientLookup?.is_valid ? (
           <p
             className={`mt-2 text-sm ${
               recipientLookup?.is_valid
@@ -124,7 +135,7 @@ export default function AccountNumberForm({
           inputMode="decimal"
           value={form.amount}
           onChange={(e) => onChange("amount", e.target.value)}
-          placeholder={`Enter amount in ${currency}`}
+          placeholder="0.0"
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[16px] text-slate-900 outline-none"
         />
 

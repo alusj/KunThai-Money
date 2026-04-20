@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowRight, Clock3, ShieldAlert } from "lucide-react";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import { useAuth } from "../../Backend/hooks/useAuth";
@@ -39,7 +40,6 @@ import {
 } from "../../Backend/utils/homeScreenSession";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";
-import AuthNotice from "../auth/AuthNotice";
 import Header from "./header/Header";
 import Dashboard from "./dashboard/Dashboard";
 import CreateAnotherAccountScreen from "./header/CreateAnotherAccountScreen";
@@ -55,6 +55,7 @@ import ProfileScreen from "./header/ProfileScreen";
 import SearchScreen from "./header/SearchScreen";
 import TransactionsScreen from "./header/Transactions/TransactionScreen";
 import ActionBanner from "../feedback/ActionBanner";
+import { getBuyerEventTickets } from "../../Backend/services/eventTicketService";
 
 const SEEN_NOTIFICATION_IDS_KEY = "kuntai-seen-notification-ids";
 const SEEN_TRANSACTION_IDS_KEY = "kuntai-seen-transaction-ids";
@@ -107,6 +108,7 @@ function withImageVersion(url) {
 
 export default function KunTaiHome() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isDarkMode, toggleTheme } = useAppearance();
   const { user } = useAuth();
   const { status, loading: statusLoading } = useOnboardingStatus(user?.id);
@@ -123,6 +125,7 @@ export default function KunTaiHome() {
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [otherAccounts, setOtherAccounts] = useState([]);
+  const [hasPurchasedEventTickets, setHasPurchasedEventTickets] = useState(false);
   const [accountFormState, setAccountFormState] = useState({
     mode: "create",
     editAccount: null,
@@ -405,6 +408,16 @@ export default function KunTaiHome() {
     }
   };
 
+  const fetchEventTicketStatus = async () => {
+    try {
+      const tickets = await getBuyerEventTickets(user?.id);
+      setHasPurchasedEventTickets(tickets.length > 0);
+    } catch (error) {
+      console.log("Event tickets fetch error:", error);
+      setHasPurchasedEventTickets(false);
+    }
+  };
+
   const fetchPaymentRequests = async () => {
     try {
       const [incoming, outgoing] = await Promise.all([
@@ -431,7 +444,7 @@ export default function KunTaiHome() {
   };
 
   const refreshWalletData = async () => {
-    await Promise.all([fetchAccount(), fetchRecentTransactions()]);
+    await Promise.all([fetchAccount(), fetchRecentTransactions(), fetchEventTicketStatus()]);
   };
 
   const refreshBiometrics = async () => {
@@ -598,6 +611,7 @@ export default function KunTaiHome() {
     fetchProfile();
     fetchRecentTransactions();
     fetchOtherAccounts();
+    fetchEventTicketStatus();
     fetchPaymentRequests();
     fetchAdminMessages();
   }, [user?.id]);
@@ -709,6 +723,19 @@ export default function KunTaiHome() {
     refreshBiometrics();
   }, [user?.id]);
 
+  useEffect(() => {
+    const requestedScreen = location.state?.openScreen;
+
+    if (!requestedScreen) {
+      return;
+    }
+
+    if (requestedScreen === "change-pin") {
+      setActiveScreen("change-pin");
+      navigate("/home", { replace: true });
+    }
+  }, [location.state, navigate]);
+
   const renderKycNotice = () => {
     if (statusLoading || !status) {
       return null;
@@ -717,15 +744,34 @@ export default function KunTaiHome() {
     if (!status.hasKyc) {
       return (
         <div className="px-4 pt-4 md:px-8 lg:px-12">
-          <AuthNotice tone="warning" title="Identity verification recommended">
-            Complete your KYC to strengthen trust on your account and unlock future high-value features.
-          </AuthNotice>
-          <button
-            onClick={() => navigate("/kyc")}
-            className="mt-3 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            Start KYC
-          </button>
+          <div className="overflow-hidden rounded-[30px] border border-amber-200 bg-[linear-gradient(135deg,#fff7db_0%,#fff2cc_46%,#fffaf0_100%)] shadow-[0_18px_42px_rgba(161,98,7,0.12)]">
+            <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-amber-500 text-white shadow-[0_14px_28px_rgba(245,158,11,0.28)]">
+                  <ShieldAlert size={26} />
+                </span>
+                <div>
+                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-amber-700">
+                    KYC Recommended
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-slate-950">Make your account more trusted</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                    Complete your KYC to strengthen trust on your account and unlock future high-value
+                    features without delay.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/kyc")}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                <span>Start KYC</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -733,9 +779,23 @@ export default function KunTaiHome() {
     if (status.kycStatus === "pending") {
       return (
         <div className="px-4 pt-4 md:px-8 lg:px-12">
-          <AuthNotice tone="info" title="Verification in review">
-            Your identity submission has been received successfully and is now under compliance review. We will unlock the next verification stage as soon as your account is cleared.
-          </AuthNotice>
+          <div className="overflow-hidden rounded-[30px] border border-sky-200 bg-[linear-gradient(135deg,#eff6ff_0%,#e0f2fe_46%,#f8fbff_100%)] shadow-[0_18px_42px_rgba(2,132,199,0.12)]">
+            <div className="flex items-start gap-4 px-5 py-5 sm:px-6">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-sky-500 text-white shadow-[0_14px_28px_rgba(14,165,233,0.24)]">
+                <Clock3 size={26} />
+              </span>
+              <div>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-sky-700">
+                  KYC In Review
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-slate-950">Your documents are under review</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                  Your identity submission has been received successfully and is now under compliance
+                  review. We will unlock the next verification stage as soon as your account is cleared.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
@@ -743,15 +803,36 @@ export default function KunTaiHome() {
     if (status.kycStatus === "rejected") {
       return (
         <div className="px-4 pt-4 md:px-8 lg:px-12">
-          <AuthNotice tone="danger" title="Verification needs attention">
-            We could not complete your identity review yet. Please update your KYC details and submit again so we can continue verifying your account.
-          </AuthNotice>
-          <button
-            onClick={() => navigate("/kyc")}
-            className="mt-3 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            Update KYC
-          </button>
+          <div className="overflow-hidden rounded-[30px] border border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffe4e6_46%,#fff8f8_100%)] shadow-[0_18px_42px_rgba(225,29,72,0.12)]">
+            <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-rose-500 text-white shadow-[0_14px_28px_rgba(244,63,94,0.22)]">
+                  <ShieldAlert size={26} />
+                </span>
+                <div>
+                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-rose-700">
+                    KYC Needs Attention
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-slate-950">
+                    Your identity details need an update
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                    We could not complete your identity review yet. Update your KYC details and submit again
+                    so we can continue verifying your account.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/kyc")}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                <span>Update KYC</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -1216,6 +1297,7 @@ export default function KunTaiHome() {
           appearance={{ isDarkMode }}
           onToggleAppearance={toggleTheme}
           isMainAccountNumberHidden={isMainAccountNumberHidden}
+          otherAccounts={otherAccounts}
           hiddenOtherAccounts={hiddenOtherAccounts}
           onShowMainAccountNumber={() => {
             setIsMainAccountNumberHidden(false);
@@ -1236,6 +1318,7 @@ export default function KunTaiHome() {
             );
           }}
           hasEventAccount={eventAccounts.length > 0}
+          hasPurchasedEventTickets={hasPurchasedEventTickets}
           onOpenEventTickets={() => setActiveScreen("event-tickets")}
           onOpenEventManager={() => setActiveScreen("event-manager")}
         />
