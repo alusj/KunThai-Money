@@ -4,6 +4,147 @@
 
 :root {
   color-scheme: light;
+  --accent-50: #f8fafc;
+  --accent-100: #e2e8f0;
+  --accent-200: #cbd5e1;
+  --accent-300: #94a3b8;
+  --accent-400: #64748b;
+  --accent-500: #0f172a;
+  --accent-700: #020617;
+  --accent-900: #020617;
+  --accent-soft-bg: rgba(15, 23, 42, 0.12);
+  --accent-soft-border: rgba(15, 23, 42, 0.2);
+  --accent-soft-text: #0f172a;
+  --accent-gradient: linear-gradient(135deg, #1e293b 0%, #020617 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(15, 23, 42, 0.12) 0%, rgba(2, 6, 23, 0.22) 100%);
+  --bank-primary: #0f172a;
+  --bank-accent: #020617;
+}
+
+html[data-accent="default"] {
+  --accent-50: #ecfdf5;
+  --accent-100: #d1fae5;
+  --accent-200: #a7f3d0;
+  --accent-300: #6ee7b7;
+  --accent-400: #34d399;
+  --accent-500: #10b981;
+  --accent-700: #047857;
+  --accent-900: #022c22;
+  --accent-soft-bg: rgba(16, 185, 129, 0.12);
+  --accent-soft-border: rgba(16, 185, 129, 0.2);
+  --accent-soft-text: #047857;
+  --accent-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.22) 100%);
+  --bank-primary: #16a34a;
+  --bank-accent: #1e3a8a;
+}
+
+html[data-accent="black"] {
+  --accent-50: #f8fafc;
+  --accent-100: #e2e8f0;
+  --accent-200: #cbd5e1;
+  --accent-300: #94a3b8;
+  --accent-400: #64748b;
+  --accent-500: #0f172a;
+  --accent-700: #020617;
+  --accent-900: #020617;
+  --accent-soft-bg: rgba(15, 23, 42, 0.12);
+  --accent-soft-border: rgba(15, 23, 42, 0.2);
+  --accent-soft-text: #0f172a;
+  --accent-gradient: linear-gradient(135deg, #1e293b 0%, #020617 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(15, 23, 42, 0.12) 0%, rgba(2, 6, 23, 0.22) 100%);
+  --bank-primary: #0f172a;
+  --bank-accent: #020617;
+}
+
+html[data-accent="ocean"] {
+  --accent-50: #eff6ff;
+  --accent-100: #dbeafe;
+  --accent-200: #bfdbfe;
+  --accent-300: #7dd3fc;
+  --accent-400: #38bdf8;
+  --accent-500: #0ea5e9;
+  --accent-700: #0369a1;
+  --accent-900: #082f49;
+  --accent-soft-bg: rgba(14, 165, 233, 0.12);
+  --accent-soft-border: rgba(14, 165, 233, 0.2);
+  --accent-soft-text: #0369a1;
+  --accent-gradient: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(37, 99, 235, 0.22) 100%);
+  --bank-primary: #0ea5e9;
+  --bank-accent: #0369a1;
+}
+
+html[data-accent="emerald"] {
+  --accent-50: #ecfdf5;
+  --accent-100: #d1fae5;
+  --accent-200: #a7f3d0;
+  --accent-300: #6ee7b7;
+  --accent-400: #34d399;
+  --accent-500: #10b981;
+  --accent-700: #047857;
+  --accent-900: #022c22;
+  --accent-soft-bg: rgba(16, 185, 129, 0.12);
+  --accent-soft-border: rgba(16, 185, 129, 0.2);
+  --accent-soft-text: #047857;
+  --accent-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.22) 100%);
+  --bank-primary: #10b981;
+  --bank-accent: #047857;
+}
+
+html[data-accent="violet"] {
+  --accent-50: #f5f3ff;
+  --accent-100: #ede9fe;
+  --accent-200: #ddd6fe;
+  --accent-300: #c4b5fd;
+  --accent-400: #a78bfa;
+  --accent-500: #8b5cf6;
+  --accent-700: #6d28d9;
+  --accent-900: #2e1065;
+  --accent-soft-bg: rgba(139, 92, 246, 0.12);
+  --accent-soft-border: rgba(139, 92, 246, 0.2);
+  --accent-soft-text: #6d28d9;
+  --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(124, 58, 237, 0.22) 100%);
+  --bank-primary: #8b5cf6;
+  --bank-accent: #6d28d9;
+}
+
+html[data-accent="amber"] {
+  --accent-50: #fffbeb;
+  --accent-100: #fef3c7;
+  --accent-200: #fde68a;
+  --accent-300: #fcd34d;
+  --accent-400: #fbbf24;
+  --accent-500: #f59e0b;
+  --accent-700: #b45309;
+  --accent-900: #451a03;
+  --accent-soft-bg: rgba(245, 158, 11, 0.12);
+  --accent-soft-border: rgba(245, 158, 11, 0.2);
+  --accent-soft-text: #b45309;
+  --accent-gradient: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.22) 100%);
+  --bank-primary: #f59e0b;
+  --bank-accent: #b45309;
+}
+
+html[data-accent="rose"] {
+  --accent-50: #fff1f2;
+  --accent-100: #ffe4e6;
+  --accent-200: #fecdd3;
+  --accent-300: #fda4af;
+  --accent-400: #fb7185;
+  --accent-500: #f43f5e;
+  --accent-700: #be123c;
+  --accent-900: #4c0519;
+  --accent-soft-bg: rgba(244, 63, 94, 0.12);
+  --accent-soft-border: rgba(244, 63, 94, 0.2);
+  --accent-soft-text: #be123c;
+  --accent-gradient: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  --accent-gradient-soft: linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(225, 29, 72, 0.22) 100%);
+  --bank-primary: #f43f5e;
+  --bank-accent: #be123c;
 }
 
 html[data-theme="dark"] {
@@ -15,6 +156,29 @@ body{
   background: #f8fafc;
   color: #0f172a;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  font-size: 16px;
+}
+
+html[data-text-size="small"] {
+  font-size: 15px;
+}
+
+html[data-text-size="medium"] {
+  font-size: 16px;
+}
+
+html[data-text-size="large"] {
+  font-size: 17px;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
 }
 @keyframes float {
 
@@ -86,6 +250,57 @@ html[data-theme="dark"] .app-container {
   background: transparent;
 }
 
+html[data-accent] .text-sky-700,
+html[data-accent] .text-blue-700,
+html[data-accent] .text-sky-300,
+html[data-accent] .text-sky-200 {
+  color: var(--accent-soft-text) !important;
+}
+
+html[data-accent] .bg-sky-50,
+html[data-accent] .bg-blue-50 {
+  background-color: var(--accent-50) !important;
+}
+
+html[data-accent] .border-sky-200,
+html[data-accent] .border-blue-200 {
+  border-color: var(--accent-200) !important;
+}
+
+html[data-accent] .bg-sky-500,
+html[data-accent] .bg-blue-500 {
+  background-color: var(--accent-500) !important;
+}
+
+html[data-accent] .text-sky-900,
+html[data-accent] .text-blue-900 {
+  color: var(--accent-900) !important;
+}
+
+html[data-accent] .accent-chip {
+  background: var(--accent-soft-bg);
+  border-color: var(--accent-soft-border);
+  color: var(--accent-soft-text);
+}
+
+html[data-accent] .accent-surface {
+  border-color: var(--accent-soft-border) !important;
+  background: var(--accent-gradient-soft) !important;
+}
+
+html[data-accent] .accent-ring {
+  border-color: color-mix(in srgb, var(--bank-primary) 55%, white 45%) !important;
+}
+
+html[data-accent] .accent-button {
+  background: var(--accent-gradient) !important;
+  color: white !important;
+}
+
+html[data-accent] .accent-text {
+  color: var(--accent-soft-text) !important;
+}
+
 html[data-theme="dark"] .bg-white,
 html[data-theme="dark"] .bg-white\/70,
 html[data-theme="dark"] .bg-white\/80,
@@ -150,4 +365,12 @@ html[data-theme="dark"] .hover\:bg-slate-100:hover,
 html[data-theme="dark"] .hover\:bg-slate-200:hover,
 html[data-theme="dark"] .hover\:bg-white:hover {
   background-color: rgba(51, 65, 85, 0.95) !important;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }

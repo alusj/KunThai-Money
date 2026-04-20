@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ACCOUNT_TYPE_OPTIONS } from "../../../Backend/utils/accountTypes";
 import { countryMap } from "../../../Backend/utils/countryMap";
-import { EVENT_ACCOUNT_TYPE } from "../../../Backend/utils/eventAccounts";
+import { EVENT_ACCOUNT_TYPE, normalizeTicketCategories } from "../../../Backend/utils/eventAccounts";
 import BackTab from "./Transactions/BackTab";
+
+const DEFAULT_EVENT_TICKET_CATEGORIES = [
+  { id: "general", name: "General", price: "", available_tickets: "" },
+];
 
 export default function CreateAnotherAccountScreen({
   mainAccount,
@@ -46,12 +50,18 @@ export default function CreateAnotherAccountScreen({
   const [eventLocation, setEventLocation] = useState(editAccount?.metadata?.event_profile?.event_location || "");
   const [eventDate, setEventDate] = useState(editAccount?.metadata?.event_profile?.event_date || "");
   const [eventTime, setEventTime] = useState(editAccount?.metadata?.event_profile?.event_time || "");
-  const [ticketPrice, setTicketPrice] = useState(editAccount?.metadata?.event_profile?.ticket_price ? String(editAccount.metadata.event_profile.ticket_price) : "");
-  const [availableTickets, setAvailableTickets] = useState(
-    editAccount?.metadata?.event_profile?.available_tickets
-      ? String(editAccount.metadata.event_profile.available_tickets)
-      : ""
-  );
+  const [ticketCategories, setTicketCategories] = useState(() => {
+    const existingCategories = normalizeTicketCategories(editAccount?.metadata?.event_profile?.ticket_categories);
+
+    return existingCategories.length
+      ? existingCategories.map((item, index) => ({
+          id: item.id || `category-${index + 1}`,
+          name: item.name,
+          price: String(item.price || ""),
+          available_tickets: String(item.available_tickets || ""),
+        }))
+      : DEFAULT_EVENT_TICKET_CATEGORIES;
+  });
   const [eventDescription, setEventDescription] = useState(
     editAccount?.metadata?.event_profile?.description || ""
   );
@@ -120,15 +130,16 @@ export default function CreateAnotherAccountScreen({
     setEventLocation(editAccount?.metadata?.event_profile?.event_location || "");
     setEventDate(editAccount?.metadata?.event_profile?.event_date || "");
     setEventTime(editAccount?.metadata?.event_profile?.event_time || "");
-    setTicketPrice(
-      editAccount?.metadata?.event_profile?.ticket_price
-        ? String(editAccount.metadata.event_profile.ticket_price)
-        : ""
-    );
-    setAvailableTickets(
-      editAccount?.metadata?.event_profile?.available_tickets
-        ? String(editAccount.metadata.event_profile.available_tickets)
-        : ""
+    const existingCategories = normalizeTicketCategories(editAccount?.metadata?.event_profile?.ticket_categories);
+    setTicketCategories(
+      existingCategories.length
+        ? existingCategories.map((item, index) => ({
+            id: item.id || `category-${index + 1}`,
+            name: item.name,
+            price: String(item.price || ""),
+            available_tickets: String(item.available_tickets || ""),
+          }))
+        : DEFAULT_EVENT_TICKET_CATEGORIES
     );
     setEventDescription(editAccount?.metadata?.event_profile?.description || "");
     setInsuranceCategory(editAccount?.metadata?.insurance_profile?.insurance_category || "");
@@ -290,6 +301,37 @@ export default function CreateAnotherAccountScreen({
     "Proof of business address",
   ];
 
+  const updateTicketCategory = (index, field, value) => {
+    setTicketCategories((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item
+      )
+    );
+  };
+
+  const addTicketCategory = () => {
+    setTicketCategories((current) => [
+      ...current,
+      {
+        id: `category-${Date.now()}-${current.length + 1}`,
+        name: "",
+        price: "",
+        available_tickets: "",
+      },
+    ]);
+  };
+
+  const removeTicketCategory = (index) => {
+    setTicketCategories((current) =>
+      current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index)
+    );
+  };
+
   const toggleRequestedDocument = (documentName) => {
     setRequestedBusinessDocuments((current) =>
       current.includes(documentName)
@@ -354,13 +396,34 @@ export default function CreateAnotherAccountScreen({
       return;
     }
 
-    if (isEventAccount && (!(Number(ticketPrice) > 0) || !Number.isFinite(Number(ticketPrice)))) {
-      setError("Enter a valid ticket price");
+    const normalizedCategories = isEventAccount
+      ? ticketCategories
+          .map((item, index) => ({
+            id: item.id || `category-${index + 1}`,
+            name: String(item.name || "").trim(),
+            price: Number(item.price || 0),
+            available_tickets: Number(item.available_tickets || 0),
+          }))
+          .filter((item) => item.name || item.price || item.available_tickets)
+      : [];
+
+    if (isEventAccount && !normalizedCategories.length) {
+      setError("Add at least one ticket category for this event");
       return;
     }
 
-    if (isEventAccount && (!(Number(availableTickets) > 0) || !Number.isFinite(Number(availableTickets)))) {
-      setError("Enter the available ticket quantity");
+    if (
+      isEventAccount &&
+      normalizedCategories.some(
+        (item) =>
+          !item.name ||
+          !(item.price > 0) ||
+          !Number.isFinite(item.price) ||
+          !(item.available_tickets > 0) ||
+          !Number.isFinite(item.available_tickets)
+      )
+    ) {
+      setError("Each event category needs a name, price, and available tickets");
       return;
     }
 
@@ -443,8 +506,7 @@ export default function CreateAnotherAccountScreen({
         event_location: isEventAccount ? eventLocation.trim() : "",
         event_date: isEventAccount ? eventDate : "",
         event_time: isEventAccount ? eventTime : "",
-        ticket_price: isEventAccount ? Number(ticketPrice) : 0,
-        available_tickets: isEventAccount ? Number(availableTickets) : 0,
+        ticket_categories: isEventAccount ? normalizedCategories : [],
         event_description: isEventAccount ? eventDescription.trim() : "",
         insurance_category: isInsuranceAccount ? insuranceCategory.trim() : "",
         support_phone: isInsuranceAccount ? insuranceSupportPhone.trim() : "",
@@ -621,36 +683,6 @@ export default function CreateAnotherAccountScreen({
                       />
                     </label>
 
-                    <label className="block">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                        Ticket Price
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={ticketPrice}
-                        onChange={(event) => setTicketPrice(event.target.value)}
-                        placeholder="0.00"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                        Available Tickets
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={availableTickets}
-                        onChange={(event) => setAvailableTickets(event.target.value)}
-                        placeholder="300"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
-                      />
-                    </label>
-
                     <label className="block md:col-span-2">
                       <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
                         Event Description
@@ -663,6 +695,95 @@ export default function CreateAnotherAccountScreen({
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
                       />
                     </label>
+
+                    <div className="md:col-span-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                            Ticket Categories
+                          </span>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                            Add stages like General, Stage Area, VIP, or any custom category with its own price and ticket quantity.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={addTicketCategory}
+                          className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Add another category
+                        </button>
+                      </div>
+
+                      <div className="mt-4 space-y-4">
+                        {ticketCategories.map((category, index) => (
+                          <div
+                            key={category.id}
+                            className="rounded-[24px] border border-slate-200 bg-white px-4 py-4"
+                          >
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                              <p className="text-sm font-semibold text-slate-950">Category {index + 1}</p>
+                              {ticketCategories.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeTicketCategory(index)}
+                                  className="text-xs font-semibold text-rose-600 transition hover:text-rose-700"
+                                >
+                                  Remove
+                                </button>
+                              ) : null}
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-3">
+                              <label className="block">
+                                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                  Category Name
+                                </span>
+                                <input
+                                  type="text"
+                                  value={category.name}
+                                  onChange={(event) => updateTicketCategory(index, "name", event.target.value)}
+                                  placeholder="General, VIP, Stage Area"
+                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                  Price
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={category.price}
+                                  onChange={(event) => updateTicketCategory(index, "price", event.target.value)}
+                                  placeholder="0.00"
+                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                                />
+                              </label>
+
+                              <label className="block">
+                                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                  Available Tickets
+                                </span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={category.available_tickets}
+                                  onChange={(event) =>
+                                    updateTicketCategory(index, "available_tickets", event.target.value)
+                                  }
+                                  placeholder="300"
+                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

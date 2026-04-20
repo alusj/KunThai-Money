@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleHelp,
   CreditCard,
+  Trash2,
   FileText,
   Fingerprint,
   Globe,
@@ -294,6 +295,67 @@ function ChevronEnd() {
   return <ChevronRight size={18} className="text-slate-400" />;
 }
 
+function SelectionOption({ title, description, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left transition hover:bg-slate-50"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-[1.02rem] font-semibold text-slate-950">{title}</span>
+        {description ? (
+          <span className="mt-1 block text-sm leading-6 text-slate-500">{description}</span>
+        ) : null}
+      </span>
+      <span
+        className={`mt-1 flex h-6 w-6 items-center justify-center rounded-full border-2 transition ${
+          selected ? "border-sky-500" : "border-slate-300"
+        }`}
+      >
+        <span className={`h-3 w-3 rounded-full ${selected ? "bg-sky-500" : "bg-transparent"}`} />
+      </span>
+    </button>
+  );
+}
+
+function ColorThemeOption({ title, value, selected, onClick }) {
+  const colorClassMap = {
+    default: "from-emerald-400 to-blue-700",
+    black: "from-slate-700 to-black",
+    ocean: "from-sky-400 to-blue-600",
+    emerald: "from-emerald-400 to-teal-600",
+    violet: "from-violet-400 to-fuchsia-600",
+    amber: "from-amber-300 to-orange-500",
+    rose: "from-rose-400 to-pink-600",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-4 text-left transition ${
+        selected ? "border-slate-950 bg-slate-50 shadow-sm" : "border-slate-200 bg-white hover:bg-slate-50"
+      }`}
+    >
+      <span className="flex items-center gap-4">
+        <span className={`h-11 w-11 rounded-full bg-gradient-to-br ${colorClassMap[value] || colorClassMap.ocean} shadow-[0_12px_24px_rgba(15,23,42,0.18)]`} />
+        <span>
+          <span className="block text-[1.02rem] font-semibold text-slate-950">{title}</span>
+          <span className="mt-1 block text-sm text-slate-500">Accent color for highlights and service styling.</span>
+        </span>
+      </span>
+      <span
+        className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition ${
+          selected ? "border-slate-950" : "border-slate-300"
+        }`}
+      >
+        <span className={`h-3 w-3 rounded-full ${selected ? "bg-slate-950" : "bg-transparent"}`} />
+      </span>
+    </button>
+  );
+}
+
 function SubmenuHeader({ title, description, onBack }) {
   return (
     <div className="mb-4 flex items-start gap-3 px-1">
@@ -418,7 +480,7 @@ export default function ProfileScreen({
   biometrics,
   onToggleBiometrics,
   appearance,
-  onToggleAppearance,
+  onChangeAppearanceMode,
   isMainAccountNumberHidden = false,
   otherAccounts = [],
   hiddenOtherAccounts = [],
@@ -426,10 +488,22 @@ export default function ProfileScreen({
   onShowOtherAccount,
   hasEventAccount = false,
   hasPurchasedEventTickets = false,
+  hasEventSales = false,
   onOpenEventTickets,
   onOpenEventManager,
 }) {
-  const { isDarkMode } = useAppearance();
+  const {
+    isDarkMode,
+    language,
+    resolvedLanguageLabel,
+    availableLanguages,
+    textSize,
+    accentColor,
+    availableThemeColors,
+    setLanguage,
+    setTextSize,
+    setAccentColor,
+  } = useAppearance();
   const verification = getVerificationCopy(status);
   const initials = useMemo(
     () =>
@@ -450,10 +524,6 @@ export default function ProfileScreen({
     security: true,
     promotions: false,
     systemUpdates: true,
-  });
-  const [settingsState] = useState({
-    language: "English",
-    textSize: "Medium",
   });
   const hiddenOtherAccountIds = useMemo(
     () => new Set(hiddenOtherAccounts.map((item) => String(item.id))),
@@ -479,6 +549,10 @@ export default function ProfileScreen({
     setActivePolicy(null);
     setActiveHelpTopic(null);
     setActiveMenu(null);
+  };
+
+  const closeSettingsSubmenu = () => {
+    setActiveMenu("settings");
   };
 
   const openPolicy = (policyKey) => {
@@ -663,25 +737,146 @@ export default function ProfileScreen({
           <MenuGroup>
             <MenuItem
               icon={Palette}
-              title="Appearance"
-              trailing={<Toggle enabled={Boolean(appearance?.isDarkMode)} onChange={onToggleAppearance} />}
-              onClick={onToggleAppearance}
+              title="Dark mode"
+              trailing={
+                <span className="text-sm font-semibold text-slate-500">
+                  {appearance?.mode === "system"
+                    ? "System"
+                    : appearance?.mode === "dark"
+                      ? "On"
+                      : "Off"}
+                </span>
+              }
+              onClick={() => openMenu("appearance")}
             />
             <MenuDivider />
             <MenuItem
               icon={Globe}
               title="Language"
-              trailing={<span className="text-sm font-semibold text-slate-500">{settingsState.language}</span>}
-              onClick={() => {}}
+              trailing={<span className="text-sm font-semibold text-slate-500">{resolvedLanguageLabel}</span>}
+              onClick={() => openMenu("language")}
             />
             <MenuDivider />
             <MenuItem
               icon={Type}
               title="Text size"
-              trailing={<span className="text-sm font-semibold text-slate-500">{settingsState.textSize}</span>}
-              onClick={() => {}}
+              trailing={
+                <span className="text-sm font-semibold capitalize text-slate-500">{textSize}</span>
+              }
+              onClick={() => openMenu("text-size")}
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={Palette}
+              title="Theme colors"
+              trailing={<span className="text-sm font-semibold capitalize text-slate-500">{accentColor}</span>}
+              onClick={() => openMenu("theme-colors")}
             />
           </MenuGroup>
+        </MenuShell>
+      );
+    }
+
+    if (activeMenu === "appearance") {
+      return (
+        <MenuShell>
+          <MenuScreenHeader title="Dark mode" onBack={closeSettingsSubmenu} icon={Palette} />
+          <MenuGroup>
+            <SelectionOption
+              title="On"
+              selected={appearance?.mode === "dark"}
+              onClick={() => onChangeAppearanceMode?.("dark")}
+            />
+            <MenuDivider />
+            <SelectionOption
+              title="Off"
+              selected={appearance?.mode === "light"}
+              onClick={() => onChangeAppearanceMode?.("light")}
+            />
+            <MenuDivider />
+            <SelectionOption
+              title="System"
+              description="We'll adjust your appearance based on your device's system settings."
+              selected={appearance?.mode === "system"}
+              onClick={() => onChangeAppearanceMode?.("system")}
+            />
+          </MenuGroup>
+        </MenuShell>
+      );
+    }
+
+    if (activeMenu === "language") {
+      return (
+        <MenuShell>
+          <MenuScreenHeader title="Language" onBack={closeSettingsSubmenu} icon={Globe} />
+          <MenuGroup>
+            {availableLanguages.map((option, index) => (
+              <div key={option.value}>
+                <SelectionOption
+                  title={option.label}
+                  description={
+                    option.value === "system"
+                      ? "We'll follow your device language when localized app text is available."
+                      : option.value === "en"
+                        ? "Current app content is fully written in English."
+                        : "Saved as your preferred language while localized app text is expanded."
+                  }
+                  selected={language === option.value}
+                  onClick={() => setLanguage(option.value)}
+                />
+                {index !== availableLanguages.length - 1 ? <MenuDivider /> : null}
+              </div>
+            ))}
+          </MenuGroup>
+        </MenuShell>
+      );
+    }
+
+    if (activeMenu === "text-size") {
+      return (
+        <MenuShell>
+          <MenuScreenHeader title="Text size" onBack={closeSettingsSubmenu} icon={Type} />
+          <MenuGroup>
+            <SelectionOption
+              title="Small"
+              description="A tighter layout with slightly smaller text across the app."
+              selected={textSize === "small"}
+              onClick={() => setTextSize("small")}
+            />
+            <MenuDivider />
+            <SelectionOption
+              title="Medium"
+              description="Balanced default sizing for most screens."
+              selected={textSize === "medium"}
+              onClick={() => setTextSize("medium")}
+            />
+            <MenuDivider />
+            <SelectionOption
+              title="Large"
+              description="A more readable layout with bigger text across the app."
+              selected={textSize === "large"}
+              onClick={() => setTextSize("large")}
+            />
+          </MenuGroup>
+        </MenuShell>
+      );
+    }
+
+    if (activeMenu === "theme-colors") {
+      return (
+        <MenuShell>
+          <MenuScreenHeader title="Theme colors" onBack={closeSettingsSubmenu} icon={Palette} />
+          <div className="space-y-3">
+            {availableThemeColors.map((option) => (
+              <ColorThemeOption
+                key={option.value}
+                title={option.label}
+                value={option.value}
+                selected={accentColor === option.value}
+                onClick={() => setAccentColor(option.value)}
+              />
+            ))}
+          </div>
         </MenuShell>
       );
     }
@@ -797,6 +992,13 @@ export default function ProfileScreen({
               icon={LogOut}
               title="Logout from this device"
               onClick={() => onSignOut?.("current")}
+              danger
+            />
+            <MenuDivider />
+            <MenuItem
+              icon={Trash2}
+              title="Delete account"
+              onClick={onOpenHelp}
               danger
             />
           </MenuGroup>
@@ -991,7 +1193,7 @@ export default function ProfileScreen({
             </section>
 
             <div className="mt-6 space-y-5">
-              {hasPurchasedEventTickets || hasEventAccount ? (
+              {hasPurchasedEventTickets || hasEventSales ? (
                 <SectionCard
                   title="Events"
                   subtitle="Keep event tickets and event verification tools close to your profile when you need them."
@@ -1005,8 +1207,8 @@ export default function ProfileScreen({
                       onClick={onOpenEventTickets}
                     />
                   ) : null}
-                  {hasPurchasedEventTickets && hasEventAccount ? <MenuDivider /> : null}
-                  {hasEventAccount ? (
+                  {hasPurchasedEventTickets && hasEventSales ? <MenuDivider /> : null}
+                  {hasEventSales ? (
                     <RowAction
                       icon={Shield}
                       title="Events"

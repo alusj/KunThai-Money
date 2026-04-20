@@ -102,7 +102,10 @@ export default function ForgotPassword() {
         title="Forgot your password?"
         subtitle="Enter your registered phone number and we will send you a secure OTP to reset your password."
         footer={
-          <button className="font-semibold text-sky-300" onClick={() => navigate("/login")}>
+          <button
+            className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/6 px-5 py-2.5 font-semibold text-white underline decoration-sky-300/80 underline-offset-4 shadow-[0_12px_30px_rgba(2,6,18,0.25)] transition hover:border-sky-300/30 hover:bg-white/[0.09] hover:text-sky-100"
+            onClick={() => navigate("/login")}
+          >
             Return to sign in
           </button>
         }

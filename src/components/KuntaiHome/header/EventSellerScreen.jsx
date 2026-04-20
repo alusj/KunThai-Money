@@ -76,6 +76,33 @@ export default function EventSellerScreen({ onBack, user, eventAccounts = [] }) 
   const usedCount = tickets.filter((ticket) => ticket.status === "used").length;
   const activeEventCount = eventAccounts.length;
   const recentSales = useMemo(() => tickets.slice(0, 8), [tickets]);
+  const totalRevenue = useMemo(
+    () =>
+      tickets.reduce(
+        (total, ticket) =>
+          total + Number(ticket.ticket_category_price || ticket.order?.ticket_category_price || 0),
+        0
+      ),
+    [tickets]
+  );
+  const categoryBreakdown = useMemo(() => {
+    const map = new Map();
+
+    tickets.forEach((ticket) => {
+      const key = ticket.ticket_category_name || "General";
+      const current = map.get(key) || {
+        name: key,
+        sold: 0,
+        revenue: 0,
+      };
+
+      current.sold += 1;
+      current.revenue += Number(ticket.ticket_category_price || ticket.order?.ticket_category_price || 0);
+      map.set(key, current);
+    });
+
+    return Array.from(map.values()).sort((first, second) => second.sold - first.sold);
+  }, [tickets]);
 
   const handleLookup = async (code) => {
     setLookupLoading(true);
@@ -119,6 +146,10 @@ export default function EventSellerScreen({ onBack, user, eventAccounts = [] }) 
             <div className="rounded-[24px] bg-slate-50 px-5 py-4">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Tickets Used</p>
               <p className="mt-2 text-3xl font-semibold text-slate-950">{usedCount}</p>
+            </div>
+            <div className="rounded-[24px] bg-slate-50 px-5 py-4">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-400">Revenue</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-950">SLL {totalRevenue.toFixed(2)}</p>
             </div>
           </div>
         </section>
@@ -213,6 +244,9 @@ export default function EventSellerScreen({ onBack, user, eventAccounts = [] }) 
                         </p>
                         <h4 className="mt-2 text-xl font-semibold text-slate-950">{lookupResult.buyer_name}</h4>
                         <p className="mt-1 text-sm text-slate-600">{lookupResult.ticket_code}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {lookupResult.ticket_category_name || "General"} ticket
+                        </p>
                       </div>
                     </div>
 
@@ -222,6 +256,7 @@ export default function EventSellerScreen({ onBack, user, eventAccounts = [] }) 
                   <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
                     <p>Event: {lookupResult.order?.event_name || "Event"}</p>
                     <p>Quantity Bought: {lookupResult.order?.quantity || 1}</p>
+                    <p>Category: {lookupResult.ticket_category_name || lookupResult.order?.ticket_category_name || "General"}</p>
                     <p className="inline-flex items-center gap-2">
                       <CalendarDays size={15} />
                       {lookupResult.order?.event_date_time
@@ -260,8 +295,24 @@ export default function EventSellerScreen({ onBack, user, eventAccounts = [] }) 
           </section>
 
           <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-400">Recent Sales</p>
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-400">Sales Dashboard</p>
             <h3 className="mt-3 text-2xl font-semibold text-slate-950">Latest ticket buyers</h3>
+
+            {categoryBreakdown.length ? (
+              <div className="mt-5 grid gap-3">
+                {categoryBreakdown.map((category) => (
+                  <div key={category.name} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-950">{category.name}</p>
+                        <p className="mt-1 text-sm text-slate-500">{category.sold} tickets sold</p>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-950">SLL {category.revenue.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             <div className="mt-5 space-y-3">
               {loading ? (
@@ -278,10 +329,26 @@ export default function EventSellerScreen({ onBack, user, eventAccounts = [] }) 
                 recentSales.map((ticket) => (
                   <div key={ticket.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="flex items-start gap-3">
+                        {ticket.buyer_image_url ? (
+                          <img
+                            src={ticket.buyer_image_url}
+                            alt={ticket.buyer_name}
+                            className="h-12 w-12 rounded-[16px] object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-white text-slate-700">
+                            <User size={18} />
+                          </div>
+                        )}
+                        <div>
                         <p className="font-semibold text-slate-950">{ticket.buyer_name}</p>
                         <p className="mt-1 text-sm text-slate-500">{ticket.ticket_code}</p>
                         <p className="mt-1 text-sm text-slate-500">{ticket.order?.event_name || "Event"}</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {ticket.ticket_category_name || ticket.order?.ticket_category_name || "General"}
+                        </p>
+                        </div>
                       </div>
                       <StatusPill status={ticket.status || "unused"} />
                     </div>

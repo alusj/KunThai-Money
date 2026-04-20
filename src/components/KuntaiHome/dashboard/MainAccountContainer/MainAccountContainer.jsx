@@ -9,13 +9,13 @@ export default function MainAccountContainer({ account }) {
     <div className="pr-1">
       <div
         className="
+          accent-surface
+          accent-ring
           rounded-[28px]
           border
-          border-emerald-700
-          bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(220,252,231,0.92))]
           px-5
           py-5
-          shadow-[0_18px_40px_rgba(16,185,129,0.12)]
+          shadow-[0_18px_40px_var(--accent-soft-bg)]
         "
       >
         <MainAccountStats account={account} />

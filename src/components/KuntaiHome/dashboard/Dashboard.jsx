@@ -79,7 +79,7 @@ export default function Dashboard({
     <main
       className={`min-h-screen w-full transition-colors ${
         isDarkMode
-          ? "bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.08),transparent_24%),linear-gradient(180deg,#0f172a_0%,#111827_44%,#172033_100%)]"
+          ? "bg-[radial-gradient(circle_at_top,var(--accent-soft-bg),transparent_24%),linear-gradient(180deg,#0f172a_0%,#111827_44%,#172033_100%)]"
           : ""
       }`}
     >

@@ -10,10 +10,10 @@ export default function Profile({ name, profile, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-2 py-2 transition hover:border-slate-300 hover:bg-slate-50"
+      className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-1.5 py-1.5 transition hover:border-slate-300 hover:bg-slate-50 sm:gap-3 sm:px-2 sm:py-2"
       aria-label="Open profile"
     >
-      <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[linear-gradient(135deg,#0f172a,#334155)] text-sm font-semibold text-white">
+      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[linear-gradient(135deg,#0f172a,#334155)] text-xs font-semibold text-white sm:h-9 sm:w-9 sm:text-sm">
         {profile?.profile_image ? (
           <img src={profile.profile_image} alt={name} className="h-full w-full object-cover" />
         ) : (

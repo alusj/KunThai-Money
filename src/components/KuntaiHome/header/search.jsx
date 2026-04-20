@@ -2,11 +2,11 @@ export default function Search({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 sm:h-11 sm:w-11"
       aria-label="Open search"
     >
       <svg
-        className="h-5 w-5"
+        className="h-[18px] w-[18px] sm:h-5 sm:w-5"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"

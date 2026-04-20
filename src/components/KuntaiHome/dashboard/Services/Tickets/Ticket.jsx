@@ -4,12 +4,41 @@ import { CalendarDays, ImagePlus, Loader2, MapPin, Search, Ticket as TicketIcon 
 import { createEventTicketPurchase } from "../../../../../Backend/services/eventTicketService";
 import { getDiscoverableEventAccounts } from "../../../../../Backend/services/otherAccountService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
-import { formatEventDateTime } from "../../../../../Backend/utils/eventAccounts";
+import { formatEventDateTime, normalizeTicketCategories } from "../../../../../Backend/utils/eventAccounts";
 import AccountNumber from "../../MainAccountAction/CashOut/AccountNumber";
 import BottomSheet from "../../MainAccountAction/CashOut/BottomSheet";
 import TicketHeader from "./TicketHeader";
 
+function getEventCategories(eventProfile = {}) {
+  const normalized = normalizeTicketCategories(eventProfile.ticket_categories);
+
+  if (normalized.length) {
+    return normalized;
+  }
+
+  if (Number(eventProfile.ticket_price || 0) > 0) {
+    return [
+      {
+        id: "general",
+        name: "General",
+        price: Number(eventProfile.ticket_price || 0),
+        available_tickets: Number(eventProfile.available_tickets || 0),
+      },
+    ];
+  }
+
+  return [];
+}
+
 function EventCard({ event, onBuy }) {
+  const categories = getEventCategories(event.event_profile);
+  const lowestPrice = categories.length
+    ? Math.min(...categories.map((item) => Number(item.price || 0)))
+    : Number(event.event_profile?.ticket_price || 0);
+  const totalTickets = categories.length
+    ? categories.reduce((total, item) => total + Number(item.available_tickets || 0), 0)
+    : Number(event.event_profile?.available_tickets || 0);
+
   return (
     <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:border-sky-300 hover:shadow-lg">
       <div className="flex items-start justify-between gap-4">
@@ -60,11 +89,14 @@ function EventCard({ event, onBuy }) {
         <div className="grid gap-1">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Ticket Price</p>
           <p className="text-lg font-semibold text-slate-950">
-            {formatCurrency(event.event_profile?.ticket_price || 0, event.currency || "SLL")}
+            {formatCurrency(lowestPrice || 0, event.currency || "SLL")}
           </p>
           <p className="text-sm text-slate-500">
-            {Number(event.event_profile?.available_tickets || 0)} tickets available
+            {totalTickets} tickets available
           </p>
+          {categories.length ? (
+            <p className="text-xs text-slate-500">{categories.length} categories available</p>
+          ) : null}
         </div>
 
         <button
@@ -86,6 +118,7 @@ export default function Ticket({ onBack, refreshAccount, account, user, profile 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [ticketQuantity, setTicketQuantity] = useState("1");
   const [buyerImageFile, setBuyerImageFile] = useState(null);
   const [buyerImagePreview, setBuyerImagePreview] = useState("");
@@ -155,8 +188,15 @@ export default function Ticket({ onBack, refreshAccount, account, user, profile 
   }, [events, search]);
 
   const selectedQuantity = Math.max(1, Number(ticketQuantity || 1));
+  const selectedCategories = selectedEvent
+    ? getEventCategories(selectedEvent.event_profile)
+    : [];
+  const selectedCategory =
+    selectedCategories.find((item) => String(item.id) === String(selectedCategoryId)) ||
+    selectedCategories[0] ||
+    null;
   const totalAmount = selectedEvent
-    ? Number(selectedEvent.event_profile?.ticket_price || 0) * selectedQuantity
+    ? Number(selectedCategory?.price || 0) * selectedQuantity
     : 0;
 
   useEffect(() => {
@@ -222,7 +262,17 @@ export default function Ticket({ onBack, refreshAccount, account, user, profile 
           ) : (
             <div className="grid gap-4">
               {filteredEvents.map((event) => (
-                <EventCard key={event.id} event={event} onBuy={setSelectedEvent} />
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onBuy={(eventItem) => {
+                    setSelectedEvent(eventItem);
+                    const categories = getEventCategories(eventItem.event_profile);
+                    setSelectedCategoryId(categories[0]?.id || "");
+                    setTicketQuantity("1");
+                    setPurchaseError("");
+                  }}
+                />
               ))}
             </div>
           )}
@@ -252,12 +302,32 @@ export default function Ticket({ onBack, refreshAccount, account, user, profile 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    Ticket Category
+                  </span>
+                  <select
+                    value={selectedCategoryId}
+                    onChange={(event) => {
+                      setSelectedCategoryId(event.target.value);
+                      setPurchaseError("");
+                    }}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                  >
+                    {selectedCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name} - {formatCurrency(category.price, selectedEvent.currency || "SLL")}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
                     Quantity to Buy
                   </span>
                   <input
                     type="number"
                     min="1"
-                    max={selectedEvent.event_profile?.available_tickets || 1}
+                    max={selectedCategory?.available_tickets || 1}
                     step="1"
                     value={ticketQuantity}
                     onChange={(event) => {
@@ -303,10 +373,30 @@ export default function Ticket({ onBack, refreshAccount, account, user, profile 
               ) : null}
 
               <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                <p>
+                  Category:{" "}
+                  <span className="font-semibold text-slate-950">
+                    {selectedCategory?.name || "Select a category"}
+                  </span>
+                </p>
+                <p className="mt-2">
+                  Price per ticket:{" "}
+                  <span className="font-semibold text-slate-950">
+                    {formatCurrency(Number(selectedCategory?.price || 0), selectedEvent.currency || "SLL")}
+                  </span>
+                </p>
+                <p className="mt-2">
+                  Tickets left in category:{" "}
+                  <span className="font-semibold text-slate-950">
+                    {Number(selectedCategory?.available_tickets || 0)}
+                  </span>
+                </p>
+                <p className="mt-3">
                 Total:{" "}
                 <span className="font-semibold text-slate-950">
                   {formatCurrency(totalAmount, selectedEvent.currency || "SLL")}
                 </span>
+                </p>
               </div>
 
               {purchaseError ? (
@@ -325,20 +415,25 @@ export default function Ticket({ onBack, refreshAccount, account, user, profile 
               initialValues={{
                 accountNumber: selectedEvent.account_number || "",
                 amount: totalAmount ? String(totalAmount) : "",
-                reason: `Ticket for ${selectedEvent.event_name} x${selectedQuantity}`,
+                reason: `Ticket for ${selectedEvent.event_name} - ${selectedCategory?.name || "Category"} x${selectedQuantity}`,
               }}
               backLabel="Back to event"
               onTransferSuccess={async (transfer) => {
                 try {
-                  const safeAvailable = Number(selectedEvent.event_profile?.available_tickets || 0);
-
                   if (!Number.isFinite(selectedQuantity) || selectedQuantity <= 0) {
                     setPurchaseError("Enter a valid quantity before paying.");
                     return;
                   }
 
+                  if (!selectedCategory) {
+                    setPurchaseError("Select a ticket category before paying.");
+                    return;
+                  }
+
+                  const safeAvailable = Number(selectedCategory.available_tickets || 0);
+
                   if (safeAvailable && selectedQuantity > safeAvailable) {
-                    setPurchaseError("Selected quantity is more than the available tickets.");
+                    setPurchaseError("Selected quantity is more than the tickets available in this category.");
                     return;
                   }
 
@@ -348,6 +443,7 @@ export default function Ticket({ onBack, refreshAccount, account, user, profile 
                     buyerImageFile,
                     eventAccount: selectedEvent,
                     quantity: selectedQuantity,
+                    ticketCategory: selectedCategory,
                     transfer,
                   });
 

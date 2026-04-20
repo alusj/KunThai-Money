@@ -6,6 +6,7 @@ import {
   getEventDisplayName,
   getEventLocation,
   getEventProfile,
+  normalizeTicketCategories,
 } from "../utils/eventAccounts";
 
 function sanitizeFileName(name = "document") {
@@ -75,14 +76,23 @@ function buildEventMetadata(payload) {
     return null;
   }
 
+  const ticketCategories = normalizeTicketCategories(payload.ticket_categories);
+  const availableTickets = ticketCategories.length
+    ? ticketCategories.reduce((total, item) => total + Number(item.available_tickets || 0), 0)
+    : Number(payload.available_tickets || 0);
+  const lowestPrice = ticketCategories.length
+    ? Math.min(...ticketCategories.map((item) => Number(item.price || 0)))
+    : Number(payload.ticket_price || 0);
+
   return {
     event_name: payload.event_name?.trim() || "",
     event_category: payload.event_category?.trim() || "",
     event_location: payload.event_location?.trim() || "",
     event_date: payload.event_date || "",
     event_time: payload.event_time || "",
-    ticket_price: Number(payload.ticket_price || 0),
-    available_tickets: Number(payload.available_tickets || 0),
+    ticket_price: Number(lowestPrice || 0),
+    available_tickets: Number(availableTickets || 0),
+    ticket_categories: ticketCategories,
     description: payload.event_description?.trim() || "",
   };
 }

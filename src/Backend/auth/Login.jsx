@@ -159,12 +159,15 @@ export default function Login() {
         title="Sign in to KunThai Money"
         subtitle="Use your registered phone number and password to continue securely to your account."
         footer={
-          <>
-            Don&apos;t have an account?{" "}
-            <button className="font-semibold text-sky-300" onClick={() => navigate("/register")}>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-4 py-2 text-slate-200 shadow-[0_12px_30px_rgba(2,6,18,0.25)] backdrop-blur-xl">
+            <span>Don&apos;t have an account?</span>
+            <button
+              className="font-semibold text-white underline decoration-sky-300/80 underline-offset-4 transition hover:text-sky-200"
+              onClick={() => navigate("/register")}
+            >
               Create one now
             </button>
-          </>
+          </div>
         }
       >
         <div className="space-y-5">
@@ -261,7 +264,7 @@ export default function Login() {
                   },
                 })
               }
-              className="w-full text-sm font-semibold text-sky-200 transition hover:text-sky-100"
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(2,6,18,0.22)] transition hover:border-sky-300/30 hover:bg-white/[0.09] hover:text-sky-100"
             >
               {failedAttempts >= 3 ? "Forgot password? Request OTP" : "Forgot password?"}
             </button>

@@ -2,11 +2,11 @@ export default function Notification({ count = 0, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+      className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 sm:h-11 sm:w-11"
       aria-label="Open notifications"
     >
       <svg
-        className="h-5 w-5"
+        className="h-[18px] w-[18px] sm:h-5 sm:w-5"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -17,7 +17,7 @@ export default function Notification({ count = 0, onClick }) {
       </svg>
 
       {count > 0 && (
-        <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white sm:h-2.5 sm:w-2.5" />
       )}
     </button>
   );

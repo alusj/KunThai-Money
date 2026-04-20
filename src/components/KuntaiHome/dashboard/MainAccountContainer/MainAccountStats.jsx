@@ -260,7 +260,7 @@ export default function MainAccountStats({ account }) {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen((current) => !current)}
-            className="rounded-full border border-emerald-200 bg-white/70 px-4 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+            className="accent-chip rounded-full border px-4 py-1.5 text-xs font-semibold transition hover:brightness-95"
             aria-expanded={menuOpen}
             aria-label="Open balance actions"
           >
@@ -268,13 +268,13 @@ export default function MainAccountStats({ account }) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-12 z-20 min-w-[220px] rounded-3xl border border-emerald-100 bg-white p-2 shadow-2xl">
+            <div className="accent-ring absolute right-0 top-12 z-20 min-w-[220px] rounded-3xl border bg-white p-2 shadow-2xl">
               <button
                 onClick={() => {
                   setIsVisible((current) => !current);
                   setMenuOpen(false);
                 }}
-                className="flex w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
+                className="accent-text flex w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50"
               >
                 {isVisible ? "Hide" : "Show"}
               </button>
@@ -284,7 +284,7 @@ export default function MainAccountStats({ account }) {
                   setFxAmountInput("1");
                   setMenuOpen(false);
                 }}
-                className="flex w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
+                className="accent-text flex w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50"
               >
                 Foreign exchange rate
               </button>
@@ -298,16 +298,16 @@ export default function MainAccountStats({ account }) {
         onClick={() => setIsVisible((current) => !current)}
         className="text-left"
       >
-        <h2 className="text-3xl font-bold tracking-wide text-emerald-700 sm:text-4xl">
+        <h2 className="accent-text text-3xl font-bold tracking-wide sm:text-4xl">
           {isVisible ? `${displayCurrency} ${formattedBalance}` : concealedBalance}
         </h2>
       </button>
-      <p className="mt-2 text-xs text-emerald-700/70">Tap the balance to {isVisible ? "hide" : "show"} it.</p>
+      <p className="accent-text mt-2 text-xs opacity-70">Tap the balance to {isVisible ? "hide" : "show"} it.</p>
 
       {showFxModal ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 px-4 pb-6 pt-20 sm:items-center">
           <div className="w-full max-w-md rounded-[28px] border border-emerald-200/60 bg-[#141d35] p-5 text-white shadow-2xl">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-emerald-400">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent-400)]">
               Foreign Exchange Rate
             </p>
             {fxState.loading ? <p className="mt-4 text-sm text-slate-300">Loading latest rate...</p> : null}
@@ -336,8 +336,8 @@ export default function MainAccountStats({ account }) {
                     </div>
                   </div>
                 </label>
-                <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
-                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                <div className="mt-4 rounded-2xl border px-4 py-3" style={{ borderColor: "var(--accent-soft-border)", background: "var(--accent-soft-bg)" }}>
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--accent-300)" }}>
                     Converted Amount
                   </p>
                   <p className="mt-2 text-xl font-semibold text-white">

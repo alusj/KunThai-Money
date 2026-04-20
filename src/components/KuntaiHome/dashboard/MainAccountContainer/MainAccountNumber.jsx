@@ -45,7 +45,7 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
     return (
       <div
         className={`mb-8 rounded-[28px] border px-5 py-4 shadow-sm ${
-          isDarkMode ? "border-slate-700 bg-slate-900/88" : "border-slate-200 bg-white/80"
+          isDarkMode ? "accent-ring bg-slate-900/88" : "accent-ring bg-white/80"
         }`}
       >
         <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">Account Number</p>
@@ -68,8 +68,8 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
     <div
       className={`mb-8 rounded-[28px] border px-5 py-4 ${
         isDarkMode
-          ? "border-slate-700 bg-slate-900/92 shadow-[0_18px_40px_rgba(2,6,23,0.42)]"
-          : "border-slate-200/80 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+          ? "accent-ring bg-slate-900/92 shadow-[0_18px_40px_var(--accent-soft-bg)]"
+          : "accent-ring bg-white shadow-[0_18px_40px_var(--accent-soft-bg)]"
       }`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

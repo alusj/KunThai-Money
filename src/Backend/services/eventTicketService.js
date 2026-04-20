@@ -20,6 +20,7 @@ export function buildTicketQrPayload(ticket) {
   return JSON.stringify({
     type: "kuntai-event-ticket",
     ticket_code: ticket.ticket_code,
+    ticket_category_id: ticket.ticket_category_id || null,
   });
 }
 
@@ -58,11 +59,24 @@ async function uploadBuyerImage(userId, file) {
   };
 }
 
+function isMissingCategoryColumns(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("ticket_category_id") ||
+    message.includes("ticket_category_name") ||
+    message.includes("ticket_category_price")
+  );
+}
+
 function normalizeTicketRow(row) {
   return {
     ...row,
     buyer_name: row.buyer_name || "Buyer",
     buyer_image_url: row.buyer_image_url || row.buyer_image?.public_url || "",
+    ticket_category_id: row.ticket_category_id || row.order?.ticket_category_id || "",
+    ticket_category_name: row.ticket_category_name || row.order?.ticket_category_name || "",
+    ticket_category_price:
+      Number(row.ticket_category_price || row.order?.ticket_category_price || 0) || 0,
   };
 }
 
@@ -72,6 +86,7 @@ export async function createEventTicketPurchase({
   buyerImageFile,
   eventAccount,
   quantity,
+  ticketCategory,
   transfer,
 }) {
   if (!buyerUserId) {
@@ -80,6 +95,10 @@ export async function createEventTicketPurchase({
 
   if (!eventAccount?.id) {
     throw new Error("Event account could not be found.");
+  }
+
+  if (!ticketCategory?.name || !(Number(ticketCategory?.price) > 0)) {
+    throw new Error("Select a valid ticket category before paying.");
   }
 
   const safeQuantity = Number(quantity || 0);
@@ -101,8 +120,11 @@ export async function createEventTicketPurchase({
     event_name: eventAccount.event_name || eventAccount.account_name || "Event",
     event_location: eventAccount.event_location || eventAccount.location_address || "",
     event_date_time: eventAccount.event_date_time,
+    ticket_category_id: String(ticketCategory.id || "").trim(),
+    ticket_category_name: String(ticketCategory.name || "").trim(),
+    ticket_category_price: Number(ticketCategory.price || 0),
     quantity: safeQuantity,
-    unit_price: Number(eventAccount.event_profile?.ticket_price || 0),
+    unit_price: Number(ticketCategory.price || 0),
     total_amount: Number(transfer?.amount || 0),
     transfer_id: transfer?.id || transfer?.sender_transaction_id || null,
     reference_number: transfer?.reference_number || null,
@@ -123,6 +145,11 @@ export async function createEventTicketPurchase({
     .single();
 
   if (orderError) {
+    if (isMissingCategoryColumns(orderError)) {
+      throw new Error(
+        "The event category SQL upgrade is not installed yet. Run `event_ticket_categories_upgrade.sql` in Supabase, then try again."
+      );
+    }
     throw orderError;
   }
 
@@ -140,6 +167,9 @@ export async function createEventTicketPurchase({
       buyer_name: orderPayload.buyer_name,
       buyer_image: buyerImage,
       buyer_image_url: buyerImage?.public_url || "",
+      ticket_category_id: orderPayload.ticket_category_id,
+      ticket_category_name: orderPayload.ticket_category_name,
+      ticket_category_price: orderPayload.ticket_category_price,
       status: "unused",
     };
   });
@@ -150,7 +180,53 @@ export async function createEventTicketPurchase({
     .select("*");
 
   if (ticketError) {
+    if (isMissingCategoryColumns(ticketError)) {
+      throw new Error(
+        "The event category SQL upgrade is not installed yet. Run `event_ticket_categories_upgrade.sql` in Supabase, then try again."
+      );
+    }
     throw ticketError;
+  }
+
+  const ticketCategories = Array.isArray(eventAccount.event_profile?.ticket_categories)
+    ? eventAccount.event_profile.ticket_categories
+    : [];
+  const updatedCategories = ticketCategories.map((item) =>
+    String(item.id || "") === String(ticketCategory.id || "")
+      ? {
+          ...item,
+          available_tickets: Math.max(
+            0,
+            Number(item.available_tickets || 0) - safeQuantity
+          ),
+        }
+      : item
+  );
+  const nextAvailableTotal = updatedCategories.reduce(
+    (total, item) => total + Number(item.available_tickets || 0),
+    0
+  );
+
+  try {
+    await supabase
+      .from("kuntai_other_accounts")
+      .update({
+        metadata: {
+          ...(eventAccount.metadata || {}),
+          event_profile: {
+            ...(eventAccount.event_profile || {}),
+            ticket_categories: updatedCategories,
+            available_tickets: nextAvailableTotal,
+            ticket_price: updatedCategories.length
+              ? Math.min(...updatedCategories.map((item) => Number(item.price || 0)))
+              : Number(ticketCategory.price || 0),
+          },
+        },
+      })
+      .eq("id", eventAccount.id)
+      .eq("user_id", eventAccount.user_id);
+  } catch {
+    // Keep purchase successful even if category inventory sync cannot be updated immediately.
   }
 
   return {

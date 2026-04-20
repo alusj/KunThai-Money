@@ -55,7 +55,7 @@ import ProfileScreen from "./header/ProfileScreen";
 import SearchScreen from "./header/SearchScreen";
 import TransactionsScreen from "./header/Transactions/TransactionScreen";
 import ActionBanner from "../feedback/ActionBanner";
-import { getBuyerEventTickets } from "../../Backend/services/eventTicketService";
+import { getBuyerEventTickets, getSellerEventTickets } from "../../Backend/services/eventTicketService";
 
 const SEEN_NOTIFICATION_IDS_KEY = "kuntai-seen-notification-ids";
 const SEEN_TRANSACTION_IDS_KEY = "kuntai-seen-transaction-ids";
@@ -109,7 +109,7 @@ function withImageVersion(url) {
 export default function KunTaiHome() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isDarkMode, toggleTheme } = useAppearance();
+  const { isDarkMode, appearanceMode, setAppearanceMode } = useAppearance();
   const { user } = useAuth();
   const { status, loading: statusLoading } = useOnboardingStatus(user?.id);
   const [activeScreen, setActiveScreen] = useState(() =>
@@ -126,6 +126,7 @@ export default function KunTaiHome() {
   const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [otherAccounts, setOtherAccounts] = useState([]);
   const [hasPurchasedEventTickets, setHasPurchasedEventTickets] = useState(false);
+  const [hasEventSales, setHasEventSales] = useState(false);
   const [accountFormState, setAccountFormState] = useState({
     mode: "create",
     editAccount: null,
@@ -410,11 +411,16 @@ export default function KunTaiHome() {
 
   const fetchEventTicketStatus = async () => {
     try {
-      const tickets = await getBuyerEventTickets(user?.id);
-      setHasPurchasedEventTickets(tickets.length > 0);
+      const [buyerTickets, sellerTickets] = await Promise.all([
+        getBuyerEventTickets(user?.id),
+        getSellerEventTickets(user?.id),
+      ]);
+      setHasPurchasedEventTickets(buyerTickets.length > 0);
+      setHasEventSales(sellerTickets.length > 0);
     } catch (error) {
       console.log("Event tickets fetch error:", error);
       setHasPurchasedEventTickets(false);
+      setHasEventSales(false);
     }
   };
 
@@ -744,18 +750,34 @@ export default function KunTaiHome() {
     if (!status.hasKyc) {
       return (
         <div className="px-4 pt-4 md:px-8 lg:px-12">
-          <div className="overflow-hidden rounded-[30px] border border-amber-200 bg-[linear-gradient(135deg,#fff7db_0%,#fff2cc_46%,#fffaf0_100%)] shadow-[0_18px_42px_rgba(161,98,7,0.12)]">
+          <div
+            className={`overflow-hidden rounded-[30px] border shadow-[0_18px_42px_rgba(161,98,7,0.12)] ${
+              isDarkMode
+                ? "border-amber-400/35 bg-[linear-gradient(135deg,#2d1f05_0%,#3b2807_48%,#1b1304_100%)] shadow-[0_22px_50px_rgba(245,158,11,0.18)]"
+                : "border-amber-200 bg-[linear-gradient(135deg,#fff7db_0%,#fff2cc_46%,#fffaf0_100%)]"
+            }`}
+          >
             <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 md:flex-row md:items-center md:justify-between">
               <div className="flex items-start gap-4">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-amber-500 text-white shadow-[0_14px_28px_rgba(245,158,11,0.28)]">
+                <span
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] text-white shadow-[0_14px_28px_rgba(245,158,11,0.28)] ${
+                    isDarkMode ? "bg-[linear-gradient(135deg,#f59e0b,#f97316)]" : "bg-amber-500"
+                  }`}
+                >
                   <ShieldAlert size={26} />
                 </span>
                 <div>
-                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-amber-700">
+                  <p
+                    className={`text-[0.72rem] font-semibold uppercase tracking-[0.28em] ${
+                      isDarkMode ? "text-amber-300" : "text-amber-700"
+                    }`}
+                  >
                     KYC Recommended
                   </p>
-                  <h3 className="mt-2 text-xl font-semibold text-slate-950">Make your account more trusted</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                  <h3 className={`mt-2 text-xl font-semibold ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                    Make your account more trusted
+                  </h3>
+                  <p className={`mt-2 max-w-2xl text-sm leading-6 ${isDarkMode ? "text-amber-50/88" : "text-slate-700"}`}>
                     Complete your KYC to strengthen trust on your account and unlock future high-value
                     features without delay.
                   </p>
@@ -765,7 +787,11 @@ export default function KunTaiHome() {
               <button
                 type="button"
                 onClick={() => navigate("/kyc")}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition ${
+                  isDarkMode
+                    ? "bg-[linear-gradient(135deg,#f59e0b,#f97316)] shadow-[0_16px_36px_rgba(245,158,11,0.28)] hover:brightness-105"
+                    : "bg-slate-950 hover:bg-slate-800"
+                }`}
               >
                 <span>Start KYC</span>
                 <ArrowRight size={16} />
@@ -779,17 +805,33 @@ export default function KunTaiHome() {
     if (status.kycStatus === "pending") {
       return (
         <div className="px-4 pt-4 md:px-8 lg:px-12">
-          <div className="overflow-hidden rounded-[30px] border border-sky-200 bg-[linear-gradient(135deg,#eff6ff_0%,#e0f2fe_46%,#f8fbff_100%)] shadow-[0_18px_42px_rgba(2,132,199,0.12)]">
+          <div
+            className={`overflow-hidden rounded-[30px] border shadow-[0_18px_42px_rgba(2,132,199,0.12)] ${
+              isDarkMode
+                ? "border-sky-400/30 bg-[linear-gradient(135deg,#0a223c_0%,#10304d_46%,#08192b_100%)] shadow-[0_22px_50px_rgba(14,165,233,0.16)]"
+                : "border-sky-200 bg-[linear-gradient(135deg,#eff6ff_0%,#e0f2fe_46%,#f8fbff_100%)]"
+            }`}
+          >
             <div className="flex items-start gap-4 px-5 py-5 sm:px-6">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-sky-500 text-white shadow-[0_14px_28px_rgba(14,165,233,0.24)]">
+              <span
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] text-white shadow-[0_14px_28px_rgba(14,165,233,0.24)] ${
+                  isDarkMode ? "bg-[linear-gradient(135deg,#0ea5e9,#2563eb)]" : "bg-sky-500"
+                }`}
+              >
                 <Clock3 size={26} />
               </span>
               <div>
-                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-sky-700">
+                <p
+                  className={`text-[0.72rem] font-semibold uppercase tracking-[0.28em] ${
+                    isDarkMode ? "text-sky-300" : "text-sky-700"
+                  }`}
+                >
                   KYC In Review
                 </p>
-                <h3 className="mt-2 text-xl font-semibold text-slate-950">Your documents are under review</h3>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                <h3 className={`mt-2 text-xl font-semibold ${isDarkMode ? "text-white" : "text-slate-950"}`}>
+                  Your documents are under review
+                </h3>
+                <p className={`mt-2 max-w-2xl text-sm leading-6 ${isDarkMode ? "text-sky-50/85" : "text-slate-700"}`}>
                   Your identity submission has been received successfully and is now under compliance
                   review. We will unlock the next verification stage as soon as your account is cleared.
                 </p>
@@ -803,20 +845,34 @@ export default function KunTaiHome() {
     if (status.kycStatus === "rejected") {
       return (
         <div className="px-4 pt-4 md:px-8 lg:px-12">
-          <div className="overflow-hidden rounded-[30px] border border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffe4e6_46%,#fff8f8_100%)] shadow-[0_18px_42px_rgba(225,29,72,0.12)]">
+          <div
+            className={`overflow-hidden rounded-[30px] border shadow-[0_18px_42px_rgba(225,29,72,0.12)] ${
+              isDarkMode
+                ? "border-rose-400/30 bg-[linear-gradient(135deg,#32101a_0%,#461724_48%,#1e0b11_100%)] shadow-[0_22px_50px_rgba(244,63,94,0.16)]"
+                : "border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffe4e6_46%,#fff8f8_100%)]"
+            }`}
+          >
             <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 md:flex-row md:items-center md:justify-between">
               <div className="flex items-start gap-4">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-rose-500 text-white shadow-[0_14px_28px_rgba(244,63,94,0.22)]">
+                <span
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] text-white shadow-[0_14px_28px_rgba(244,63,94,0.22)] ${
+                    isDarkMode ? "bg-[linear-gradient(135deg,#f43f5e,#e11d48)]" : "bg-rose-500"
+                  }`}
+                >
                   <ShieldAlert size={26} />
                 </span>
                 <div>
-                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-rose-700">
+                  <p
+                    className={`text-[0.72rem] font-semibold uppercase tracking-[0.28em] ${
+                      isDarkMode ? "text-rose-300" : "text-rose-700"
+                    }`}
+                  >
                     KYC Needs Attention
                   </p>
-                  <h3 className="mt-2 text-xl font-semibold text-slate-950">
+                  <h3 className={`mt-2 text-xl font-semibold ${isDarkMode ? "text-white" : "text-slate-950"}`}>
                     Your identity details need an update
                   </h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                  <p className={`mt-2 max-w-2xl text-sm leading-6 ${isDarkMode ? "text-rose-50/85" : "text-slate-700"}`}>
                     We could not complete your identity review yet. Update your KYC details and submit again
                     so we can continue verifying your account.
                   </p>
@@ -826,7 +882,11 @@ export default function KunTaiHome() {
               <button
                 type="button"
                 onClick={() => navigate("/kyc")}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition ${
+                  isDarkMode
+                    ? "bg-[linear-gradient(135deg,#f43f5e,#e11d48)] shadow-[0_16px_36px_rgba(244,63,94,0.28)] hover:brightness-105"
+                    : "bg-slate-950 hover:bg-slate-800"
+                }`}
               >
                 <span>Update KYC</span>
                 <ArrowRight size={16} />
@@ -1294,8 +1354,8 @@ export default function KunTaiHome() {
           onSignOut={handleSignOut}
           biometrics={biometricState}
           onToggleBiometrics={handleToggleBiometrics}
-          appearance={{ isDarkMode }}
-          onToggleAppearance={toggleTheme}
+          appearance={{ isDarkMode, mode: appearanceMode }}
+          onChangeAppearanceMode={setAppearanceMode}
           isMainAccountNumberHidden={isMainAccountNumberHidden}
           otherAccounts={otherAccounts}
           hiddenOtherAccounts={hiddenOtherAccounts}
@@ -1319,6 +1379,7 @@ export default function KunTaiHome() {
           }}
           hasEventAccount={eventAccounts.length > 0}
           hasPurchasedEventTickets={hasPurchasedEventTickets}
+          hasEventSales={hasEventSales}
           onOpenEventTickets={() => setActiveScreen("event-tickets")}
           onOpenEventManager={() => setActiveScreen("event-manager")}
         />

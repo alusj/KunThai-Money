@@ -151,6 +151,7 @@ export default function EventTicketsScreen({ onBack, user }) {
                     </p>
                     <h3 className="mt-2 text-xl font-semibold text-slate-950">{ticket.ticket_code}</h3>
                     <div className="mt-4 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
+                      <p>Category: {ticket.ticket_category_name || ticket.order?.ticket_category_name || "General"}</p>
                       <p className="inline-flex items-center gap-2">
                         <User size={15} />
                         {ticket.buyer_name}
@@ -171,6 +172,13 @@ export default function EventTicketsScreen({ onBack, user }) {
                       <p>Order quantity: {ticket.order?.quantity || 1}</p>
                       <p>
                         Paid: {formatCurrency(ticket.order?.total_amount || ticket.order?.unit_price || 0, "SLL")}
+                      </p>
+                      <p>
+                        Category price:{" "}
+                        {formatCurrency(
+                          ticket.ticket_category_price || ticket.order?.ticket_category_price || ticket.order?.unit_price || 0,
+                          "SLL"
+                        )}
                       </p>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
+import { CheckCircle2, ChevronDown } from "lucide-react";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import {
@@ -27,6 +27,43 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [existingPhone, setExistingPhone] = useState("");
+
+  const passwordChecks = [
+    {
+      label: "At least 8 characters",
+      passed: password.length >= 8,
+    },
+    {
+      label: "Include an uppercase letter",
+      passed: /[A-Z]/.test(password),
+    },
+    {
+      label: "Include a lowercase letter",
+      passed: /[a-z]/.test(password),
+    },
+    {
+      label: "Include a number",
+      passed: /\d/.test(password),
+    },
+  ];
+
+  const passedPasswordChecks = passwordChecks.filter((item) => item.passed).length;
+  const passwordRecommendation =
+    password.length === 0
+      ? "Password should be at least 8 characters. Mixing uppercase, lowercase, and numbers is recommended for stronger protection."
+      : password.length < 8
+        ? "Too short. Add more characters until your password reaches at least 8."
+        : passedPasswordChecks <= 2
+          ? "Password length is valid. You can still make it stronger by mixing letters and numbers."
+          : "Good password. The extra mix makes your account safer.";
+  const passwordRecommendationTone =
+    password.length === 0
+      ? "text-slate-300"
+      : password.length < 8
+        ? "text-amber-300"
+        : passedPasswordChecks <= 2
+          ? "text-sky-300"
+          : "text-emerald-300";
 
   const handleVerify = async () => {
     const validation = validateNationalPhone(selected, phone);
@@ -117,12 +154,15 @@ export default function Register() {
         title="Create your account"
         subtitle="Register with your mobile number and a secure password, then verify your phone with OTP to start onboarding."
         footer={
-          <>
-            Already registered?{" "}
-            <button className="font-semibold text-sky-300" onClick={() => navigate("/login")}>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-4 py-2 text-slate-200 shadow-[0_12px_30px_rgba(2,6,18,0.25)] backdrop-blur-xl">
+            <span>Already registered?</span>
+            <button
+              className="font-semibold text-white underline decoration-sky-300/80 underline-offset-4 transition hover:text-sky-200"
+              onClick={() => navigate("/login")}
+            >
               Sign in here
             </button>
-          </>
+          </div>
         }
       >
         <div className="space-y-4">
@@ -186,6 +226,25 @@ export default function Register() {
             placeholder="Create password"
             className="h-12 w-full rounded-xl border border-[#28456f] bg-[#10213f] px-3 text-sm text-slate-100 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 sm:text-base"
           />
+
+          <div className="rounded-2xl border border-[#28456f] bg-[#10213f] px-4 py-3">
+            <p className="text-sm font-semibold text-slate-100">Password should be at least 8 characters</p>
+            <p className={`mt-2 text-sm leading-6 ${passwordRecommendationTone}`}>{passwordRecommendation}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {passwordChecks.map((item) => (
+                <div key={item.label} className="inline-flex items-center gap-2 text-sm">
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                      item.passed ? "bg-emerald-400/20 text-emerald-300" : "bg-white/8 text-slate-400"
+                    }`}
+                  >
+                    <CheckCircle2 size={14} />
+                  </span>
+                  <span className={item.passed ? "text-emerald-200" : "text-slate-400"}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <input
             type="password"

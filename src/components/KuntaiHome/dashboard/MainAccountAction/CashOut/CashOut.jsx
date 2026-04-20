@@ -21,7 +21,7 @@ export default function CashOut({ account, user, profile, refreshAccount, otherA
     <>
       <button
         onClick={() => {
-          setActiveOption("account");
+          setActiveOption(null);
           setOpen(true);
         }}
         className="inline-flex w-full items-center justify-between rounded-2xl bg-bank-primary px-4 py-3 text-sm font-semibold text-white shadow-soft"

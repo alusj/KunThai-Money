@@ -23,7 +23,7 @@ export default function AuthShell({ eyebrow, title, subtitle, children, footer }
           {children}
         </div>
 
-        {footer && <div className="mt-5 text-center text-sm text-slate-200">{footer}</div>}
+        {footer && <div className="mt-5 text-center text-sm text-slate-100">{footer}</div>}
       </div>
     </div>
   );
