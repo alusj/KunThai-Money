@@ -98,10 +98,13 @@ export default function CreateAnotherAccountScreen({
   const isResubmittingRejectedInsurance = isEditMode && editAccount?.account_type === "insurance";
   const isDonationAccount = accountType === "donation";
   const isResubmittingRejectedDonation = isEditMode && editAccount?.account_type === "donation";
+  const isResubmittingRejectedEvent = isEditMode && editAccount?.account_type === EVENT_ACCOUNT_TYPE;
   const resubmissionLabel = isResubmittingRejectedInsurance
     ? "insurance"
     : isResubmittingRejectedDonation
       ? "donation"
+      : isResubmittingRejectedEvent
+        ? "event"
       : "agent";
 
   useEffect(() => {
@@ -516,7 +519,10 @@ export default function CreateAnotherAccountScreen({
         cause_category: isDonationAccount ? donationCauseCategory.trim() : "",
         mission: isDonationAccount ? donationMission.trim() : "",
         is_resubmission:
-          isResubmittingRejectedAgent || isResubmittingRejectedInsurance || isResubmittingRejectedDonation,
+          isResubmittingRejectedAgent ||
+          isResubmittingRejectedInsurance ||
+          isResubmittingRejectedDonation ||
+          isResubmittingRejectedEvent,
       });
     } catch (err) {
       const message = err.message?.toLowerCase?.() || "";
@@ -561,7 +567,10 @@ export default function CreateAnotherAccountScreen({
             </div>
           )}
 
-          {(isResubmittingRejectedAgent || isResubmittingRejectedInsurance || isResubmittingRejectedDonation) &&
+          {(isResubmittingRejectedAgent ||
+            isResubmittingRejectedInsurance ||
+            isResubmittingRejectedDonation ||
+            isResubmittingRejectedEvent) &&
           rejectionReason ? (
             <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <span className="font-semibold">Admin reason:</span> {rejectionReason}
@@ -616,6 +625,9 @@ export default function CreateAnotherAccountScreen({
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
                       Add the event details buyers should see before paying for a ticket online.
+                      {isResubmittingRejectedEvent
+                        ? " Update anything the admin team flagged, then resubmit this event for approval."
+                        : " New event accounts go live after admin approval."}
                     </p>
                   </div>
 

@@ -1,4 +1,10 @@
 import supabase from "../lib/supabaseClient";
+import {
+  getNormalizedAccountReviewStatus,
+  getReviewAccountConfig,
+} from "../utils/accountReview";
+import { EVENT_ACCOUNT_TYPE } from "../utils/accountTypes";
+import { formatEventDateTime } from "../utils/eventAccounts";
 import { resolveRegisteredName } from "../utils/profileName";
 
 async function getProfileMap(userIds = []) {
@@ -210,7 +216,49 @@ export async function getAdminDonationReviews() {
   });
 }
 
-export async function updateAgentAccountStatus({ accountId, status, comment = "" }) {
+export async function getAdminEventReviews() {
+  const { data, error } = await supabase
+    .from("kuntai_other_accounts")
+    .select("*")
+    .eq("account_type", EVENT_ACCOUNT_TYPE)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const items = data || [];
+  const profiles = await getProfileMap(items.map((item) => item.user_id));
+
+  return items.map((item) => {
+    const profile = profiles.get(item.user_id);
+    const eventProfile = item.metadata?.event_profile || {};
+
+    return {
+      ...item,
+      profile,
+      displayName: resolveRegisteredName(profile, null),
+      eventReviewStatus: getNormalizedAccountReviewStatus(item),
+      rejectionReason: eventProfile.rejection_reason || eventProfile.rejection_comment || "",
+      eventName: eventProfile.event_name || item.account_name || "",
+      eventCategory: eventProfile.event_category || "",
+      eventLocation: eventProfile.event_location || "",
+      eventDateLabel: formatEventDateTime(eventProfile),
+      eventDescription: eventProfile.description || "",
+      ticketCategories: eventProfile.ticket_categories || [],
+      availableTickets: Number(eventProfile.available_tickets || 0),
+      lowestTicketPrice: Number(eventProfile.ticket_price || 0),
+    };
+  });
+}
+
+async function updateReviewedOtherAccountStatus({ accountId, accountType, status, comment = "" }) {
+  const reviewConfig = getReviewAccountConfig(accountType);
+
+  if (!reviewConfig) {
+    throw new Error("This account type does not support admin review.");
+  }
+
   const { data: existing, error: fetchError } = await supabase
     .from("kuntai_other_accounts")
     .select("id,metadata")
@@ -223,8 +271,8 @@ export async function updateAgentAccountStatus({ accountId, status, comment = ""
 
   const metadata = {
     ...(existing.metadata || {}),
-    agent_profile: {
-      ...(existing.metadata?.agent_profile || {}),
+    [reviewConfig.profileKey]: {
+      ...(existing.metadata?.[reviewConfig.profileKey] || {}),
       review_status: status,
       reviewed_at: new Date().toISOString(),
       rejected_at: status === "rejected" ? new Date().toISOString() : null,
@@ -251,90 +299,40 @@ export async function updateAgentAccountStatus({ accountId, status, comment = ""
   }
 
   return data;
+}
+
+export async function updateAgentAccountStatus({ accountId, status, comment = "" }) {
+  return updateReviewedOtherAccountStatus({
+    accountId,
+    accountType: "agent",
+    status,
+    comment,
+  });
 }
 
 export async function updateInsuranceAccountStatus({ accountId, status, comment = "" }) {
-  const { data: existing, error: fetchError } = await supabase
-    .from("kuntai_other_accounts")
-    .select("id,metadata")
-    .eq("id", accountId)
-    .single();
-
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  const metadata = {
-    ...(existing.metadata || {}),
-    insurance_profile: {
-      ...(existing.metadata?.insurance_profile || {}),
-      review_status: status,
-      reviewed_at: new Date().toISOString(),
-      rejected_at: status === "rejected" ? new Date().toISOString() : null,
-      rejection_reason: status === "rejected" ? comment.trim() : "",
-      rejection_comment: status === "rejected" ? comment.trim() : "",
-    },
-  };
-
-  const normalizedStatus = status === "approved" ? "active" : status;
-
-  const { data, error } = await supabase
-    .from("kuntai_other_accounts")
-    .update({
-      status: normalizedStatus,
-      metadata,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", accountId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
+  return updateReviewedOtherAccountStatus({
+    accountId,
+    accountType: "insurance",
+    status,
+    comment,
+  });
 }
 
 export async function updateDonationAccountStatus({ accountId, status, comment = "" }) {
-  const { data: existing, error: fetchError } = await supabase
-    .from("kuntai_other_accounts")
-    .select("id,metadata")
-    .eq("id", accountId)
-    .single();
+  return updateReviewedOtherAccountStatus({
+    accountId,
+    accountType: "donation",
+    status,
+    comment,
+  });
+}
 
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  const metadata = {
-    ...(existing.metadata || {}),
-    donation_profile: {
-      ...(existing.metadata?.donation_profile || {}),
-      review_status: status,
-      reviewed_at: new Date().toISOString(),
-      rejected_at: status === "rejected" ? new Date().toISOString() : null,
-      rejection_reason: status === "rejected" ? comment.trim() : "",
-      rejection_comment: status === "rejected" ? comment.trim() : "",
-    },
-  };
-
-  const normalizedStatus = status === "approved" ? "active" : status;
-
-  const { data, error } = await supabase
-    .from("kuntai_other_accounts")
-    .update({
-      status: normalizedStatus,
-      metadata,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", accountId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
+export async function updateEventAccountStatus({ accountId, status, comment = "" }) {
+  return updateReviewedOtherAccountStatus({
+    accountId,
+    accountType: EVENT_ACCOUNT_TYPE,
+    status,
+    comment,
+  });
 }

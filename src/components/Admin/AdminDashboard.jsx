@@ -4,12 +4,14 @@ import { CheckCircle2, Clock3, RefreshCw, ShieldAlert, ShieldCheck, XCircle } fr
 import {
   getAdminAgentReviews,
   getAdminDonationReviews,
+  getAdminEventReviews,
   getAdminInsuranceReviews,
   getAdminKycReviews,
   getSignedKycDocument,
   getSignedStoredDocument,
   updateAgentAccountStatus,
   updateDonationAccountStatus,
+  updateEventAccountStatus,
   updateInsuranceAccountStatus,
   updateKycStatus,
 } from "../../Backend/services/adminService";
@@ -18,6 +20,12 @@ import {
   createAdminNotification,
   getAdminNotifications,
 } from "../../Backend/services/adminNotificationService";
+import {
+  getAccountReviewQueueMeta,
+  getReviewAccountConfig,
+  interpolateReviewMessage,
+} from "../../Backend/utils/accountReview";
+import { formatCurrency } from "../../Backend/utils/formatCurrency";
 
 function formatAdminDate(value) {
   if (!value) {
@@ -1030,6 +1038,134 @@ function DonationReviewCard({ item, onApprove, onReject }) {
   );
 }
 
+function EventReviewCard({ item, onApprove, onReject }) {
+  const displayStatus = formatReviewStatusLabel(item.eventReviewStatus);
+  const [rejectionComment, setRejectionComment] = useState(item.rejectionReason || "");
+
+  useEffect(() => {
+    setRejectionComment(item.rejectionReason || "");
+  }, [item.rejectionReason, item.id]);
+
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-xl font-semibold text-slate-950">
+              {item.account_name || item.eventName || "Event Account"}
+            </h3>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusTone(displayStatus)}`}>
+              {displayStatus}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-slate-500">
+            {item.displayName || "Unknown user"} • {item.profile?.phone || "No phone found"}
+          </p>
+        </div>
+
+        <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <Clock3 size={14} />
+          {formatAdminDate(item.updated_at || item.created_at)}
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Account Number</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.account_number || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Event Name</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.eventName || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Event Category</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.eventCategory || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Venue</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.eventLocation || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Schedule</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.eventDateLabel || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Event Description</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">{item.eventDescription || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Rejection Reason For User
+            </p>
+            <textarea
+              value={rejectionComment}
+              onChange={(event) => setRejectionComment(event.target.value)}
+              rows={4}
+              placeholder="Explain what must be corrected before this event account can be approved."
+              className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+            />
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              This message will appear on the user's dashboard and inside their notification center if you reject the request.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Ticket Setup</p>
+          {item.ticketCategories.length ? (
+            <div className="mt-3 space-y-3">
+              {item.ticketCategories.map((ticket, index) => (
+                <div
+                  key={ticket.id || `${ticket.name || "ticket"}-${index}`}
+                  className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <p className="text-sm font-semibold text-slate-950">{ticket.name || `Category ${index + 1}`}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {formatCurrency(ticket.price || 0, item.currency || "SLL")} • {Number(ticket.available_tickets || 0)} tickets
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 flex h-40 items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+              No ticket categories configured
+            </div>
+          )}
+
+          <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Summary</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              Lowest ticket: {formatCurrency(item.lowestTicketPrice || 0, item.currency || "SLL")}
+            </p>
+            <p className="mt-1 text-sm text-slate-600">Total tickets: {item.availableTickets || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => onApprove(item)}
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+        >
+          <CheckCircle2 size={16} />
+          <span>Approve</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(item, rejectionComment)}
+          className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+        >
+          <XCircle size={16} />
+          <span>Reject</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReviewStatusSection({
   eyebrow,
   title,
@@ -1093,6 +1229,7 @@ export default function AdminDashboard() {
   const [agentItems, setAgentItems] = useState([]);
   const [insuranceItems, setInsuranceItems] = useState([]);
   const [donationItems, setDonationItems] = useState([]);
+  const [eventItems, setEventItems] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1113,17 +1250,19 @@ export default function AdminDashboard() {
     setError("");
 
     try {
-      const [data, agentReviews, insuranceReviews, donationReviews, notifications] = await Promise.all([
+      const [data, agentReviews, insuranceReviews, donationReviews, eventReviews, notifications] = await Promise.all([
         getAdminKycReviews(),
         getAdminAgentReviews(),
         getAdminInsuranceReviews(),
         getAdminDonationReviews(),
+        getAdminEventReviews(),
         getAdminNotifications({ status: "active", limit: 8 }),
       ]);
       setItems(data);
       setAgentItems(agentReviews);
       setInsuranceItems(insuranceReviews);
       setDonationItems(donationReviews);
+      setEventItems(eventReviews);
       setAdminNotifications(notifications);
     } catch (err) {
       setError(err.message || "Admin KYC review could not be loaded.");
@@ -1211,6 +1350,22 @@ export default function AdminDashboard() {
   const pendingDonationCount = useMemo(() => pendingDonationItems.length, [pendingDonationItems]);
   const approvedDonationCount = useMemo(() => approvedDonationItems.length, [approvedDonationItems]);
   const rejectedDonationCount = useMemo(() => rejectedDonationItems.length, [rejectedDonationItems]);
+  const pendingEventItems = useMemo(
+    () => eventItems.filter((item) => formatReviewStatusLabel(item.eventReviewStatus) === "pending"),
+    [eventItems]
+  );
+  const approvedEventItems = useMemo(
+    () => eventItems.filter((item) => formatReviewStatusLabel(item.eventReviewStatus) === "approved"),
+    [eventItems]
+  );
+  const rejectedEventItems = useMemo(
+    () => eventItems.filter((item) => formatReviewStatusLabel(item.eventReviewStatus) === "rejected"),
+    [eventItems]
+  );
+  const pendingEventCount = useMemo(() => pendingEventItems.length, [pendingEventItems]);
+  const approvedEventCount = useMemo(() => approvedEventItems.length, [approvedEventItems]);
+  const rejectedEventCount = useMemo(() => rejectedEventItems.length, [rejectedEventItems]);
+  const eventQueueMeta = getAccountReviewQueueMeta("tickets");
   const reviewQueues = useMemo(
     () => [
       {
@@ -1417,12 +1572,65 @@ export default function AdminDashboard() {
           />
         ),
       },
+      {
+        key: "event-pending",
+        eyebrow: eventQueueMeta.eyebrow,
+        title: eventQueueMeta.pendingTitle,
+        count: pendingEventCount,
+        tone: "amber",
+        emptyLabel: eventQueueMeta.pendingEmpty,
+        items: pendingEventItems,
+        renderCard: (item) => (
+          <EventReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleEventStatusChange(item, "approved")}
+            onReject={(_, comment) => handleEventStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "event-approved",
+        eyebrow: eventQueueMeta.eyebrow,
+        title: eventQueueMeta.approvedTitle,
+        count: approvedEventCount,
+        tone: "emerald",
+        emptyLabel: eventQueueMeta.approvedEmpty,
+        items: approvedEventItems,
+        renderCard: (item) => (
+          <EventReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleEventStatusChange(item, "approved")}
+            onReject={(_, comment) => handleEventStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
+      {
+        key: "event-rejected",
+        eyebrow: eventQueueMeta.eyebrow,
+        title: eventQueueMeta.rejectedTitle,
+        count: rejectedEventCount,
+        tone: "rose",
+        emptyLabel: eventQueueMeta.rejectedEmpty,
+        items: rejectedEventItems,
+        renderCard: (item) => (
+          <EventReviewCard
+            key={item.id}
+            item={item}
+            onApprove={() => handleEventStatusChange(item, "approved")}
+            onReject={(_, comment) => handleEventStatusChange(item, "rejected", comment)}
+          />
+        ),
+      },
     ],
     [
       approvedAgentCount,
       approvedAgentItems,
       approvedDonationCount,
       approvedDonationItems,
+      approvedEventCount,
+      approvedEventItems,
       approvedInsuranceCount,
       approvedInsuranceItems,
       approvedCount,
@@ -1431,6 +1639,8 @@ export default function AdminDashboard() {
       pendingAgentItems,
       pendingDonationCount,
       pendingDonationItems,
+      pendingEventCount,
+      pendingEventItems,
       pendingInsuranceCount,
       pendingInsuranceItems,
       pendingCount,
@@ -1439,10 +1649,19 @@ export default function AdminDashboard() {
       rejectedAgentItems,
       rejectedDonationCount,
       rejectedDonationItems,
+      rejectedEventCount,
+      rejectedEventItems,
       rejectedInsuranceCount,
       rejectedInsuranceItems,
       rejectedCount,
       rejectedItems,
+      eventQueueMeta.approvedEmpty,
+      eventQueueMeta.approvedTitle,
+      eventQueueMeta.eyebrow,
+      eventQueueMeta.pendingEmpty,
+      eventQueueMeta.pendingTitle,
+      eventQueueMeta.rejectedEmpty,
+      eventQueueMeta.rejectedTitle,
     ]
   );
   const activeQueueConfig =
@@ -1457,16 +1676,17 @@ export default function AdminDashboard() {
     }
   }
 
-  async function handleAgentStatusChange(item, nextStatus, comment = "") {
+  async function handleReviewedAccountStatusChange(item, nextStatus, comment, updateStatus, fallbackError) {
     try {
       const trimmedComment = comment.trim();
+      const reviewConfig = getReviewAccountConfig(item.account_type);
 
       if (nextStatus === "rejected" && !trimmedComment) {
-        setError("Add a rejection reason before rejecting an agent account.");
+        setError(reviewConfig?.rejectValidationMessage || "Add a rejection reason before rejecting this account.");
         return;
       }
 
-      await updateAgentAccountStatus({
+      await updateStatus({
         accountId: item.id,
         status: nextStatus,
         comment: trimmedComment,
@@ -1474,12 +1694,17 @@ export default function AdminDashboard() {
       await createAdminNotification({
         title:
           nextStatus === "approved"
-            ? "Agent account approved"
-            : "Agent account needs attention",
+            ? reviewConfig?.adminApproveTitle || "Account approved"
+            : reviewConfig?.adminRejectTitle || "Account needs attention",
         body:
           nextStatus === "approved"
-            ? `Your ${item.account_name || "agent"} account has been approved by the admin team and is now ready to use.`
-            : `Your ${item.account_name || "agent"} account request was rejected by the admin team. Reason: ${trimmedComment}. Please update your account details and upload fresh business documents before resubmitting.`,
+            ? interpolateReviewMessage(reviewConfig?.adminApproveBody, {
+                accountName: item.account_name || reviewConfig?.noun || "account",
+              })
+            : interpolateReviewMessage(reviewConfig?.adminRejectBody, {
+                accountName: item.account_name || reviewConfig?.noun || "account",
+                comment: trimmedComment,
+              }),
         audienceType: "single_user",
         targetUserId: item.user_id,
         tone: nextStatus === "approved" ? "success" : "warning",
@@ -1487,76 +1712,48 @@ export default function AdminDashboard() {
       });
       await load();
     } catch (err) {
-      setError(err.message || "Agent account status could not be updated.");
+      setError(err.message || fallbackError);
     }
+  }
+
+  async function handleAgentStatusChange(item, nextStatus, comment = "") {
+    await handleReviewedAccountStatusChange(
+      item,
+      nextStatus,
+      comment,
+      updateAgentAccountStatus,
+      "Agent account status could not be updated."
+    );
   }
 
   async function handleInsuranceStatusChange(item, nextStatus, comment = "") {
-    try {
-      const trimmedComment = comment.trim();
-
-      if (nextStatus === "rejected" && !trimmedComment) {
-        setError("Add a rejection reason before rejecting an insurance account.");
-        return;
-      }
-
-      await updateInsuranceAccountStatus({
-        accountId: item.id,
-        status: nextStatus,
-        comment: trimmedComment,
-      });
-      await createAdminNotification({
-        title:
-          nextStatus === "approved"
-            ? "Insurance account approved"
-            : "Insurance account needs attention",
-        body:
-          nextStatus === "approved"
-            ? `Your ${item.account_name || "insurance"} account has been approved by the admin team and is now ready to use.`
-            : `Your ${item.account_name || "insurance"} account request was rejected by the admin team. Reason: ${trimmedComment}. Please update your insurance details and upload fresh documents before resubmitting.`,
-        audienceType: "single_user",
-        targetUserId: item.user_id,
-        tone: nextStatus === "approved" ? "success" : "warning",
-        isPopup: true,
-      });
-      await load();
-    } catch (err) {
-      setError(err.message || "Insurance account status could not be updated.");
-    }
+    await handleReviewedAccountStatusChange(
+      item,
+      nextStatus,
+      comment,
+      updateInsuranceAccountStatus,
+      "Insurance account status could not be updated."
+    );
   }
 
   async function handleDonationStatusChange(item, nextStatus, comment = "") {
-    try {
-      const trimmedComment = comment.trim();
+    await handleReviewedAccountStatusChange(
+      item,
+      nextStatus,
+      comment,
+      updateDonationAccountStatus,
+      "Donation account status could not be updated."
+    );
+  }
 
-      if (nextStatus === "rejected" && !trimmedComment) {
-        setError("Add a rejection reason before rejecting a donation account.");
-        return;
-      }
-
-      await updateDonationAccountStatus({
-        accountId: item.id,
-        status: nextStatus,
-        comment: trimmedComment,
-      });
-      await createAdminNotification({
-        title:
-          nextStatus === "approved"
-            ? "Donation account approved"
-            : "Donation account needs attention",
-        body:
-          nextStatus === "approved"
-            ? `Your ${item.account_name || "donation"} account has been approved by the admin team and is now ready to use.`
-            : `Your ${item.account_name || "donation"} account request was rejected by the admin team. Reason: ${trimmedComment}. Please update your donation details and upload fresh documents before resubmitting.`,
-        audienceType: "single_user",
-        targetUserId: item.user_id,
-        tone: nextStatus === "approved" ? "success" : "warning",
-        isPopup: true,
-      });
-      await load();
-    } catch (err) {
-      setError(err.message || "Donation account status could not be updated.");
-    }
+  async function handleEventStatusChange(item, nextStatus, comment = "") {
+    await handleReviewedAccountStatusChange(
+      item,
+      nextStatus,
+      comment,
+      updateEventAccountStatus,
+      "Event account status could not be updated."
+    );
   }
 
   const updateNotificationForm = (key, value) => {

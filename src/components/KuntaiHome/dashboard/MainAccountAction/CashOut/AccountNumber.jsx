@@ -2,6 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createAccountTransfer } from "../../../../../Backend/services/transferService";
 import { convertOwnAccounts } from "../../../../../Backend/services/walletConversionService";
+import {
+  buildStandardServiceMetadata,
+  getTransactionSubject,
+} from "../../../../../Backend/utils/serviceTransactions";
 import { normalizeCurrencyCode } from "../../../../../Backend/utils/currency";
 import { useAppearance } from "../../../../AppearanceProvider";
 
@@ -190,7 +194,8 @@ export default function AccountNumber({
     (!isConversionFlow || currency === targetCurrency || Boolean(fxState.rate));
 
   const resolvedTransferMetadata =
-    typeof transferMetadata === "function"
+    buildStandardServiceMetadata(
+      typeof transferMetadata === "function"
       ? transferMetadata({
           account,
           user,
@@ -202,7 +207,8 @@ export default function AccountNumber({
           currency,
           amount: numericAmount,
         })
-      : transferMetadata || {};
+      : transferMetadata || {}
+    );
 
   const resolvedReceiptOverrides =
     typeof receiptOverrides === "function"
@@ -313,6 +319,13 @@ export default function AccountNumber({
 
       const nextReceipt = {
         status: transfer?.status || "completed",
+        title:
+          resolvedTransferMetadata.receipt_title ||
+          (isConversionFlow ? "Wallet Conversion Receipt" : "Transaction Receipt"),
+        subject:
+          resolvedTransferMetadata.transaction_subject ||
+          getTransactionSubject(resolvedTransferMetadata.flow) ||
+          "Transaction",
         recipientName:
           transfer?.recipient_name ||
           effectiveRecipientLookup?.recipient_name ||
@@ -342,6 +355,10 @@ export default function AccountNumber({
         targetCurrency: transfer?.target_currency || targetCurrency,
         exchangeRate: Number(transfer?.exchange_rate ?? fxState.rate ?? 1),
         isConversion: isConversionFlow,
+        transactionSubject:
+          resolvedTransferMetadata.transaction_subject ||
+          getTransactionSubject(resolvedTransferMetadata.flow) ||
+          "",
         ...resolvedReceiptOverrides,
       };
 

@@ -1,6 +1,9 @@
 import BackTab from "./BackTab";
+import { useTranslation } from "../../../../useTranslation.jsx";
 
 export default function GovServicesHeader({ onBack }) {
+  const { t } = useTranslation();
+
   return (
     <div className="relative flex items-center justify-center h-14 border-b">
 
@@ -9,7 +12,7 @@ export default function GovServicesHeader({ onBack }) {
       </div>
 
       <h1 className="text-lg font-semibold">
-        Government Services Payment
+        {t("Government Services Payment")}
       </h1>
 
     </div>

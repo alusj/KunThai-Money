@@ -4,6 +4,12 @@ import { ArrowLeft, ArrowUpRight, Clock3, ReceiptText, Search, Share2, Wallet, X
 import { getTransactions, summarizeTransactions } from "../../../../Backend/services/transactionService";
 import { normalizeCurrencyCode } from "../../../../Backend/utils/currency";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
+import {
+  buildServiceReceiptModel,
+  getTransactionSubject,
+  resolveServiceCounterpartyName,
+  resolveTransactionReason,
+} from "../../../../Backend/utils/serviceTransactions";
 import TransactionsHeader from "./TransactionsHeader";
 
 const ALL_ENTRIES_ONLY_FLOWS = new Set([
@@ -185,76 +191,11 @@ function resolvePartyAccount(transaction, account) {
 }
 
 function buildTransactionMessage(transaction, account, profile) {
-  if (transaction?.metadata?.flow === "merchant_payment") {
-    const merchantLabel =
-      transaction.metadata?.merchant_account_name ||
-      resolvePersonLabel(transaction, account, profile);
+  const subject = getTransactionSubject(transaction);
+  if (subject) {
+    const party = resolveServiceCounterpartyName(transaction) || resolvePersonLabel(transaction, account, profile);
     const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have done payment to ${merchantLabel} for ${amount}.`;
-  }
-
-  if (transaction?.metadata?.flow === "agent_transfer") {
-    const agentLabel =
-      transaction.metadata?.agent_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have sent payment to ${agentLabel} for ${amount}.`;
-  }
-
-  if (transaction?.metadata?.flow === "hotel_payment") {
-    const hotelLabel =
-      transaction.metadata?.hotel_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have paid ${amount} to ${hotelLabel}.`;
-  }
-
-  if (transaction?.metadata?.flow === "school_payment") {
-    const schoolLabel =
-      transaction.metadata?.school_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have paid school fees to ${schoolLabel} for ${amount}.`;
-  }
-
-  if (transaction?.metadata?.flow === "restaurant_payment") {
-    const restaurantLabel =
-      transaction.metadata?.restaurant_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have paid ${amount} to ${restaurantLabel}.`;
-  }
-
-  if (transaction?.metadata?.flow === "supermarket_payment") {
-    const supermarketLabel =
-      transaction.metadata?.supermarket_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have paid ${amount} to ${supermarketLabel}.`;
-  }
-
-  if (transaction?.metadata?.flow === "pharmacy_payment") {
-    const pharmacyLabel =
-      transaction.metadata?.pharmacy_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have paid ${amount} to ${pharmacyLabel}.`;
-  }
-
-  if (transaction?.metadata?.flow === "insurance_payment") {
-    const insuranceLabel =
-      transaction.metadata?.insurance_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have paid ${amount} to ${insuranceLabel}.`;
-  }
-
-  if (transaction?.metadata?.flow === "donation_payment") {
-    const donationLabel =
-      transaction.metadata?.donation_account_name ||
-      resolvePersonLabel(transaction, account, profile);
-    const amount = formatAmountCode(transaction.amount || 0, transaction.currency || "SLL");
-    return `You have donated ${amount} to ${donationLabel}.`;
+    return `${subject} with ${party} for ${amount}.`;
   }
 
   const person = resolvePersonLabel(transaction, account, profile);
@@ -266,69 +207,28 @@ function buildTransactionMessage(transaction, account, profile) {
 }
 
 function deriveReceipt(transaction, account, profile) {
-  const direction = transaction.direction === "credit" ? "credit" : "debit";
-  const amount = Number(transaction.amount || 0);
-  const currency = normalizeCurrencyCode(transaction.currency || account?.currency) || "SLL";
-  const flow = transaction?.metadata?.flow;
-  const isMerchantPayment = flow === "merchant_payment";
-  const isAgentTransfer = flow === "agent_transfer";
-  const isHotelPayment = flow === "hotel_payment";
-  const isSchoolPayment = flow === "school_payment";
-  const isRestaurantPayment = flow === "restaurant_payment";
-  const isSupermarketPayment = flow === "supermarket_payment";
-  const isPharmacyPayment = flow === "pharmacy_payment";
-  const isInsurancePayment = flow === "insurance_payment";
-  const isDonationPayment = flow === "donation_payment";
-
-  return {
-    direction,
-    title: isMerchantPayment
-      ? "Merchant Payment Receipt:"
-      : isAgentTransfer
-        ? "Agent Transfer Receipt:"
-        : isHotelPayment
-          ? "Hotel Payment Receipt:"
-        : isSchoolPayment
-          ? "School Fees Receipt:"
-        : isRestaurantPayment
-          ? "Restaurant Payment Receipt:"
-        : isSupermarketPayment
-          ? "Supermarket Payment Receipt:"
-        : isPharmacyPayment
-          ? "Pharmacy Payment Receipt:"
-        : isInsurancePayment
-          ? "Insurance Payment Receipt:"
-        : isDonationPayment
-          ? "Donation Receipt:"
-        : direction === "credit"
-        ? "Cash in Receipt:"
-        : "Cash Out Receipt:",
+  const serviceReceipt = buildServiceReceiptModel(transaction, {
     personName: resolvePersonLabel(transaction, account, profile),
     personImage: resolvePartyImage(transaction, profile),
     personAccount: resolvePartyAccount(transaction, account),
+  });
+
+  if (getTransactionSubject(transaction)) {
+    return serviceReceipt;
+  }
+
+  const direction = transaction.direction === "credit" ? "credit" : "debit";
+  const amount = Number(transaction.amount || 0);
+  const currency = normalizeCurrencyCode(transaction.currency || account?.currency) || "SLL";
+
+  return {
+    ...serviceReceipt,
+    direction,
+    title: direction === "credit" ? "Cash In Receipt" : "Cash Out Receipt",
+    subject: direction === "credit" ? "Cash In Transaction" : "Cash Out Transaction",
     amount,
     currency,
-    dateTime: transaction.created_at,
-    transactionId: resolveTransactionId(transaction),
-    referenceId: resolveReference(transaction),
-    reason:
-      transaction.metadata?.agent_note ||
-      transaction.metadata?.hotel_note ||
-      transaction.metadata?.school_note ||
-      transaction.metadata?.restaurant_note ||
-      transaction.metadata?.supermarket_note ||
-      transaction.metadata?.pharmacy_note ||
-      transaction.metadata?.insurance_note ||
-      transaction.metadata?.donation_note ||
-      transaction.metadata?.purchase_description ||
-      transaction.metadata?.note ||
-      resolveReason(transaction),
-    fee: Number(transaction.metadata?.transaction_fee || transaction.metadata?.fee || 0),
-    tax: Number(transaction.metadata?.tax_amount || transaction.metadata?.tax || 0),
-    totalSent:
-      direction === "debit"
-        ? Number(transaction.metadata?.total_amount || amount + Number(transaction.metadata?.transaction_fee || 0) + Number(transaction.metadata?.tax_amount || 0))
-        : amount,
+    reason: resolveReason(transaction),
   };
 }
 
@@ -650,7 +550,8 @@ function ReceiptView({ receipt, onBack }) {
         }`}
       >
         <div className="rounded-[28px] border border-white/80 bg-white/90 p-5 md:p-6">
-          <h2 className="text-3xl font-semibold text-slate-950">{receipt.title}</h2>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">{receipt.subject}</p>
+          <h2 className="mt-2 text-3xl font-semibold text-slate-950">{receipt.title}</h2>
 
           <div className="mt-6 flex items-center gap-4">
             <ReceiptAvatar name={receipt.personName} image={receipt.personImage} direction={receipt.direction} />
@@ -663,7 +564,7 @@ function ReceiptView({ receipt, onBack }) {
           <div className="mt-6 space-y-4">
             <ReceiptDivider />
             <ReceiptRow
-              label={receipt.direction === "credit" ? "Amount Received:" : "Amount sent:"}
+              label={receipt.direction === "credit" ? "Amount Received:" : "Amount Sent:"}
               value={formatAmountCode(receipt.amount, receipt.currency)}
               strong
             />

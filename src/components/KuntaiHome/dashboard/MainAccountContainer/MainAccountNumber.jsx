@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppearance } from "../../../AppearanceProvider";
+import { useTranslation } from "../../../useTranslation.jsx";
 
 function formatForDisplay(accountNumber = "") {
   if (!accountNumber) {
@@ -18,6 +19,7 @@ function fullyMask(accountNumber = "") {
 
 export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
   const { isDarkMode } = useAppearance();
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -44,11 +46,11 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
   if (!accountNumber) {
     return (
       <div
-        className={`mb-8 rounded-[28px] border px-5 py-4 shadow-sm ${
+        className={`dashboard-panel mb-8 rounded-[28px] border px-5 py-4 shadow-sm ${
           isDarkMode ? "accent-ring bg-slate-900/88" : "accent-ring bg-white/80"
         }`}
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">Account Number</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">{t("Account Number")}</p>
         <div className="mt-3 h-5 w-40 animate-pulse rounded bg-slate-200" />
       </div>
     );
@@ -66,7 +68,7 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
 
   return (
     <div
-      className={`mb-8 rounded-[28px] border px-5 py-4 ${
+      className={`dashboard-panel mb-8 rounded-[28px] border px-5 py-4 ${
         isDarkMode
           ? "accent-ring bg-slate-900/92 shadow-[0_18px_40px_var(--accent-soft-bg)]"
           : "accent-ring bg-white shadow-[0_18px_40px_var(--accent-soft-bg)]"
@@ -74,7 +76,7 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">Account Number</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">{t("Account Number")}</p>
           <button
             type="button"
             onClick={() => setIsVisible((current) => !current)}
@@ -82,7 +84,9 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
           >
             {isVisible ? accountNumber : fullyMaskedAccountNumber || maskedAccountNumber}
           </button>
-          <p className="mt-2 text-xs text-slate-400">Tap the number to {isVisible ? "hide" : "show"} it.</p>
+          <p className="mt-2 text-xs text-slate-400">
+            {t("Tap the number to {action} it.", { action: t(isVisible ? "hide" : "show") })}
+          </p>
         </div>
 
         <div className="relative self-end sm:self-auto" ref={menuRef}>
@@ -95,7 +99,7 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
                 : "border-slate-200 text-slate-700 hover:bg-slate-50"
             }`}
             aria-expanded={menuOpen}
-            aria-label="Open account number actions"
+            aria-label={t("Open account number actions")}
           >
             ...
           </button>
@@ -115,7 +119,7 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
                   isDarkMode ? "text-slate-100 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                {isVisible ? "Hide" : "Show"}
+                {t(isVisible ? "Hide" : "Show")}
               </button>
               <button
                 onClick={async () => {
@@ -126,7 +130,7 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
                   isDarkMode ? "text-slate-100 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                {copied ? "Copied" : "Copy"}
+                {t(copied ? "Copied" : "Copy")}
               </button>
               <button
                 onClick={() => {
@@ -138,7 +142,7 @@ export default function MainAccountNumber({ account, onRemoveFromDashboard }) {
                   isDarkMode ? "text-rose-300 hover:bg-rose-950/40" : "text-rose-600 hover:bg-rose-50"
                 }`}
               >
-                Remove from dashboard
+                {t("Remove from dashboard")}
               </button>
             </div>
           )}

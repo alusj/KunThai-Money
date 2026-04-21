@@ -22,7 +22,7 @@ export default function MainAccountCard({ account, user, profile, refreshAccount
         }`}
       >
         <div
-          className={`flex flex-col items-stretch gap-5 rounded-[26px] border p-4 md:flex-row md:items-start md:justify-between md:gap-5 ${
+          className={`dashboard-panel dashboard-panel-strong flex flex-col items-stretch gap-5 rounded-[26px] border p-4 md:flex-row md:items-start md:justify-between md:gap-5 ${
             isDarkMode
               ? "accent-ring bg-slate-950/88"
               : "accent-ring bg-white"

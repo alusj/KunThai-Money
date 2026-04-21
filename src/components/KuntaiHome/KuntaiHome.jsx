@@ -10,6 +10,7 @@ import {
   getOtherAccounts,
   resubmitAgentAccount,
   resubmitDonationAccount,
+  resubmitEventAccount,
   resubmitInsuranceAccount,
 } from "../../Backend/services/otherAccountService";
 import { getUserAdminNotifications } from "../../Backend/services/adminNotificationService";
@@ -31,6 +32,12 @@ import { normalizeCurrencyRecord } from "../../Backend/utils/currency";
 import { formatCurrency } from "../../Backend/utils/formatCurrency";
 import { buildHeaderNotifications } from "../../Backend/utils/headerNotifications";
 import {
+  getAccountRejectionReason,
+  getNormalizedAccountReviewStatus,
+  getReviewAccountConfig,
+} from "../../Backend/utils/accountReview";
+import { EVENT_ACCOUNT_TYPE } from "../../Backend/utils/accountTypes";
+import {
   clearStoredHomeScreen,
   getHomeScreenLastActiveAt,
   HOME_SCREEN_RESUME_WINDOW_MS,
@@ -40,6 +47,7 @@ import {
 } from "../../Backend/utils/homeScreenSession";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";
+import { useTranslation } from "../useTranslation.jsx";
 import Header from "./header/Header";
 import Dashboard from "./dashboard/Dashboard";
 import CreateAnotherAccountScreen from "./header/CreateAnotherAccountScreen";
@@ -110,6 +118,7 @@ export default function KunTaiHome() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode, appearanceMode, setAppearanceMode } = useAppearance();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { status, loading: statusLoading } = useOnboardingStatus(user?.id);
   const [activeScreen, setActiveScreen] = useState(() =>
@@ -193,19 +202,25 @@ export default function KunTaiHome() {
   const hiddenOtherAccounts = otherAccounts.filter((item) =>
     hiddenOtherAccountIds.includes(String(item.id))
   );
-  const rejectedAgentAccounts = otherAccounts.filter((item) => {
-    const reviewStatus = item?.metadata?.agent_profile?.review_status || item?.status || "pending";
-    return item?.account_type === "agent" && reviewStatus === "rejected";
-  });
-  const rejectedInsuranceAccounts = otherAccounts.filter((item) => {
-    const reviewStatus = item?.metadata?.insurance_profile?.review_status || item?.status || "pending";
-    return item?.account_type === "insurance" && reviewStatus === "rejected";
-  });
-  const rejectedDonationAccounts = otherAccounts.filter((item) => {
-    const reviewStatus = item?.metadata?.donation_profile?.review_status || item?.status || "pending";
-    return item?.account_type === "donation" && reviewStatus === "rejected";
-  });
-  const eventAccounts = otherAccounts.filter((item) => item?.account_type === "tickets");
+  const rejectedAgentAccounts = otherAccounts.filter(
+    (item) => item?.account_type === "agent" && getNormalizedAccountReviewStatus(item) === "rejected"
+  );
+  const rejectedInsuranceAccounts = otherAccounts.filter(
+    (item) => item?.account_type === "insurance" && getNormalizedAccountReviewStatus(item) === "rejected"
+  );
+  const rejectedDonationAccounts = otherAccounts.filter(
+    (item) => item?.account_type === "donation" && getNormalizedAccountReviewStatus(item) === "rejected"
+  );
+  const rejectedEventAccounts = otherAccounts.filter(
+    (item) => item?.account_type === EVENT_ACCOUNT_TYPE && getNormalizedAccountReviewStatus(item) === "rejected"
+  );
+  const reviewBannerAccounts = [
+    rejectedAgentAccounts[0],
+    rejectedInsuranceAccounts[0],
+    rejectedDonationAccounts[0],
+    rejectedEventAccounts[0],
+  ].filter(Boolean);
+  const eventAccounts = otherAccounts.filter((item) => item?.account_type === EVENT_ACCOUNT_TYPE);
   const updateBiometricBanner = (messageTitle, message, messageTone = "info") => {
     setBiometricState((current) => ({
       ...current,
@@ -232,17 +247,17 @@ export default function KunTaiHome() {
     setActiveScreen("create-account");
   };
 
-  const openRejectedAgentResubmission = (agentAccount, returnScreen = "dashboard") => {
-    if (!agentAccount?.id) {
+  const openRejectedAccountResubmission = (reviewAccount, returnScreen = "dashboard") => {
+    if (!reviewAccount?.id) {
       return;
     }
 
-    const reviewStatus = agentAccount?.metadata?.agent_profile?.review_status || agentAccount?.status || "pending";
+    const reviewStatus = getNormalizedAccountReviewStatus(reviewAccount);
 
     if (reviewStatus !== "rejected") {
       showActionFeedback(
         "Account already verified",
-        `${agentAccount?.account_name || "This account"} can no longer be edited.`,
+        `${reviewAccount?.account_name || "This account"} can no longer be edited.`,
         "info"
       );
       return;
@@ -250,33 +265,20 @@ export default function KunTaiHome() {
 
     openAccountForm({
       mode: "resubmit",
-      editAccount: agentAccount,
+      editAccount: reviewAccount,
       returnScreen,
     });
   };
+
+  const openRejectedAgentResubmission = (agentAccount, returnScreen = "dashboard") =>
+    openRejectedAccountResubmission(agentAccount, returnScreen);
 
   const openRejectedInsuranceResubmission = (insuranceAccount, returnScreen = "dashboard") => {
     if (!insuranceAccount?.id) {
       return;
     }
 
-    const reviewStatus =
-      insuranceAccount?.metadata?.insurance_profile?.review_status || insuranceAccount?.status || "pending";
-
-    if (reviewStatus !== "rejected") {
-      showActionFeedback(
-        "Account already verified",
-        `${insuranceAccount?.account_name || "This account"} can no longer be edited.`,
-        "info"
-      );
-      return;
-    }
-
-    openAccountForm({
-      mode: "resubmit",
-      editAccount: insuranceAccount,
-      returnScreen,
-    });
+    openRejectedAccountResubmission(insuranceAccount, returnScreen);
   };
 
   const openRejectedDonationResubmission = (donationAccount, returnScreen = "dashboard") => {
@@ -284,23 +286,15 @@ export default function KunTaiHome() {
       return;
     }
 
-    const reviewStatus =
-      donationAccount?.metadata?.donation_profile?.review_status || donationAccount?.status || "pending";
+    openRejectedAccountResubmission(donationAccount, returnScreen);
+  };
 
-    if (reviewStatus !== "rejected") {
-      showActionFeedback(
-        "Account already verified",
-        `${donationAccount?.account_name || "This account"} can no longer be edited.`,
-        "info"
-      );
+  const openRejectedEventResubmission = (eventAccount, returnScreen = "dashboard") => {
+    if (!eventAccount?.id) {
       return;
     }
 
-    openAccountForm({
-      mode: "resubmit",
-      editAccount: donationAccount,
-      returnScreen,
-    });
+    openRejectedAccountResubmission(eventAccount, returnScreen);
   };
 
   const fetchAccount = async () => {
@@ -1006,105 +1000,49 @@ export default function KunTaiHome() {
             </div>
           ) : null}
 
-          {rejectedAgentAccounts.length ? (
-            <div className="px-4 pt-4 md:px-8 lg:px-12">
-              <div className="rounded-[28px] border border-amber-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="max-w-3xl">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-amber-700">
-                      Agent account update needed
-                    </p>
-                    <h3 className="mt-3 text-2xl font-semibold text-slate-950">
-                      {rejectedAgentAccounts[0]?.account_name || "Agent account"} needs to be updated
-                    </h3>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      {rejectedAgentAccounts[0]?.metadata?.agent_profile?.rejection_reason ||
-                        rejectedAgentAccounts[0]?.metadata?.agent_profile?.rejection_comment ||
-                        "The admin team asked for corrections before this account can be approved."}
-                    </p>
-                  </div>
+          {reviewBannerAccounts.map((accountItem) => {
+            const reviewConfig = getReviewAccountConfig(accountItem?.account_type);
+            const openAction =
+              accountItem?.account_type === "insurance"
+                ? () => openRejectedInsuranceResubmission(accountItem, "dashboard")
+                : accountItem?.account_type === "donation"
+                  ? () => openRejectedDonationResubmission(accountItem, "dashboard")
+                  : accountItem?.account_type === EVENT_ACCOUNT_TYPE
+                    ? () => openRejectedEventResubmission(accountItem, "dashboard")
+                    : () => openRejectedAgentResubmission(accountItem, "dashboard");
 
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => openRejectedAgentResubmission(rejectedAgentAccounts[0], "dashboard")}
-                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Open
-                    </button>
+            return (
+              <div key={accountItem.id} className="px-4 pt-4 md:px-8 lg:px-12">
+                <div className="rounded-[28px] border border-amber-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="max-w-3xl">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-amber-700">
+                        {reviewConfig?.accountUpdatedTitle || "Account update needed"}
+                      </p>
+                      <h3 className="mt-3 text-2xl font-semibold text-slate-950">
+                        {accountItem?.account_name || reviewConfig?.title || "Account"} needs to be updated
+                      </h3>
+                      <p className="mt-4 text-sm leading-6 text-slate-600">
+                        {getAccountRejectionReason(accountItem) ||
+                          reviewConfig?.accountUpdatedFallback ||
+                          "The admin team asked for corrections before this account can be approved."}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={openAction}
+                        className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        Open
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ) : null}
-
-          {rejectedInsuranceAccounts.length ? (
-            <div className="px-4 pt-4 md:px-8 lg:px-12">
-              <div className="rounded-[28px] border border-amber-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="max-w-3xl">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-amber-700">
-                      Insurance account update needed
-                    </p>
-                    <h3 className="mt-3 text-2xl font-semibold text-slate-950">
-                      {rejectedInsuranceAccounts[0]?.account_name || "Insurance account"} needs to be updated
-                    </h3>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      {rejectedInsuranceAccounts[0]?.metadata?.insurance_profile?.rejection_reason ||
-                        rejectedInsuranceAccounts[0]?.metadata?.insurance_profile?.rejection_comment ||
-                        "The admin team asked for corrections before this insurance account can be approved."}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openRejectedInsuranceResubmission(rejectedInsuranceAccounts[0], "dashboard")
-                      }
-                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Open
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {rejectedDonationAccounts.length ? (
-            <div className="px-4 pt-4 md:px-8 lg:px-12">
-              <div className="rounded-[28px] border border-amber-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="max-w-3xl">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-amber-700">
-                      Donation account update needed
-                    </p>
-                    <h3 className="mt-3 text-2xl font-semibold text-slate-950">
-                      {rejectedDonationAccounts[0]?.account_name || "Donation account"} needs to be updated
-                    </h3>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      {rejectedDonationAccounts[0]?.metadata?.donation_profile?.rejection_reason ||
-                        rejectedDonationAccounts[0]?.metadata?.donation_profile?.rejection_comment ||
-                        "The admin team asked for corrections before this donation account can be approved."}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openRejectedDonationResubmission(rejectedDonationAccounts[0], "dashboard")
-                      }
-                      className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Open
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
+            );
+          })}
 
           <Dashboard
             account={accountLoading ? null : account}
@@ -1134,6 +1072,9 @@ export default function KunTaiHome() {
             }
             onEditRejectedDonation={(donationAccount) =>
               openRejectedDonationResubmission(donationAccount, "dashboard")
+            }
+            onEditRejectedEvent={(eventAccount) =>
+              openRejectedEventResubmission(eventAccount, "dashboard")
             }
           />
         </>
@@ -1206,6 +1147,15 @@ export default function KunTaiHome() {
 
               if (targetAccount) {
                 openRejectedDonationResubmission(targetAccount, "notifications");
+              }
+              return;
+            }
+
+            if (action === "event-account-resubmit") {
+              const targetAccount = otherAccounts.find((accountItem) => accountItem.id === item.accountId);
+
+              if (targetAccount) {
+                openRejectedEventResubmission(targetAccount, "notifications");
               }
               return;
             }
@@ -1362,8 +1312,8 @@ export default function KunTaiHome() {
           onShowMainAccountNumber={() => {
             setIsMainAccountNumberHidden(false);
             showActionFeedback(
-              "Account number added to dashboard",
-              "Your main account number is now visible on the dashboard.",
+              t("Account number added to dashboard"),
+              t("Your main account number is now visible on the dashboard."),
               "success"
             );
           }}
@@ -1372,8 +1322,8 @@ export default function KunTaiHome() {
               current.filter((hiddenId) => hiddenId !== String(accountId))
             );
             showActionFeedback(
-              "Account number added to dashboard",
-              "The selected account number is now visible on the dashboard.",
+              t("Account number added to dashboard"),
+              t("The selected account number is now visible on the dashboard."),
               "success"
             );
           }}
@@ -1447,15 +1397,7 @@ export default function KunTaiHome() {
           existingAccounts={otherAccounts}
           mode={accountFormState.mode}
           editAccount={accountFormState.editAccount}
-          rejectionReason={
-            accountFormState.editAccount?.metadata?.agent_profile?.rejection_reason ||
-            accountFormState.editAccount?.metadata?.agent_profile?.rejection_comment ||
-            accountFormState.editAccount?.metadata?.insurance_profile?.rejection_reason ||
-            accountFormState.editAccount?.metadata?.insurance_profile?.rejection_comment ||
-            accountFormState.editAccount?.metadata?.donation_profile?.rejection_reason ||
-            accountFormState.editAccount?.metadata?.donation_profile?.rejection_comment ||
-            ""
-          }
+          rejectionReason={getAccountRejectionReason(accountFormState.editAccount)}
           onBack={() => {
             const nextScreen = accountFormState.returnScreen || "profile";
             setAccountFormState({
@@ -1471,17 +1413,9 @@ export default function KunTaiHome() {
                 accountFormState.editAccount?.account_type === "insurance";
               const isDonationResubmission =
                 accountFormState.editAccount?.account_type === "donation";
-              const reviewStatus = isInsuranceResubmission
-                ? accountFormState.editAccount?.metadata?.insurance_profile?.review_status ||
-                  accountFormState.editAccount?.status ||
-                  "pending"
-                : isDonationResubmission
-                  ? accountFormState.editAccount?.metadata?.donation_profile?.review_status ||
-                    accountFormState.editAccount?.status ||
-                    "pending"
-                : accountFormState.editAccount?.metadata?.agent_profile?.review_status ||
-                  accountFormState.editAccount?.status ||
-                  "pending";
+              const isEventResubmission =
+                accountFormState.editAccount?.account_type === EVENT_ACCOUNT_TYPE;
+              const reviewStatus = getNormalizedAccountReviewStatus(accountFormState.editAccount);
 
               if (reviewStatus !== "rejected") {
                 throw new Error("This account has already been verified and can no longer be edited.");
@@ -1501,6 +1435,13 @@ export default function KunTaiHome() {
                   "Your updated donation details and fresh documents have been sent back to the admin team for review.",
                   "success"
                 );
+              } else if (isEventResubmission) {
+                await resubmitEventAccount(accountFormState.editAccount.id, payload);
+                showActionFeedback(
+                  "Event account resubmitted",
+                  "Your updated event details and ticket setup have been sent back to the admin team for review.",
+                  "success"
+                );
               } else {
                 await resubmitAgentAccount(accountFormState.editAccount.id, payload);
                 showActionFeedback(
@@ -1511,6 +1452,15 @@ export default function KunTaiHome() {
               }
             } else {
               await createOtherAccount(payload);
+              const reviewConfig = getReviewAccountConfig(payload.account_type);
+
+              if (reviewConfig) {
+                showActionFeedback(
+                  `${reviewConfig.title} submitted`,
+                  reviewConfig.pendingDescription,
+                  "success"
+                );
+              }
             }
             await fetchOtherAccounts();
             await fetchAdminMessages();

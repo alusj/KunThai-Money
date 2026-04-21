@@ -57,6 +57,28 @@ html[data-accent="black"] {
   --bank-accent: #020617;
 }
 
+html[data-theme="dark"][data-accent="black"] {
+  --accent-50: #f8fafc;
+  --accent-100: #e2e8f0;
+  --accent-200: #94a3b8;
+  --accent-300: #cbd5e1;
+  --accent-400: #e2e8f0;
+  --accent-500: #f8fafc;
+  --accent-700: #f8fafc;
+  --accent-900: #ffffff;
+  --accent-soft-bg: rgba(148, 163, 184, 0.18);
+  --accent-soft-border: rgba(226, 232, 240, 0.2);
+  --accent-soft-text: #e2e8f0;
+  --accent-gradient: linear-gradient(135deg, #334155 0%, #0f172a 100%);
+  --accent-gradient-soft: linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.18) 0%,
+    rgba(30, 41, 59, 0.94) 100%
+  );
+  --bank-primary: #cbd5e1;
+  --bank-accent: #f8fafc;
+}
+
 html[data-accent="ocean"] {
   --accent-50: #eff6ff;
   --accent-100: #dbeafe;
@@ -365,6 +387,30 @@ html[data-theme="dark"] .hover\:bg-slate-100:hover,
 html[data-theme="dark"] .hover\:bg-slate-200:hover,
 html[data-theme="dark"] .hover\:bg-white:hover {
   background-color: rgba(51, 65, 85, 0.95) !important;
+}
+
+html[data-theme="dark"][data-accent="black"] .dashboard-shell {
+  background:
+    radial-gradient(circle at top, rgba(148, 163, 184, 0.12), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(71, 85, 105, 0.18), transparent 28%),
+    linear-gradient(180deg, #111827 0%, #1f2937 48%, #0f172a 100%);
+}
+
+html[data-theme="dark"][data-accent="black"] .dashboard-panel {
+  border-color: rgba(226, 232, 240, 0.14) !important;
+  background-color: rgba(30, 41, 59, 0.84) !important;
+  box-shadow: 0 22px 48px rgba(2, 6, 23, 0.38) !important;
+}
+
+html[data-theme="dark"][data-accent="black"] .dashboard-panel-strong {
+  border-color: rgba(226, 232, 240, 0.16) !important;
+  background:
+    linear-gradient(180deg, rgba(51, 65, 85, 0.88) 0%, rgba(15, 23, 42, 0.96) 100%) !important;
+}
+
+html[data-theme="dark"][data-accent="black"] .dashboard-panel-soft:hover {
+  border-color: rgba(226, 232, 240, 0.3) !important;
+  background-color: rgba(51, 65, 85, 0.9) !important;
 }
 
 @media (max-width: 767px) {

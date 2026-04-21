@@ -45,13 +45,16 @@ export default function AccountNumberReceipt({
     if (!receipt || !receiptRef.current) return;
 
     try {
-      const imageAsset = await buildReceiptFile("image");
+      const [imageAsset, pdfAsset] = await Promise.all([
+        buildReceiptFile("image"),
+        buildReceiptFile("pdf"),
+      ]);
+      const shareFiles = [imageAsset.file, pdfAsset.file];
 
-      if (navigator.share && navigator.canShare?.({ files: [imageAsset.file] })) {
+      if (navigator.share && navigator.canShare?.({ files: shareFiles })) {
         await navigator.share({
-          title: "Transaction Receipt",
-          text: "KunThai Money receipt",
-          files: [imageAsset.file],
+          title: receipt.title || "Transaction Receipt",
+          files: shareFiles,
         });
         return;
       }
@@ -126,10 +129,10 @@ export default function AccountNumberReceipt({
 
       <div className="mb-5">
         <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-          Transaction Receipt
+          {receipt.subject || receipt.transactionSubject || "Transaction"}
         </p>
         <div className="mt-3 flex items-center justify-between gap-3">
-          <h3 className="text-2xl font-semibold text-slate-950">Receipt details</h3>
+          <h3 className="text-2xl font-semibold text-slate-950">{receipt.title || "Receipt details"}</h3>
           <StatusBadge status={receipt.status} />
         </div>
       </div>
@@ -202,7 +205,7 @@ export default function AccountNumberReceipt({
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
             >
               <Share2 size={16} />
-              <span>Save as Image</span>
+              <span>Share as Image</span>
             </button>
             <button
               type="button"
@@ -210,7 +213,7 @@ export default function AccountNumberReceipt({
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
             >
               <ReceiptText size={16} />
-              <span>Save as PDF</span>
+              <span>Share as PDF</span>
             </button>
           </div>
         ) : null}

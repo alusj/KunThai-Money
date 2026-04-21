@@ -24,6 +24,7 @@ import {
 import BackTab from "./Transactions/BackTab";
 import AuthNotice from "../../auth/AuthNotice";
 import { useAppearance } from "../../AppearanceProvider";
+import { useTranslation } from "../../useTranslation.jsx";
 import { LEGAL_CONTENT } from "../../legal/legalContent";
 
 const HELP_CONTENT = {
@@ -137,28 +138,28 @@ const HELP_CONTENT = {
   },
 };
 
-function getVerificationCopy(status) {
+function getVerificationCopy(status, t) {
   if (!status?.hasKyc) {
-    return { label: "KYC Required", tone: "bg-amber-100 text-amber-700" };
+    return { label: t("KYC Required"), tone: "bg-amber-100 text-amber-700" };
   }
 
   if (status.kycStatus === "pending") {
-    return { label: "KYC Pending", tone: "bg-sky-100 text-sky-700" };
+    return { label: t("KYC Pending"), tone: "bg-sky-100 text-sky-700" };
   }
 
   if (status.kycStatus === "approved") {
-    return { label: "Verified", tone: "bg-emerald-100 text-emerald-700" };
+    return { label: t("Verified"), tone: "bg-emerald-100 text-emerald-700" };
   }
 
-  return { label: "Needs Review", tone: "bg-rose-100 text-rose-700" };
+  return { label: t("Needs Review"), tone: "bg-rose-100 text-rose-700" };
 }
 
-function formatLastSeen(lastLoginAt) {
+function formatLastSeen(lastLoginAt, locale, t) {
   if (!lastLoginAt) {
-    return "Current session";
+    return t("Current session");
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -215,6 +216,8 @@ function MenuDivider() {
 }
 
 function MenuScreenHeader({ title, onBack, icon: Icon = Landmark }) {
+  const { t } = useTranslation();
+
   return (
     <div className="mb-6">
       <div className="flex items-center gap-4 px-2">
@@ -222,7 +225,7 @@ function MenuScreenHeader({ title, onBack, icon: Icon = Landmark }) {
           type="button"
           onClick={onBack}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
-          aria-label={`Back from ${title}`}
+          aria-label={t("Go back")}
         >
           <ChevronLeft size={22} />
         </button>
@@ -320,6 +323,7 @@ function SelectionOption({ title, description, selected, onClick }) {
 }
 
 function ColorThemeOption({ title, value, selected, onClick }) {
+  const { t } = useTranslation();
   const colorClassMap = {
     default: "from-emerald-400 to-blue-700",
     black: "from-slate-700 to-black",
@@ -342,7 +346,7 @@ function ColorThemeOption({ title, value, selected, onClick }) {
         <span className={`h-11 w-11 rounded-full bg-gradient-to-br ${colorClassMap[value] || colorClassMap.ocean} shadow-[0_12px_24px_rgba(15,23,42,0.18)]`} />
         <span>
           <span className="block text-[1.02rem] font-semibold text-slate-950">{title}</span>
-          <span className="mt-1 block text-sm text-slate-500">Accent color for highlights and service styling.</span>
+          <span className="mt-1 block text-sm text-slate-500">{t("Accent color for highlights and service styling.")}</span>
         </span>
       </span>
       <span
@@ -357,13 +361,15 @@ function ColorThemeOption({ title, value, selected, onClick }) {
 }
 
 function SubmenuHeader({ title, description, onBack }) {
+  const { t } = useTranslation();
+
   return (
     <div className="mb-4 flex items-start gap-3 px-1">
       <button
         type="button"
         onClick={onBack}
         className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
-        aria-label={`Back from ${title}`}
+        aria-label={t("Go back")}
       >
         <ChevronLeft size={18} />
       </button>
@@ -504,7 +510,8 @@ export default function ProfileScreen({
     setTextSize,
     setAccentColor,
   } = useAppearance();
-  const verification = getVerificationCopy(status);
+  const { t, locale } = useTranslation();
+  const verification = getVerificationCopy(status, t);
   const initials = useMemo(
     () =>
       name
@@ -597,32 +604,32 @@ export default function ProfileScreen({
     {
       key: "security",
       icon: Shield,
-      title: "Security",
+      title: t("Security"),
     },
     {
       key: "notifications",
       icon: Bell,
-      title: "Notifications",
+      title: t("Notifications"),
     },
     {
       key: "settings",
       icon: Monitor,
-      title: "Settings",
+      title: t("Settings"),
     },
     {
       key: "terms",
       icon: FileText,
-      title: "Terms & Conditions",
+      title: t("Terms & Conditions"),
     },
     {
       key: "help",
       icon: CircleHelp,
-      title: "Help",
+      title: t("Help"),
     },
     {
       key: "logout",
       icon: LogOut,
-      title: "Logout",
+      title: t("Logout"),
       danger: true,
     },
   ];
@@ -632,7 +639,7 @@ export default function ProfileScreen({
     if (activeMenu === "security") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Security" onBack={closeMenu} icon={activeMenuItem?.icon || Shield} />
+          <MenuScreenHeader title={t("Security")} onBack={closeMenu} icon={activeMenuItem?.icon || Shield} />
           {biometrics?.message ? (
             <div className="mb-4">
               <AuthNotice tone={biometrics.messageTone || "info"} title={biometrics.messageTitle}>
@@ -641,11 +648,11 @@ export default function ProfileScreen({
             </div>
           ) : null}
           <MenuGroup>
-            <MenuItem icon={Shield} title="Change PIN" onClick={onOpenChangePin} />
+            <MenuItem icon={Shield} title={t("Change PIN")} onClick={onOpenChangePin} />
             <MenuDivider />
             <MenuItem
               icon={Fingerprint}
-              title="Enable biometrics"
+              title={t("Enable biometrics")}
               trailing={
                 <Toggle
                   enabled={Boolean(biometrics?.enabled)}
@@ -656,7 +663,7 @@ export default function ProfileScreen({
               onClick={onToggleBiometrics}
             />
             <MenuDivider />
-            <MenuItem icon={LockKeyhole} title="Change password" onClick={onOpenChangePassword} />
+            <MenuItem icon={LockKeyhole} title={t("Change password")} onClick={onOpenChangePassword} />
           </MenuGroup>
         </MenuShell>
       );
@@ -665,11 +672,11 @@ export default function ProfileScreen({
     if (activeMenu === "notifications") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Notifications" onBack={closeMenu} icon={activeMenuItem?.icon || Bell} />
+          <MenuScreenHeader title={t("Notifications")} onBack={closeMenu} icon={activeMenuItem?.icon || Bell} />
           <MenuGroup>
             <MenuItem
               icon={Bell}
-              title="Transactions"
+              title={t("Transactions")}
               trailing={
                 <Toggle
                   enabled={notificationState.transactions}
@@ -683,7 +690,7 @@ export default function ProfileScreen({
             <MenuDivider />
             <MenuItem
               icon={Shield}
-              title="Security alerts"
+              title={t("Security alerts")}
               trailing={
                 <Toggle
                   enabled={notificationState.security}
@@ -697,7 +704,7 @@ export default function ProfileScreen({
             <MenuDivider />
             <MenuItem
               icon={CreditCard}
-              title="Promotions"
+              title={t("Promotions")}
               trailing={
                 <Toggle
                   enabled={notificationState.promotions}
@@ -711,7 +718,7 @@ export default function ProfileScreen({
             <MenuDivider />
             <MenuItem
               icon={Monitor}
-              title="System updates"
+              title={t("System updates")}
               trailing={
                 <Toggle
                   enabled={notificationState.systemUpdates}
@@ -733,18 +740,18 @@ export default function ProfileScreen({
     if (activeMenu === "settings") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Settings" onBack={closeMenu} icon={activeMenuItem?.icon || Monitor} />
+          <MenuScreenHeader title={t("Settings")} onBack={closeMenu} icon={activeMenuItem?.icon || Monitor} />
           <MenuGroup>
             <MenuItem
               icon={Palette}
-              title="Dark mode"
+              title={t("Dark mode")}
               trailing={
                 <span className="text-sm font-semibold text-slate-500">
                   {appearance?.mode === "system"
-                    ? "System"
+                    ? t("System")
                     : appearance?.mode === "dark"
-                      ? "On"
-                      : "Off"}
+                      ? t("On")
+                      : t("Off")}
                 </span>
               }
               onClick={() => openMenu("appearance")}
@@ -752,14 +759,14 @@ export default function ProfileScreen({
             <MenuDivider />
             <MenuItem
               icon={Globe}
-              title="Language"
+              title={t("Language")}
               trailing={<span className="text-sm font-semibold text-slate-500">{resolvedLanguageLabel}</span>}
               onClick={() => openMenu("language")}
             />
             <MenuDivider />
             <MenuItem
               icon={Type}
-              title="Text size"
+              title={t("Text size")}
               trailing={
                 <span className="text-sm font-semibold capitalize text-slate-500">{textSize}</span>
               }
@@ -768,7 +775,7 @@ export default function ProfileScreen({
             <MenuDivider />
             <MenuItem
               icon={Palette}
-              title="Theme colors"
+              title={t("Theme colors")}
               trailing={<span className="text-sm font-semibold capitalize text-slate-500">{accentColor}</span>}
               onClick={() => openMenu("theme-colors")}
             />
@@ -780,23 +787,23 @@ export default function ProfileScreen({
     if (activeMenu === "appearance") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Dark mode" onBack={closeSettingsSubmenu} icon={Palette} />
+          <MenuScreenHeader title={t("Dark mode")} onBack={closeSettingsSubmenu} icon={Palette} />
           <MenuGroup>
             <SelectionOption
-              title="On"
+              title={t("On")}
               selected={appearance?.mode === "dark"}
               onClick={() => onChangeAppearanceMode?.("dark")}
             />
             <MenuDivider />
             <SelectionOption
-              title="Off"
+              title={t("Off")}
               selected={appearance?.mode === "light"}
               onClick={() => onChangeAppearanceMode?.("light")}
             />
             <MenuDivider />
             <SelectionOption
-              title="System"
-              description="We'll adjust your appearance based on your device's system settings."
+              title={t("System")}
+              description={t("We'll adjust your appearance based on your device's system settings.")}
               selected={appearance?.mode === "system"}
               onClick={() => onChangeAppearanceMode?.("system")}
             />
@@ -808,7 +815,7 @@ export default function ProfileScreen({
     if (activeMenu === "language") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Language" onBack={closeSettingsSubmenu} icon={Globe} />
+          <MenuScreenHeader title={t("Language")} onBack={closeSettingsSubmenu} icon={Globe} />
           <MenuGroup>
             {availableLanguages.map((option, index) => (
               <div key={option.value}>
@@ -816,10 +823,10 @@ export default function ProfileScreen({
                   title={option.label}
                   description={
                     option.value === "system"
-                      ? "We'll follow your device language when localized app text is available."
+                      ? t("We'll follow your device language when localized app text is available.")
                       : option.value === "en"
-                        ? "Current app content is fully written in English."
-                        : "Saved as your preferred language while localized app text is expanded."
+                        ? t("Current app content is fully written in English.")
+                        : t("Saved as your preferred language while localized app text is expanded.")
                   }
                   selected={language === option.value}
                   onClick={() => setLanguage(option.value)}
@@ -835,25 +842,25 @@ export default function ProfileScreen({
     if (activeMenu === "text-size") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Text size" onBack={closeSettingsSubmenu} icon={Type} />
+          <MenuScreenHeader title={t("Text size")} onBack={closeSettingsSubmenu} icon={Type} />
           <MenuGroup>
             <SelectionOption
-              title="Small"
-              description="A tighter layout with slightly smaller text across the app."
+              title={t("Small")}
+              description={t("A tighter layout with slightly smaller text across the app.")}
               selected={textSize === "small"}
               onClick={() => setTextSize("small")}
             />
             <MenuDivider />
             <SelectionOption
-              title="Medium"
-              description="Balanced default sizing for most screens."
+              title={t("Medium")}
+              description={t("Balanced default sizing for most screens.")}
               selected={textSize === "medium"}
               onClick={() => setTextSize("medium")}
             />
             <MenuDivider />
             <SelectionOption
-              title="Large"
-              description="A more readable layout with bigger text across the app."
+              title={t("Large")}
+              description={t("A more readable layout with bigger text across the app.")}
               selected={textSize === "large"}
               onClick={() => setTextSize("large")}
             />
@@ -865,7 +872,7 @@ export default function ProfileScreen({
     if (activeMenu === "theme-colors") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Theme colors" onBack={closeSettingsSubmenu} icon={Palette} />
+          <MenuScreenHeader title={t("Theme colors")} onBack={closeSettingsSubmenu} icon={Palette} />
           <div className="space-y-3">
             {availableThemeColors.map((option) => (
               <ColorThemeOption
@@ -884,7 +891,7 @@ export default function ProfileScreen({
     if (activeMenu === "other-accounts") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Other Accounts" onBack={closeMenu} icon={activeMenuItem?.icon || Wallet} />
+          <MenuScreenHeader title={t("Other Accounts")} onBack={closeMenu} icon={activeMenuItem?.icon || Wallet} />
           {otherAccounts.length ? (
             <MenuGroup>
               {otherAccounts.map((item, index) => {
@@ -898,21 +905,21 @@ export default function ProfileScreen({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[1.02rem] font-semibold text-slate-950">
-                          {item.account_name || "Other Account"}
+                          {item.account_name || t("Other Account")}
                         </p>
                         <div className="mt-1 flex items-center justify-between gap-3">
-                          <p className="break-all text-xs text-slate-500">{item.account_number || "Account number pending"}</p>
+                          <p className="break-all text-xs text-slate-500">{item.account_number || t("Account number pending")}</p>
                           {isHidden ? (
                             <button
                               type="button"
                               onClick={() => onShowOtherAccount?.(item.id)}
                               className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
                             >
-                              Show
+                              {t("Show")}
                             </button>
                           ) : (
                             <span className="rounded-full bg-emerald-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                              Visible
+                              {t("Visible")}
                             </span>
                           )}
                         </div>
@@ -926,7 +933,7 @@ export default function ProfileScreen({
           ) : (
             <MenuGroup>
               <div className="px-5 py-10 text-center text-sm text-slate-500">
-                No other accounts added yet.
+                {t("No other accounts added yet.")}
               </div>
             </MenuGroup>
           )}
@@ -937,15 +944,15 @@ export default function ProfileScreen({
     if (activeMenu === "terms") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Terms & Conditions" onBack={closeMenu} icon={activeMenuItem?.icon || FileText} />
+          <MenuScreenHeader title={t("Terms & Conditions")} onBack={closeMenu} icon={activeMenuItem?.icon || FileText} />
           <MenuGroup>
-            <MenuItem icon={FileText} title="Privacy policy" onClick={() => openPolicy("privacy")} />
+            <MenuItem icon={FileText} title={t("Privacy policy")} onClick={() => openPolicy("privacy")} />
             <MenuDivider />
-            <MenuItem icon={FileText} title="Terms of service" onClick={() => openPolicy("service")} />
+            <MenuItem icon={FileText} title={t("Terms of service")} onClick={() => openPolicy("service")} />
             <MenuDivider />
-            <MenuItem icon={CreditCard} title="Fees and charges" onClick={() => openPolicy("fees")} />
+            <MenuItem icon={CreditCard} title={t("Fees and charges")} onClick={() => openPolicy("fees")} />
             <MenuDivider />
-            <MenuItem icon={Shield} title="KYC / compliance rules" onClick={() => openPolicy("kyc")} />
+            <MenuItem icon={Shield} title={t("KYC / compliance rules")} onClick={() => openPolicy("kyc")} />
           </MenuGroup>
         </MenuShell>
       );
@@ -954,23 +961,23 @@ export default function ProfileScreen({
     if (activeMenu === "help") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Help" onBack={closeMenu} icon={activeMenuItem?.icon || CircleHelp} />
+          <MenuScreenHeader title={t("Help")} onBack={closeMenu} icon={activeMenuItem?.icon || CircleHelp} />
           <MenuGroup>
-            <MenuItem icon={MessageCircle} title="Live chat" onClick={onOpenHelp} />
+            <MenuItem icon={MessageCircle} title={t("Live chat")} onClick={onOpenHelp} />
             <MenuDivider />
-            <MenuItem icon={MessageCircle} title="WhatsApp support" onClick={onOpenHelp} />
+            <MenuItem icon={MessageCircle} title={t("WhatsApp support")} onClick={onOpenHelp} />
             <MenuDivider />
-            <MenuItem icon={MessageCircle} title="Email support" onClick={onOpenHelp} />
+            <MenuItem icon={MessageCircle} title={t("Email support")} onClick={onOpenHelp} />
             <MenuDivider />
-            <MenuItem icon={CircleHelp} title="Guides & tutorial" onClick={onOpenHelp} />
+            <MenuItem icon={CircleHelp} title={t("Guides & tutorial")} onClick={onOpenHelp} />
             <MenuDivider />
-            <MenuItem icon={CircleHelp} title="FAQs" onClick={() => openHelpTopic("faqs")} />
+            <MenuItem icon={CircleHelp} title={t("FAQs")} onClick={() => openHelpTopic("faqs")} />
             <MenuDivider />
-            <MenuItem icon={Wallet} title="Didn't receive money" onClick={() => openHelpTopic("missing-money")} />
+            <MenuItem icon={Wallet} title={t("Didn't receive money")} onClick={() => openHelpTopic("missing-money")} />
             <MenuDivider />
-            <MenuItem icon={Shield} title="OTP not working" onClick={() => openHelpTopic("otp")} />
+            <MenuItem icon={Shield} title={t("OTP not working")} onClick={() => openHelpTopic("otp")} />
             <MenuDivider />
-            <MenuItem icon={LockKeyhole} title="Account locked / suspended" onClick={() => openHelpTopic("locked")} />
+            <MenuItem icon={LockKeyhole} title={t("Account locked / suspended")} onClick={() => openHelpTopic("locked")} />
           </MenuGroup>
         </MenuShell>
       );
@@ -979,25 +986,25 @@ export default function ProfileScreen({
     if (activeMenu === "logout") {
       return (
         <MenuShell>
-          <MenuScreenHeader title="Logout" onBack={closeMenu} icon={activeMenuItem?.icon || LogOut} />
+          <MenuScreenHeader title={t("Logout")} onBack={closeMenu} icon={activeMenuItem?.icon || LogOut} />
           <MenuGroup>
             <MenuItem
               icon={LogOut}
-              title="Logout from all devices"
+              title={t("Logout from all devices")}
               onClick={() => onSignOut?.("all")}
               danger
             />
             <MenuDivider />
             <MenuItem
               icon={LogOut}
-              title="Logout from this device"
+              title={t("Logout from this device")}
               onClick={() => onSignOut?.("current")}
               danger
             />
             <MenuDivider />
             <MenuItem
               icon={Trash2}
-              title="Delete account"
+              title={t("Delete account")}
               onClick={onOpenHelp}
               danger
             />
@@ -1009,7 +1016,7 @@ export default function ProfileScreen({
     return (
       <MenuShell>
         <div className="mb-4 px-2">
-          <h3 className="text-2xl font-bold text-slate-950">Settings</h3>
+          <h3 className="text-2xl font-bold text-slate-950">{t("Settings")}</h3>
         </div>
 
         <div className="space-y-5">
@@ -1069,11 +1076,11 @@ export default function ProfileScreen({
           <BackTab onBack={onBack} />
           <div className="text-center">
             <p className={`text-[0.7rem] font-semibold uppercase tracking-[0.32em] ${isDarkMode ? "text-slate-300" : "text-slate-400"}`}>
-              Profile Center
+              {t("Profile Center")}
             </p>
           </div>
           <div className={`rounded-full px-3 py-2 text-xs font-semibold ${isDarkMode ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-600"}`}>
-            Active
+            {t("Active")}
           </div>
         </div>
       </div>
@@ -1111,7 +1118,7 @@ export default function ProfileScreen({
                         onClick={onOpenEditProfile}
                         className="mt-4 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                       >
-                        Edit profile
+                        {t("Edit profile")}
                       </button>
                     </div>
                   </div>
@@ -1121,9 +1128,9 @@ export default function ProfileScreen({
                     onClick={onOpenCreateAccount}
                     className="rounded-[22px] bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] px-5 py-4 text-left text-white shadow-[0_16px_36px_rgba(37,99,235,0.18)] transition hover:opacity-95 lg:min-w-[220px]"
                   >
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/64">Account</p>
-                    <p className="mt-2 text-lg font-semibold">Add another account</p>
-                    <p className="mt-1 text-xs text-white/72">Create an eligible service or foreign account</p>
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/64">{t("Account")}</p>
+                    <p className="mt-2 text-lg font-semibold">{t("Add another account")}</p>
+                    <p className="mt-1 text-xs text-white/72">{t("Create an eligible service or foreign account")}</p>
                   </button>
                 </div>
 
@@ -1131,9 +1138,9 @@ export default function ProfileScreen({
                   <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Account Number</p>
+                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">{t("Account Number")}</p>
                         <p className={`mt-2 break-all text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
-                          {account?.account_number || "Pending"}
+                          {account?.account_number || t("Pending")}
                         </p>
                       </div>
                       {isMainAccountNumberHidden && account?.account_number ? (
@@ -1142,14 +1149,14 @@ export default function ProfileScreen({
                           onClick={onShowMainAccountNumber}
                           className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
                         >
-                          Show
+                          {t("Show")}
                         </button>
                       ) : null}
                     </div>
                   </div>
                   <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Phone Number</p>
-                    <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{profile?.phone || "Phone not available"}</p>
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">{t("Phone Number")}</p>
+                    <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{profile?.phone || t("Phone not available")}</p>
                   </div>
                   {hiddenOtherAccounts.length ? (
                     <button
@@ -1163,9 +1170,9 @@ export default function ProfileScreen({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Other Accounts</p>
+                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">{t("Other Accounts")}</p>
                           <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>
-                            {hiddenOtherAccounts.length} hidden
+                            {hiddenOtherAccounts.length} {t("hidden")}
                           </p>
                         </div>
                         <span className="rounded-full bg-slate-100 p-2 text-slate-700">
@@ -1173,19 +1180,19 @@ export default function ProfileScreen({
                         </span>
                       </div>
                       <p className="mt-3 text-xs text-slate-500">
-                        Restore hidden account numbers back to the dashboard from here.
+                        {t("Restore hidden account numbers back to the dashboard from here.")}
                       </p>
                     </button>
                   ) : null}
                   <div className={`rounded-[24px] px-5 py-4 ${isDarkMode ? "bg-slate-900/80 shadow-[0_10px_24px_rgba(2,6,23,0.32)]" : "bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">Verification</p>
+                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400">{t("Verification")}</p>
                         <p className={`mt-2 text-base font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-950"}`}>{verification.label}</p>
                       </div>
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${verification.tone}`}>{verification.label}</span>
                     </div>
-                    <p className="mt-3 text-xs text-slate-500">Last seen {formatLastSeen(profile?.last_login_at)}</p>
+                    <p className="mt-3 text-xs text-slate-500">{t("Last seen {time}", { time: formatLastSeen(profile?.last_login_at, locale, t) })}</p>
                   </div>
                 </div>
 
@@ -1195,14 +1202,14 @@ export default function ProfileScreen({
             <div className="mt-6 space-y-5">
               {hasPurchasedEventTickets || hasEventSales ? (
                 <SectionCard
-                  title="Events"
-                  subtitle="Keep event tickets and event verification tools close to your profile when you need them."
+                  title={t("Events")}
+                  subtitle={t("Keep event tickets and event verification tools close to your profile when you need them.")}
                 >
                   {hasPurchasedEventTickets ? (
                     <RowAction
                       icon={Ticket}
-                      title="Event Tickets"
-                      description="Open your purchased tickets, see ticket codes, and generate QR codes only when you want them."
+                      title={t("Event Tickets")}
+                      description={t("Open your purchased tickets, see ticket codes, and generate QR codes only when you want them.")}
                       end={<ChevronEnd />}
                       onClick={onOpenEventTickets}
                     />
@@ -1211,8 +1218,8 @@ export default function ProfileScreen({
                   {hasEventSales ? (
                     <RowAction
                       icon={Shield}
-                      title="Events"
-                      description="Validate buyers by code or QR image and mark tickets as used at the gate."
+                      title={t("Events")}
+                      description={t("Validate buyers by code or QR image and mark tickets as used at the gate.")}
                       end={<ChevronEnd />}
                       onClick={onOpenEventManager}
                     />
@@ -1224,13 +1231,13 @@ export default function ProfileScreen({
 
               {isAdmin ? (
                 <SectionCard
-                  title="Admin"
-                  subtitle="Admin tools stay separate so they do not compete with everyday profile settings."
+                  title={t("Admin")}
+                  subtitle={t("Admin tools stay separate so they do not compete with everyday profile settings.")}
                 >
                   <RowAction
                     icon={BriefcaseBusiness}
-                    title="KYC & Notifications"
-                    description="Open the admin review queue for identity checks and compliance alerts."
+                    title={t("KYC & Notifications")}
+                    description={t("Open the admin review queue for identity checks and compliance alerts.")}
                     end={<ChevronEnd />}
                     onClick={onOpenAdmin}
                   />

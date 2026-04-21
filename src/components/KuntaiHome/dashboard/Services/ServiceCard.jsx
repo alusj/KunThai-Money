@@ -10,7 +10,7 @@ export default function ServiceCard({ icon, title, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border p-3 transition-all duration-200 ${
+      className={`dashboard-panel dashboard-panel-soft flex cursor-pointer flex-col items-center justify-center rounded-xl border p-3 transition-all duration-200 ${
         isDarkMode
           ? "accent-ring bg-slate-900/92 hover:bg-slate-800/92 hover:shadow-[0_14px_30px_var(--accent-soft-bg)]"
           : "accent-ring bg-white hover:shadow-md"

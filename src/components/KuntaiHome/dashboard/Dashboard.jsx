@@ -44,6 +44,7 @@ export default function Dashboard({
   onEditRejectedAgent,
   onEditRejectedInsurance,
   onEditRejectedDonation,
+  onEditRejectedEvent,
 }) {
   const { isDarkMode } = useAppearance();
   const [activeService, setActiveService] = useState(() => {
@@ -77,7 +78,7 @@ export default function Dashboard({
 
   return (
     <main
-      className={`min-h-screen w-full transition-colors ${
+      className={`dashboard-shell min-h-screen w-full transition-colors ${
         isDarkMode
           ? "bg-[radial-gradient(circle_at_top,var(--accent-soft-bg),transparent_24%),linear-gradient(180deg,#0f172a_0%,#111827_44%,#172033_100%)]"
           : ""
@@ -113,6 +114,7 @@ export default function Dashboard({
                 onEditRejectedAgent={onEditRejectedAgent}
                 onEditRejectedInsurance={onEditRejectedInsurance}
                 onEditRejectedDonation={onEditRejectedDonation}
+                onEditRejectedEvent={onEditRejectedEvent}
               />
               <ServicesContainer setActiveService={setActiveService} />
             </>

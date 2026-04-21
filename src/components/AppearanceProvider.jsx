@@ -8,8 +8,8 @@ const AppearanceContext = createContext(null);
 const SUPPORTED_LANGUAGES = [
   { value: "system", label: "Device default" },
   { value: "en", label: "English" },
-  { value: "fr", label: "French" },
-  { value: "ar", label: "Arabic" },
+  { value: "fr", label: "Francais" },
+  { value: "ar", label: "العربية" },
 ];
 const THEME_COLORS = [
   { value: "default", label: "Default" },

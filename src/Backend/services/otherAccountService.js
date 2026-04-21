@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { isReviewManagedAccountType } from "../utils/accountReview";
 import { normalizeCurrencyRecord } from "../utils/currency";
 import {
   buildEventDateTime,
@@ -85,6 +86,7 @@ function buildEventMetadata(payload) {
     : Number(payload.ticket_price || 0);
 
   return {
+    review_status: "pending",
     event_name: payload.event_name?.trim() || "",
     event_category: payload.event_category?.trim() || "",
     event_location: payload.event_location?.trim() || "",
@@ -230,6 +232,25 @@ function buildDonationResubmissionMetadata(existingMetadata = {}, payload, uploa
   };
 }
 
+function buildEventResubmissionMetadata(existingMetadata = {}, payload) {
+  const existingEventProfile = existingMetadata?.event_profile || {};
+  const nextEventProfile = buildEventMetadata(payload);
+
+  return {
+    ...existingMetadata,
+    event_profile: {
+      ...existingEventProfile,
+      ...nextEventProfile,
+      review_status: "pending",
+      reviewed_at: null,
+      rejected_at: null,
+      rejection_reason: "",
+      rejection_comment: "",
+      resubmitted_at: new Date().toISOString(),
+    },
+  };
+}
+
 function normalizeCountryCode(countryCode = "") {
   return String(countryCode || "").replace(/\+/g, "").trim();
 }
@@ -290,12 +311,7 @@ async function createOtherAccountFallback(payload, uploadedDocumentFiles = []) {
         country_code: mainAccount.country_code,
         country: mainAccount.country,
         currency: payload.account_type === "foreign" ? "USD" : mainAccount.currency,
-        status:
-          payload.account_type === "agent" ||
-          payload.account_type === "insurance" ||
-          payload.account_type === "donation"
-            ? "pending"
-            : "active",
+        status: isReviewManagedAccountType(payload.account_type) ? "pending" : "active",
         location_mode: payload.location_mode || "manual",
         use_current_location: Boolean(payload.use_current_location),
         location_country: payload.location_country,
@@ -421,9 +437,7 @@ export async function createOtherAccount(payload) {
     .update({
       metadata,
       status:
-        payload.account_type === "agent" ||
-        payload.account_type === "insurance" ||
-        payload.account_type === "donation"
+        isReviewManagedAccountType(payload.account_type)
           ? "pending"
           : data.status,
     })
@@ -673,6 +687,97 @@ export async function resubmitDonationAccount(accountId, payload) {
     payload,
     uploadedDocumentFiles
   );
+
+  const { data, error } = await supabase
+    .from("kuntai_other_accounts")
+    .update({
+      account_name: payload.account_name.trim(),
+      status: "pending",
+      location_mode: payload.location_mode || "manual",
+      use_current_location: Boolean(payload.use_current_location),
+      location_country: payload.location_country.trim(),
+      location_city: payload.location_city.trim(),
+      location_address: payload.location_address?.trim() || null,
+      latitude: payload.latitude ?? null,
+      longitude: payload.longitude ?? null,
+      nearby_discovery_enabled: Boolean(payload.nearby_discovery_enabled),
+      metadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", accountId)
+    .eq("user_id", user.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeCurrencyRecord(data);
+}
+
+export async function resubmitEventAccount(accountId, payload) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    throw userError;
+  }
+
+  if (!user?.id) {
+    throw new Error("Authentication required");
+  }
+
+  if (!accountId) {
+    throw new Error("Event account could not be found.");
+  }
+
+  if (!payload.account_name?.trim()) {
+    throw new Error("Enter an account name");
+  }
+
+  if (!payload.event_name?.trim()) {
+    throw new Error("Enter the event name");
+  }
+
+  if (!payload.event_location?.trim()) {
+    throw new Error("Enter the event location");
+  }
+
+  if (!payload.event_date) {
+    throw new Error("Select the event date");
+  }
+
+  if (!payload.event_time) {
+    throw new Error("Select the event time");
+  }
+
+  if (!payload.ticket_categories?.length) {
+    throw new Error("Add at least one ticket category before resubmitting.");
+  }
+
+  if (!payload.location_country?.trim() || !payload.location_city?.trim()) {
+    throw new Error("Enter at least country and city for account location");
+  }
+
+  const { data: existingAccount, error: fetchError } = await supabase
+    .from("kuntai_other_accounts")
+    .select("id,user_id,account_type,metadata")
+    .eq("id", accountId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  if (existingAccount.account_type !== EVENT_ACCOUNT_TYPE) {
+    throw new Error("Only event accounts can be resubmitted from this form.");
+  }
+
+  const metadata = buildEventResubmissionMetadata(existingAccount.metadata || {}, payload);
 
   const { data, error } = await supabase
     .from("kuntai_other_accounts")

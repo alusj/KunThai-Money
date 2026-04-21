@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  getAccountReviewBadge,
+  getNormalizedAccountReviewStatus,
+} from "../../../../Backend/utils/accountReview";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { getAccountTypeLabel } from "../../../../Backend/utils/accountTypes";
 import { EVENT_ACCOUNT_TYPE, formatEventDateTime, getEventProfile } from "../../../../Backend/utils/eventAccounts";
 import { useAppearance } from "../../../AppearanceProvider";
+import { useTranslation } from "../../../useTranslation.jsx";
 import BottomSheet from "../MainAccountAction/CashOut/BottomSheet";
 import AccountNumber from "../MainAccountAction/CashOut/AccountNumber";
 
@@ -74,8 +79,10 @@ function OtherAccountCard({
   onEditRejectedAgent,
   onEditRejectedInsurance,
   onEditRejectedDonation,
+  onEditRejectedEvent,
 }) {
   const { isDarkMode } = useAppearance();
+  const { t } = useTranslation();
   const [isConcealed, setIsConcealed] = useState(() =>
     readHiddenAccountContentIds().includes(String(account.id))
   );
@@ -87,24 +94,12 @@ function OtherAccountCard({
   const isForeignAccount = account.account_type === "foreign";
   const isEventAccount = account.account_type === EVENT_ACCOUNT_TYPE;
   const eventProfile = getEventProfile(account);
-  const agentReviewStatus = account?.metadata?.agent_profile?.review_status || account?.status || "pending";
-  const isRejectedAgent = account?.account_type === "agent" && agentReviewStatus === "rejected";
-  const insuranceReviewStatus =
-    account?.metadata?.insurance_profile?.review_status || account?.status || "pending";
-  const isRejectedInsurance =
-    account?.account_type === "insurance" && insuranceReviewStatus === "rejected";
-  const donationReviewStatus =
-    account?.metadata?.donation_profile?.review_status || account?.status || "pending";
-  const isRejectedDonation =
-    account?.account_type === "donation" && donationReviewStatus === "rejected";
-  const rejectionReason =
-    account?.metadata?.agent_profile?.rejection_reason ||
-    account?.metadata?.agent_profile?.rejection_comment ||
-    account?.metadata?.insurance_profile?.rejection_reason ||
-    account?.metadata?.insurance_profile?.rejection_comment ||
-    account?.metadata?.donation_profile?.rejection_reason ||
-    account?.metadata?.donation_profile?.rejection_comment ||
-    "";
+  const reviewStatus = getNormalizedAccountReviewStatus(account);
+  const reviewBadge = getAccountReviewBadge(account);
+  const isRejectedAgent = account?.account_type === "agent" && reviewStatus === "rejected";
+  const isRejectedInsurance = account?.account_type === "insurance" && reviewStatus === "rejected";
+  const isRejectedDonation = account?.account_type === "donation" && reviewStatus === "rejected";
+  const isRejectedEvent = isEventAccount && reviewStatus === "rejected";
   const [activeForeignAction, setActiveForeignAction] = useState(null);
 
   useEffect(() => {
@@ -132,18 +127,22 @@ function OtherAccountCard({
   }, [menuOpen]);
 
   const title = isConcealed
-    ? "Hidden account"
+    ? t("Hidden account")
     : account.account_name || getAccountTypeLabel(account.account_type);
   const accountNumber = isConcealed
     ? maskValue(account.account_number || "Pending", 0)
-    : account.account_number || "Account number pending";
+    : account.account_number || t("Account number pending");
   const balanceLabel = isConcealed
-    ? `Balance: ${maskValue(formatCurrency(account.balance || 0, account.currency || "USD"), 0)}`
-    : `Balance: ${formatCurrency(account.balance || 0, account.currency || "USD")}`;
+    ? t("Balance: {amount}", {
+        amount: maskValue(formatCurrency(account.balance || 0, account.currency || "USD"), 0),
+      })
+    : t("Balance: {amount}", {
+        amount: formatCurrency(account.balance || 0, account.currency || "USD"),
+      });
 
   return (
     <div
-      className={`rounded-xl border border-l-4 p-4 transition-all duration-300 ${
+      className={`dashboard-panel dashboard-panel-soft rounded-xl border border-l-4 p-4 transition-all duration-300 ${
         isDarkMode
           ? "border-slate-700 bg-slate-900/92 hover:border-sky-400 hover:shadow-[0_18px_34px_rgba(2,6,23,0.42)]"
           : "border-gray-200 bg-white hover:border-blue-400 hover:shadow-lg hover:-translate-y-1"
@@ -176,15 +175,36 @@ function OtherAccountCard({
           ) : null}
         </div>
 
-        {isConcealed ? (
-          <span
-            className={`rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] ${
-              isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            Hidden
-          </span>
-        ) : null}
+        <div className="flex flex-col items-end gap-2">
+          {reviewBadge ? (
+            <span
+              className={`rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] ${
+                reviewBadge.tone === "success"
+                  ? isDarkMode
+                    ? "bg-emerald-950/40 text-emerald-200"
+                    : "bg-emerald-50 text-emerald-700"
+                  : reviewBadge.tone === "warning"
+                    ? isDarkMode
+                      ? "bg-amber-950/40 text-amber-200"
+                      : "bg-amber-50 text-amber-700"
+                    : isDarkMode
+                      ? "bg-sky-950/40 text-sky-200"
+                      : "bg-sky-50 text-sky-700"
+              }`}
+            >
+              {reviewBadge.label}
+            </span>
+          ) : null}
+          {isConcealed ? (
+            <span
+              className={`rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] ${
+                isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              Hidden
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4 flex justify-end">
@@ -266,36 +286,43 @@ function OtherAccountCard({
         </div>
       </div>
 
-      {isRejectedAgent || isRejectedInsurance || isRejectedDonation ? (
+      {reviewBadge ? (
         <div
           className={`mt-4 rounded-2xl border px-4 py-3 ${
-            isDarkMode ? "border-amber-700/70 bg-amber-950/20 text-amber-100" : "border-amber-200 bg-amber-50 text-amber-900"
+            reviewBadge.tone === "success"
+              ? isDarkMode
+                ? "border-emerald-700/50 bg-emerald-950/20 text-emerald-100"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : reviewBadge.tone === "warning"
+                ? isDarkMode
+                  ? "border-amber-700/70 bg-amber-950/20 text-amber-100"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+                : isDarkMode
+                  ? "border-sky-700/50 bg-sky-950/20 text-sky-100"
+                  : "border-sky-200 bg-sky-50 text-sky-900"
           }`}
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em]">Rejected by admin</p>
-          <p className="mt-2 text-sm leading-6">
-            {rejectionReason ||
-              (isRejectedInsurance
-                ? "This insurance account needs fresh verification documents before it can be approved."
-                : isRejectedDonation
-                  ? "This donation account needs fresh verification documents before it can be approved."
-                : "This account needs fresh business documents before it can be approved.")}
-          </p>
-          <button
-            type="button"
-            onClick={() =>
-              isRejectedInsurance
-                ? onEditRejectedInsurance?.(account)
-                : isRejectedDonation
-                  ? onEditRejectedDonation?.(account)
-                  : onEditRejectedAgent?.(account)
-            }
-            className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${
-              isDarkMode ? "bg-slate-100 text-slate-950 hover:bg-white" : "bg-slate-950 text-white hover:bg-slate-800"
-            }`}
-          >
-            Open
-          </button>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em]">{reviewBadge.label}</p>
+          <p className="mt-2 text-sm leading-6">{reviewBadge.description}</p>
+          {isRejectedAgent || isRejectedInsurance || isRejectedDonation || isRejectedEvent ? (
+            <button
+              type="button"
+              onClick={() =>
+                isRejectedInsurance
+                  ? onEditRejectedInsurance?.(account)
+                  : isRejectedDonation
+                    ? onEditRejectedDonation?.(account)
+                    : isRejectedEvent
+                      ? onEditRejectedEvent?.(account)
+                      : onEditRejectedAgent?.(account)
+              }
+              className={`mt-3 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                isDarkMode ? "bg-slate-100 text-slate-950 hover:bg-white" : "bg-slate-950 text-white hover:bg-slate-800"
+              }`}
+            >
+              Open
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -350,8 +377,10 @@ export default function OtherAccountContainer({
   onEditRejectedAgent,
   onEditRejectedInsurance,
   onEditRejectedDonation,
+  onEditRejectedEvent,
 }) {
   const { isDarkMode } = useAppearance();
+  const { t } = useTranslation();
 
   if (!accounts.length) {
     return null;
@@ -361,10 +390,10 @@ export default function OtherAccountContainer({
     <section className="mt-10 w-full">
       <div className="mb-4">
         <h2 className={`text-lg font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
-          Other Accounts
+          {t("Other Accounts")}
         </h2>
         <p className={`text-sm ${isDarkMode ? "text-slate-300" : "text-gray-500"}`}>
-          Manage your service wallets and linked accounts
+          {t("Manage your service wallets and linked accounts")}
         </p>
       </div>
 
@@ -382,6 +411,7 @@ export default function OtherAccountContainer({
             onEditRejectedAgent={onEditRejectedAgent}
             onEditRejectedInsurance={onEditRejectedInsurance}
             onEditRejectedDonation={onEditRejectedDonation}
+            onEditRejectedEvent={onEditRejectedEvent}
           />
         ))}
       </div>
