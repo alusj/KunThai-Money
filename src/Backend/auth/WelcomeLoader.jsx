@@ -122,7 +122,7 @@ export default function WelcomeLoader() {
   const showFlags = phase === "flags-static" || phase === "flags-orbit";
   const lines = [
     `Hi ${name}`,
-    "Welcome to KunThai Money",
+      "Welcome to KunTai Money",
     "Preparing your beyond-border transactions",
     "Account successfully created",
   ];
@@ -271,7 +271,7 @@ export default function WelcomeLoader() {
               <div className="absolute left-1/2 top-1/2 flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-200/20 bg-[radial-gradient(circle,rgba(255,255,255,0.22),rgba(255,255,255,0.04))] shadow-[0_30px_90px_rgba(34,211,238,0.18)] backdrop-blur-2xl sm:h-32 sm:w-32">
                 <div className="text-center">
                   <p className="text-[0.58rem] font-semibold uppercase tracking-[0.42em] text-cyan-100/70 sm:text-[0.65rem]">
-                    KunThai
+      KunTai
                   </p>
                   <p className="mt-2 text-lg font-semibold sm:text-xl">Money</p>
                 </div>

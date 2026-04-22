@@ -109,14 +109,14 @@ export async function registerBiometrics({ userId, displayName, phone }) {
   const credential = await navigator.credentials.create({
     publicKey: {
       rp: {
-        name: "KunThai Money",
+    name: "KunTai Money",
         id: window.location.hostname,
       },
       challenge,
       user: {
         id: userHandle,
         name: phone || userId,
-        displayName: displayName || "KunThai Money user",
+    displayName: displayName || "KunTai Money user",
       },
       pubKeyCredParams: [
         { type: "public-key", alg: -7 },

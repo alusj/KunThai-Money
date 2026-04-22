@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const sender = process.env.INFOBIP_SENDER || "InfoSMS";
 
     const phone = rawPhone.startsWith("+") ? rawPhone : `+${rawPhone}`;
-    const text = `Your KunThai verification code is ${otp}`;
+const text = `Your KunTai verification code is ${otp}`;
 
     console.log("PHONE:", phone);
     console.log("OTP:", otp);

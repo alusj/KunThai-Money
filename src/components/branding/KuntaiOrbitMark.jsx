@@ -70,7 +70,7 @@ export default function KuntaiOrbitMark({ className = "" }) {
 
       <div className="absolute inset-x-0 bottom-[10%] text-center">
         <p className="text-[0.5rem] font-semibold uppercase tracking-[0.5em] text-slate-100/70 sm:text-[0.58rem]">
-          KunThai Money
+          KunTai Money
         </p>
       </div>
     </div>

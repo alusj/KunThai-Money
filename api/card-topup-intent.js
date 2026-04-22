@@ -17,7 +17,7 @@ function resolveUserName(user) {
     user?.user_metadata?.name ||
     user?.raw_user_meta_data?.full_name ||
     user?.raw_user_meta_data?.name ||
-    "KunThai User"
+    "KunTai User"
   );
 }
 
@@ -143,7 +143,7 @@ export default async function handler(req, res) {
           phonenumber: resolveUserPhone(user),
         },
         customizations: {
-          title: "KunThaiMoney Cash In",
+      title: "KunTaiMoney Cash In",
           description: "Fund your wallet with card using Flutterwave hosted checkout",
         },
         meta: {

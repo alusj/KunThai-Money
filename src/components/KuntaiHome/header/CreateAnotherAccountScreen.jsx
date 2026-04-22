@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ACCOUNT_TYPE_OPTIONS } from "../../../Backend/utils/accountTypes";
 import { countryMap } from "../../../Backend/utils/countryMap";
 import { EVENT_ACCOUNT_TYPE, normalizeTicketCategories } from "../../../Backend/utils/eventAccounts";
+import { useAppearance } from "../../AppearanceProvider";
 import BackTab from "./Transactions/BackTab";
 
 const DEFAULT_EVENT_TICKET_CATEGORIES = [
@@ -18,6 +19,7 @@ export default function CreateAnotherAccountScreen({
   onBack,
   onCreate,
 }) {
+  const { isDarkMode } = useAppearance();
   const [accountType, setAccountType] = useState(editAccount?.account_type || "");
   const [accountName, setAccountName] = useState(editAccount?.account_name || "");
   const [locationMode, setLocationMode] = useState(editAccount?.location_mode || "manual");
@@ -184,6 +186,31 @@ export default function CreateAnotherAccountScreen({
   const isAndroid =
     typeof navigator !== "undefined" &&
     /Android/i.test(navigator.userAgent || "");
+  const pageClass = isDarkMode ? "min-h-screen bg-slate-950" : "min-h-screen bg-slate-50";
+  const headerClass = isDarkMode ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white";
+  const shellClass = isDarkMode
+    ? "rounded-[32px] border border-slate-800 bg-slate-900 p-6 shadow-[0_24px_70px_rgba(2,6,23,0.45)]"
+    : "rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm";
+  const titleClass = isDarkMode ? "text-white" : "text-slate-950";
+  const labelClass = isDarkMode
+    ? "text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-300"
+    : "text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400";
+  const helperClass = isDarkMode ? "mt-2 text-sm leading-6 text-slate-200" : "mt-2 text-sm leading-6 text-slate-600";
+  const inputClass = isDarkMode
+    ? "mt-2 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-400 focus:bg-slate-800"
+    : "mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white";
+  const disabledInputClass = isDarkMode
+    ? "cursor-not-allowed border-slate-800 bg-slate-950 text-slate-500"
+    : "cursor-not-allowed bg-slate-100 text-slate-500";
+  const primaryActionClass = isDarkMode
+    ? "border border-sky-400/45 bg-[linear-gradient(180deg,#1e293b_0%,#0f172a_100%)] text-sky-100 shadow-[0_12px_30px_rgba(14,165,233,0.16)] hover:border-sky-300/60 hover:bg-[linear-gradient(180deg,#243244_0%,#111827_100%)]"
+    : "bg-slate-950 text-white hover:bg-slate-800";
+  const toggleInactiveClass = isDarkMode
+    ? "border border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-500 hover:bg-slate-700"
+    : "border border-slate-200 bg-white text-slate-700";
+  const softPanelClass = isDarkMode
+    ? "rounded-[24px] border border-slate-700 bg-slate-800/70 px-5 py-4"
+    : "rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4";
 
   const detectLocationPermission = async () => {
     if (typeof navigator === "undefined" || !navigator.permissions?.query) {
@@ -543,15 +570,15 @@ export default function CreateAnotherAccountScreen({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white">
+    <div className={pageClass}>
+      <div className={`border-b ${headerClass}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
           <BackTab onBack={onBack} />
             <div className="text-center">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
+              <p className={`text-[0.7rem] font-semibold uppercase tracking-[0.3em] ${labelClass}`}>
               {isEditMode ? `${resubmissionLabel} Review Update` : "Account Setup"}
               </p>
-            <h1 className="mt-2 text-lg font-bold text-slate-950 md:text-xl">
+            <h1 className={`mt-2 text-lg font-bold md:text-xl ${titleClass}`}>
               {isEditMode ? `Update ${resubmissionLabel} account` : "Create another account"}
             </h1>
             </div>
@@ -560,7 +587,7 @@ export default function CreateAnotherAccountScreen({
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-6 md:px-8">
-        <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className={shellClass}>
           {error && (
             <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
@@ -579,7 +606,7 @@ export default function CreateAnotherAccountScreen({
 
           <div className="grid gap-4">
             <label className="block">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              <span className={labelClass}>
                 Account Type
               </span>
               <select
@@ -591,8 +618,8 @@ export default function CreateAnotherAccountScreen({
                   const nextOption = availableOptions.find((option) => option.value === nextType);
                   setAccountName(nextOption?.label || "");
                 }}
-                className={`mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white ${
-                  isEditMode ? "cursor-not-allowed bg-slate-100 text-slate-500" : "bg-slate-50"
+                className={`${inputClass} ${
+                  isEditMode ? disabledInputClass : ""
                 }`}
               >
                 <option value="">Select an account type</option>
@@ -605,25 +632,35 @@ export default function CreateAnotherAccountScreen({
             </label>
 
             <label className="block">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              <span className={labelClass}>
                 Account Name
               </span>
               <input
                 type="text"
                 value={accountName}
                 onChange={(event) => setAccountName(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                className={inputClass}
               />
             </label>
 
             {isEventAccount ? (
-              <div className="rounded-[28px] border border-sky-200 bg-[linear-gradient(180deg,#f6fbff_0%,#ffffff_100%)] px-5 py-5">
+              <div
+                className={`rounded-[28px] px-5 py-5 ${
+                  isDarkMode
+                    ? "border border-sky-500/30 bg-[linear-gradient(180deg,rgba(8,47,73,0.52)_0%,rgba(15,23,42,0.98)_100%)]"
+                    : "border border-sky-200 bg-[linear-gradient(180deg,#f6fbff_0%,#ffffff_100%)]"
+                }`}
+              >
                 <div className="flex flex-col gap-2">
                   <div>
-                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-sky-700">
+                    <p
+                      className={`text-[0.72rem] font-semibold uppercase tracking-[0.26em] ${
+                        isDarkMode ? "text-sky-300" : "text-sky-700"
+                      }`}
+                    >
                       Event Setup
                     </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                    <p className={helperClass}>
                       Add the event details buyers should see before paying for a ticket online.
                       {isResubmittingRejectedEvent
                         ? " Update anything the admin team flagged, then resubmit this event for approval."
@@ -633,7 +670,7 @@ export default function CreateAnotherAccountScreen({
 
                   <div className="grid gap-4 pt-2 md:grid-cols-2">
                     <label className="block">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      <span className={labelClass}>
                         Event Name
                       </span>
                       <input
@@ -641,12 +678,12 @@ export default function CreateAnotherAccountScreen({
                         value={eventName}
                         onChange={(event) => setEventName(event.target.value)}
                         placeholder="Afro Future Live"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                        className={inputClass}
                       />
                     </label>
 
                     <label className="block">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      <span className={labelClass}>
                         Event Category
                       </span>
                       <input
@@ -654,12 +691,12 @@ export default function CreateAnotherAccountScreen({
                         value={eventCategory}
                         onChange={(event) => setEventCategory(event.target.value)}
                         placeholder="Concert, match, conference"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                        className={inputClass}
                       />
                     </label>
 
                     <label className="block md:col-span-2">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      <span className={labelClass}>
                         Event Location
                       </span>
                       <input
@@ -667,36 +704,36 @@ export default function CreateAnotherAccountScreen({
                         value={eventLocation}
                         onChange={(event) => setEventLocation(event.target.value)}
                         placeholder="National Stadium, Freetown"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                        className={inputClass}
                       />
                     </label>
 
                     <label className="block">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      <span className={labelClass}>
                         Event Date
                       </span>
                       <input
                         type="date"
                         value={eventDate}
                         onChange={(event) => setEventDate(event.target.value)}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                        className={inputClass}
                       />
                     </label>
 
                     <label className="block">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      <span className={labelClass}>
                         Event Time
                       </span>
                       <input
                         type="time"
                         value={eventTime}
                         onChange={(event) => setEventTime(event.target.value)}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                        className={inputClass}
                       />
                     </label>
 
                     <label className="block md:col-span-2">
-                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      <span className={labelClass}>
                         Event Description
                       </span>
                       <textarea
@@ -704,26 +741,26 @@ export default function CreateAnotherAccountScreen({
                         value={eventDescription}
                         onChange={(event) => setEventDescription(event.target.value)}
                         placeholder="Tell buyers what to expect at this event."
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
+                        className={inputClass}
                       />
                     </label>
 
                     <div className="md:col-span-2">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                          <span className={labelClass}>
                             Ticket Categories
                           </span>
-                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                          <p className={helperClass}>
                             Add stages like General, Stage Area, VIP, or any custom category with its own price and ticket quantity.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={addTicketCategory}
-                          className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                          className={`inline-flex w-full items-center justify-center whitespace-nowrap rounded-2xl px-5 py-3 text-sm font-semibold transition sm:w-auto ${primaryActionClass}`}
                         >
-                          Add another category
+                          Add another Category
                         </button>
                       </div>
 
@@ -731,10 +768,14 @@ export default function CreateAnotherAccountScreen({
                         {ticketCategories.map((category, index) => (
                           <div
                             key={category.id}
-                            className="rounded-[24px] border border-slate-200 bg-white px-4 py-4"
+                            className={`rounded-[24px] px-4 py-4 ${
+                              isDarkMode
+                                ? "border border-slate-700 bg-slate-800/80"
+                                : "border border-slate-200 bg-white"
+                            }`}
                           >
                             <div className="mb-4 flex items-center justify-between gap-3">
-                              <p className="text-sm font-semibold text-slate-950">Category {index + 1}</p>
+                              <p className={`text-sm font-semibold ${titleClass}`}>Category {index + 1}</p>
                               {ticketCategories.length > 1 ? (
                                 <button
                                   type="button"
@@ -748,7 +789,7 @@ export default function CreateAnotherAccountScreen({
 
                             <div className="grid gap-4 md:grid-cols-3">
                               <label className="block">
-                                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                <span className={labelClass}>
                                   Category Name
                                 </span>
                                 <input
@@ -756,12 +797,12 @@ export default function CreateAnotherAccountScreen({
                                   value={category.name}
                                   onChange={(event) => updateTicketCategory(index, "name", event.target.value)}
                                   placeholder="General, VIP, Stage Area"
-                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                                  className={inputClass}
                                 />
                               </label>
 
                               <label className="block">
-                                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                <span className={labelClass}>
                                   Price
                                 </span>
                                 <input
@@ -771,12 +812,12 @@ export default function CreateAnotherAccountScreen({
                                   value={category.price}
                                   onChange={(event) => updateTicketCategory(index, "price", event.target.value)}
                                   placeholder="0.00"
-                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                                  className={inputClass}
                                 />
                               </label>
 
                               <label className="block">
-                                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                <span className={labelClass}>
                                   Available Tickets
                                 </span>
                                 <input
@@ -788,7 +829,7 @@ export default function CreateAnotherAccountScreen({
                                     updateTicketCategory(index, "available_tickets", event.target.value)
                                   }
                                   placeholder="300"
-                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                                  className={inputClass}
                                 />
                               </label>
                             </div>
@@ -891,7 +932,7 @@ export default function CreateAnotherAccountScreen({
                         type="text"
                         value={donationOrganizationName}
                         onChange={(event) => setDonationOrganizationName(event.target.value)}
-                        placeholder="KunThai Care Foundation"
+                          placeholder="KunTai Care Foundation"
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300"
                       />
                     </label>
@@ -1061,8 +1102,8 @@ export default function CreateAnotherAccountScreen({
               </div>
             )}
 
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+            <div className={softPanelClass}>
+              <p className={labelClass}>
                 Location Source
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1078,7 +1119,7 @@ export default function CreateAnotherAccountScreen({
                       setLocationLookupError("");
                     }}
                   className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                    !locationIsDevice ? "bg-slate-950 text-white" : "bg-white text-slate-700 border border-slate-200"
+                    !locationIsDevice ? primaryActionClass : toggleInactiveClass
                   }`}
                 >
                   Enter manually
@@ -1087,22 +1128,37 @@ export default function CreateAnotherAccountScreen({
                   type="button"
                   onClick={handleOpenLocationPrompt}
                   className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                    locationIsDevice ? "bg-slate-950 text-white" : "bg-white text-slate-700 border border-slate-200"
+                    locationIsDevice ? primaryActionClass : toggleInactiveClass
                   }`}
                 >
-                  Use your current location
+                  <span className="flex flex-col items-center justify-center leading-tight">
+                    <span>Use your current location</span>
+                    <span
+                      className={`mt-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] ${
+                        locationIsDevice
+                          ? isDarkMode
+                            ? "text-sky-300"
+                            : "text-sky-200"
+                          : isDarkMode
+                            ? "text-emerald-300"
+                            : "text-emerald-600"
+                      }`}
+                    >
+                      Recommended
+                    </span>
+                  </span>
                 </button>
               </div>
             </div>
 
             <label className="block">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              <span className={labelClass}>
                 Location Country
               </span>
               <select
                 value={locationCountry}
                 onChange={(event) => setLocationCountry(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                className={inputClass}
               >
                 <option value="">Select country</option>
                 {Object.values(countryMap).map((country) => (
@@ -1114,33 +1170,33 @@ export default function CreateAnotherAccountScreen({
             </label>
 
             <label className="block">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              <span className={labelClass}>
                 Location City
               </span>
               <input
                 type="text"
                 value={locationCity}
                 onChange={(event) => setLocationCity(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                className={inputClass}
               />
             </label>
 
             <label className="block">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+              <span className={labelClass}>
                 Location Address
               </span>
               <input
                 type="text"
                 value={locationAddress}
                 onChange={(event) => setLocationAddress(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white"
+                className={inputClass}
               />
             </label>
 
-            <label className="flex items-center justify-between rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4">
+            <label className={`${softPanelClass} flex items-center justify-between`}>
               <span>
-                <span className="block text-sm font-semibold text-slate-900">Nearby discovery</span>
-                <span className="mt-1 block text-sm text-slate-500">
+                <span className={`block text-sm font-semibold ${titleClass}`}>Nearby discovery</span>
+                <span className={`mt-1 block text-sm ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>
                   Allow this account to appear in nearby merchant or service suggestions.
                 </span>
               </span>
@@ -1178,12 +1234,12 @@ export default function CreateAnotherAccountScreen({
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Current Location</p>
             <h3 className="mt-3 text-2xl font-semibold text-slate-950">Allow our system to locate you</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              We will try to detect your current location so nearby merchant and service suggestions feel more professional and relevant.
+              Please be sure to be at the exact location you want to be located, for accuracy. We will then try to detect your current location so nearby merchant and service suggestions feel more professional and relevant.
             </p>
 
             {!locationLookupLoading && !locatedAddress && permissionState === "prompt" && !locationLookupError && (
               <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                Tap allow to let this site request your current location.
+                Please stand at the exact place you want to use, then tap allow so this site can request your current location accurately.
               </div>
             )}
 

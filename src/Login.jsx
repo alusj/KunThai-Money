@@ -24,7 +24,7 @@ export default function Login() {
 
       <form className="card" onSubmit={handleLogin}>
 
-        <h2>KunThai Money Login</h2>
+        <h2>KunTai Money Login</h2>
 
         <input
           type="text"

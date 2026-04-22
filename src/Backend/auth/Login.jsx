@@ -156,7 +156,7 @@ export default function Login() {
     <PageTransition>
       <AuthShell
         eyebrow="Returning Customer"
-        title="Sign in to KunThai Money"
+        title="Sign in to KunTai Money"
         subtitle="Use your registered phone number and password to continue securely to your account."
         footer={
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/6 px-4 py-2 text-slate-200 shadow-[0_12px_30px_rgba(2,6,18,0.25)] backdrop-blur-xl">

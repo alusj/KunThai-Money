@@ -75,7 +75,7 @@ export default function AccountNumberReceipt({
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           title: "Transaction Receipt",
-          text: "KunThai Money receipt",
+      text: "KunTai Money receipt",
           files: [file],
         });
         return;

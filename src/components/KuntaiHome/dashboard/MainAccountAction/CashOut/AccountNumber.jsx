@@ -128,7 +128,7 @@ export default function AccountNumber({
         user?.user_metadata?.display_name ||
         user?.user_metadata?.name ||
         account?.account_name ||
-        "KunThai user";
+                        "KunTai user";
 
   const ownerProfileImage =
     profile?.profile_image ||

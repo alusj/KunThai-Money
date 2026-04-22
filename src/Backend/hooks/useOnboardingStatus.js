@@ -64,7 +64,7 @@ export async function fetchOnboardingStatus(userId) {
   return status;
 }
 
-export function useOnboardingStatus(userId) {
+export function useOnboardingStatus(userId, refreshKey = 0) {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(Boolean(userId));
   const [error, setError] = useState(null);
@@ -104,7 +104,7 @@ export function useOnboardingStatus(userId) {
     return () => {
       isMounted = false;
     };
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   return { status, loading, error };
 }

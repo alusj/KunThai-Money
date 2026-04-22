@@ -171,7 +171,7 @@ export default function CardTopUpForm({ account, user, onBack }) {
             <div>
               <p className="text-sm font-semibold text-slate-900">Secure card checkout</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                You will continue to a Flutterwave-hosted payment page. KunThaiMoney only credits your wallet after server-side verification succeeds.
+                  You will continue to a Flutterwave-hosted payment page. KunTaiMoney only credits your wallet after server-side verification succeeds.
               </p>
             </div>
           </div>

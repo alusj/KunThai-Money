@@ -1,4 +1,4 @@
-# KunThaiMoney Web
+# KunTaiMoney Web
 
 ## Environment setup
 

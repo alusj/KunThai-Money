@@ -165,6 +165,40 @@ export function buildServiceNotification(transaction) {
   };
 }
 
+export function buildWalletTransferNotification(transaction) {
+  const flow = transaction?.metadata?.flow;
+
+  if (flow !== "dashboard_account_number_transfer") {
+    return null;
+  }
+
+  const amount = formatCurrency(transaction.amount ?? 0, transaction.currency || "SLL");
+  const counterparty =
+    transaction?.metadata?.recipient_name ||
+    transaction?.metadata?.sender_name ||
+    transaction?.counterparty_name ||
+    transaction?.counterparty_account ||
+    "wallet user";
+
+  return {
+    id: `wallet-transfer-${transaction.id}`,
+    tone: transaction.direction === "credit" ? "success" : "info",
+    title:
+      transaction.direction === "credit"
+        ? "Wallet transfer received"
+        : "Wallet transfer sent",
+    body:
+      transaction.direction === "credit"
+        ? `${amount} was received from ${counterparty}.`
+        : `${amount} was sent to ${counterparty}.`,
+    action: "transaction-receipt",
+    actionLabel: "View receipt",
+    transactionId: String(transaction.id),
+    category: "Transfers",
+    created_at: transaction.created_at,
+  };
+}
+
 export function buildServiceReceiptModel(transaction, { personName, personImage, personAccount }) {
   const direction = transaction.direction === "credit" ? "credit" : "debit";
   const amount = Number(transaction.amount || 0);

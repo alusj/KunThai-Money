@@ -41,7 +41,7 @@ export default function RegisterAgreement() {
               </div>
 
               <h1 className="mt-1 text-[1.65rem] font-bold leading-none tracking-[-0.06em] text-white sm:text-[1.9rem]">
-                KunThaiMoney
+                    KunTaiMoney
               </h1>
 
               <p className="mt-2.5 max-w-[16.5rem] text-[0.92rem] leading-6 text-white/52">

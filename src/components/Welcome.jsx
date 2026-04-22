@@ -25,7 +25,7 @@ export default function WelcomeScreen() {
               Beyond Borders
             </p>
 
-            <h1 className="text-4xl font-bold tracking-tight text-white">KunThai Money</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-white">KunTai Money</h1>
 
             <div className="mt-8 flex justify-center">
               <Logo3DGlow />

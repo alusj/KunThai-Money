@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useRef } from "react";
 import { ArrowRight, Clock3, ShieldAlert } from "lucide-react";
 
 import supabase from "../../Backend/lib/supabaseClient";
@@ -21,6 +22,7 @@ import {
   resolvePaymentRequest,
 } from "../../Backend/services/paymentRequestService";
 import { getTransactions } from "../../Backend/services/transactionService";
+import { verifyUserPin } from "../../Backend/services/securityService";
 import {
   canUseBiometrics,
   clearStoredBiometrics,
@@ -45,9 +47,11 @@ import {
   persistHomeScreen,
   readStoredHomeScreen,
 } from "../../Backend/utils/homeScreenSession";
+import { clearHomeUnlocked, isHomeUnlocked, markHomeUnlocked } from "../../Backend/utils/homeUnlockSession";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";
 import { useTranslation } from "../useTranslation.jsx";
+import HomeUnlockGate from "./HomeUnlockGate.jsx";
 import Header from "./header/Header";
 import Dashboard from "./dashboard/Dashboard";
 import CreateAnotherAccountScreen from "./header/CreateAnotherAccountScreen";
@@ -69,6 +73,7 @@ const SEEN_NOTIFICATION_IDS_KEY = "kuntai-seen-notification-ids";
 const SEEN_TRANSACTION_IDS_KEY = "kuntai-seen-transaction-ids";
 const DASHBOARD_ACCOUNT_NUMBER_HIDDEN_KEY = "kuntai-dashboard-account-number-hidden";
 const DASHBOARD_HIDDEN_OTHER_ACCOUNT_IDS_KEY = "kuntai-dashboard-hidden-other-account-ids";
+const DISMISSED_ADMIN_POPUP_IDS_KEY = "kuntai-dismissed-admin-popup-ids";
 const PERSISTED_HOME_SCREENS = new Set([
   "dashboard",
   "profile",
@@ -120,7 +125,9 @@ export default function KunTaiHome() {
   const { isDarkMode, appearanceMode, setAppearanceMode } = useAppearance();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { status, loading: statusLoading } = useOnboardingStatus(user?.id);
+  const [onboardingRefreshKey, setOnboardingRefreshKey] = useState(0);
+  const { status, loading: statusLoading } = useOnboardingStatus(user?.id, onboardingRefreshKey);
+  const actionNotificationCounterRef = useRef(0);
   const [activeScreen, setActiveScreen] = useState(() =>
     readStoredHomeScreen(PERSISTED_HOME_SCREENS, "dashboard")
   );
@@ -143,7 +150,10 @@ export default function KunTaiHome() {
   });
   const [dismissedRequestIds, setDismissedRequestIds] = useState([]);
   const [adminMessages, setAdminMessages] = useState([]);
-  const [dismissedAdminMessageIds, setDismissedAdminMessageIds] = useState([]);
+  const [dismissedAdminMessageIds, setDismissedAdminMessageIds] = useState(() =>
+    readStoredIds(DISMISSED_ADMIN_POPUP_IDS_KEY)
+  );
+  const [activityNotifications, setActivityNotifications] = useState([]);
   const [seenNotificationIds, setSeenNotificationIds] = useState(() =>
     readStoredIds(SEEN_NOTIFICATION_IDS_KEY)
   );
@@ -162,6 +172,7 @@ export default function KunTaiHome() {
   );
   const [actionFeedback, setActionFeedback] = useState(null);
   const [paymentRequestFeedback, setPaymentRequestFeedback] = useState(null);
+  const [isHomeAccessUnlocked, setIsHomeAccessUnlocked] = useState(() => isHomeUnlocked(user?.id));
   const [biometricState, setBiometricState] = useState({
     supported: false,
     enabled: false,
@@ -177,16 +188,18 @@ export default function KunTaiHome() {
   const notifications = buildHeaderNotifications({
     status,
     paymentRequests,
+    outgoingPaymentRequests,
     adminMessages,
     otherAccounts,
     recentTransactions: notificationTransactions,
+    activityNotifications,
   });
-  const unreadNotifications = notifications.filter(
-    (item) => !seenNotificationIds.includes(String(item.id))
-  );
-  const unseenNotificationCount = notifications.filter(
-    (item) => !seenNotificationIds.includes(String(item.id))
-  ).length;
+  const notificationsWithReadState = notifications.map((item) => ({
+    ...item,
+    isRead: seenNotificationIds.includes(String(item.id)),
+  }));
+  const unreadNotifications = notificationsWithReadState.filter((item) => !item.isRead);
+  const unseenNotificationCount = unreadNotifications.length;
   const unseenTransactionCount = recentTransactions.filter(
     (item) => !seenTransactionIds.includes(String(item.id))
   ).length;
@@ -194,7 +207,7 @@ export default function KunTaiHome() {
     (request) => request.status === "pending" && !dismissedRequestIds.includes(request.id)
   );
   const activeAdminPopupMessage = adminMessages.find(
-    (message) => message.is_popup && !dismissedAdminMessageIds.includes(message.id)
+    (message) => message.is_popup && !dismissedAdminMessageIds.includes(String(message.id))
   );
   const visibleOtherAccounts = otherAccounts.filter(
     (item) => !hiddenOtherAccountIds.includes(String(item.id))
@@ -232,10 +245,52 @@ export default function KunTaiHome() {
 
   const showActionFeedback = (title, message, tone = "info") => {
     setActionFeedback({ title, message, tone });
-    window.clearTimeout(window.__kunthaiActionFeedbackTimer);
-    window.__kunthaiActionFeedbackTimer = window.setTimeout(() => {
+    actionNotificationCounterRef.current += 1;
+    setActivityNotifications((current) => [
+      {
+        id: `activity-${Date.now()}-${actionNotificationCounterRef.current}`,
+        tone:
+          tone === "danger"
+            ? "warning"
+            : tone === "warning" || tone === "success" || tone === "info"
+              ? tone
+              : "neutral",
+        title,
+        body: message,
+        action: "notifications-only",
+        actionLabel: "Reviewed",
+        category: "Activity",
+        created_at: new Date().toISOString(),
+      },
+      ...current,
+    ].slice(0, 12));
+    window.clearTimeout(window.__kuntaiActionFeedbackTimer);
+    window.__kuntaiActionFeedbackTimer = window.setTimeout(() => {
       setActionFeedback(null);
     }, 4500);
+  };
+
+  const unlockHomeAccess = () => {
+    if (!user?.id) {
+      return;
+    }
+
+    markHomeUnlocked(user.id);
+    setIsHomeAccessUnlocked(true);
+  };
+
+  const handleUnlockWithPin = async (pin) => {
+    await verifyUserPin(pin);
+    unlockHomeAccess();
+  };
+
+  const handleUnlockWithBiometrics = async () => {
+    if (!user?.id) {
+      throw new Error("Your session has expired. Please sign in again.");
+    }
+
+    await verifyBiometrics(user.id);
+    unlockHomeAccess();
   };
 
   const openAccountForm = ({ mode = "create", editAccount = null, returnScreen = "profile" } = {}) => {
@@ -295,6 +350,32 @@ export default function KunTaiHome() {
     }
 
     openRejectedAccountResubmission(eventAccount, returnScreen);
+  };
+
+  const markNotificationsSeen = (items = []) => {
+    const ids = items
+      .map((item) => String(item?.id || ""))
+      .filter(Boolean);
+
+    if (!ids.length) {
+      return;
+    }
+
+    setSeenNotificationIds((current) => [...new Set([...current, ...ids])]);
+  };
+
+  const markNotificationsUnread = (items = []) => {
+    const ids = new Set(
+      items
+        .map((item) => String(item?.id || ""))
+        .filter(Boolean)
+    );
+
+    if (!ids.size) {
+      return;
+    }
+
+    setSeenNotificationIds((current) => current.filter((id) => !ids.has(String(id))));
   };
 
   const fetchAccount = async () => {
@@ -422,7 +503,12 @@ export default function KunTaiHome() {
     try {
       const [incoming, outgoing] = await Promise.all([
         getPaymentRequests({ userId: user?.id, direction: "incoming", limit: 5 }),
-        getPaymentRequests({ userId: user?.id, direction: "outgoing", limit: 5 }),
+        getPaymentRequests({
+          userId: user?.id,
+          direction: "outgoing",
+          status: ["pending", "viewed", "accepted", "declined", "cancelled"],
+          limit: 10,
+        }),
       ]);
       setPaymentRequests(incoming);
       setOutgoingPaymentRequests(outgoing);
@@ -555,6 +641,8 @@ export default function KunTaiHome() {
   const handleSignOut = async (scope = "current") => {
     clearStoredHomeScreen();
     setActiveScreen("dashboard");
+    clearHomeUnlocked(user?.id);
+    setIsHomeAccessUnlocked(false);
     await supabase.auth.signOut(scope === "all" ? { scope: "global" } : undefined);
     navigate("/login?reason=signed-out", { replace: true });
   };
@@ -614,6 +702,124 @@ export default function KunTaiHome() {
     fetchEventTicketStatus();
     fetchPaymentRequests();
     fetchAdminMessages();
+  }, [user?.id]);
+
+  useEffect(() => {
+    setIsHomeAccessUnlocked(isHomeUnlocked(user?.id));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return undefined;
+    }
+
+    const realtimeChannel = supabase.channel(`kuntai-home-${user.id}`);
+    const refreshOnboarding = () => setOnboardingRefreshKey((current) => current + 1);
+
+    realtimeChannel
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchRecentTransactions();
+          fetchAccount();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kuntai_payment_requests",
+          filter: `recipient_user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchPaymentRequests();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kuntai_payment_requests",
+          filter: `requester_user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchPaymentRequests();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kuntai_admin_notifications",
+        },
+        () => {
+          fetchAdminMessages();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kuntai_accounts",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchAccount();
+          refreshOnboarding();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kuntai_profiles",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchProfile();
+          refreshOnboarding();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kuntai_kyc",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          refreshOnboarding();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "other_accounts",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchOtherAccounts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(realtimeChannel);
+    };
   }, [user?.id]);
 
   useEffect(() => {
@@ -704,12 +910,8 @@ export default function KunTaiHome() {
   }, [hiddenOtherAccountIds]);
 
   useEffect(() => {
-    if (activeScreen === "notifications" && notifications.length) {
-      setSeenNotificationIds((current) => [
-        ...new Set([...current, ...notifications.map((item) => String(item.id))]),
-      ]);
-    }
-  }, [activeScreen, notifications]);
+    persistStoredIds(DISMISSED_ADMIN_POPUP_IDS_KEY, dismissedAdminMessageIds);
+  }, [dismissedAdminMessageIds]);
 
   useEffect(() => {
     if (activeScreen === "transactions" && recentTransactions.length) {
@@ -894,6 +1096,20 @@ export default function KunTaiHome() {
     return null;
   };
 
+  if (!isHomeAccessUnlocked) {
+    return (
+      <HomeUnlockGate
+        profileName={profileName}
+        phone={profile?.phone || user?.phone || ""}
+        biometricEnabled={biometricState.enabled}
+        biometricBusy={biometricState.busy}
+        onVerifyBiometric={handleUnlockWithBiometrics}
+        onVerifyPin={handleUnlockWithPin}
+        onSignOut={() => handleSignOut()}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {actionFeedback ? (
@@ -987,7 +1203,7 @@ export default function KunTaiHome() {
                       type="button"
                       onClick={() =>
                         setDismissedAdminMessageIds((current) => [
-                          ...new Set([...current, activeAdminPopupMessage.id]),
+                          ...new Set([...current, String(activeAdminPopupMessage.id)]),
                         ])
                       }
                       className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -1092,9 +1308,14 @@ export default function KunTaiHome() {
 
       {activeScreen === "notifications" && (
         <NotificationScreen
-          notifications={unreadNotifications}
+          notifications={notificationsWithReadState}
+          unreadCount={unreadNotifications.length}
           onBack={() => setActiveScreen("dashboard")}
+          onMarkRead={(item) => markNotificationsSeen([item])}
+          onMarkUnread={(item) => markNotificationsUnread([item])}
+          onMarkAllRead={() => markNotificationsSeen(notificationsWithReadState)}
           onAction={async (item, type) => {
+            markNotificationsSeen([item]);
             const action = type === "secondary" ? item.secondaryAction : item.action;
 
             if (action === "kyc") {
@@ -1119,7 +1340,9 @@ export default function KunTaiHome() {
 
             if (action === "admin-message") {
               if (item.id) {
-                setDismissedAdminMessageIds((current) => [...new Set([...current, item.id])]);
+                setDismissedAdminMessageIds((current) => [
+                  ...new Set([...current, String(item.id)]),
+                ]);
               }
               return;
             }

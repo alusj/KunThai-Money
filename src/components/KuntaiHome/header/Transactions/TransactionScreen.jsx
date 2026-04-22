@@ -108,7 +108,7 @@ function resolvePersonLabel(transaction, account, profile) {
       profileName ||
       transaction.description ||
       transaction.transaction_type ||
-      "KunThai user"
+                      "KunTai user"
     );
   }
 
@@ -118,7 +118,7 @@ function resolvePersonLabel(transaction, account, profile) {
     profileName ||
     transaction.description ||
     transaction.transaction_type ||
-    "KunThai user"
+                      "KunTai user"
   );
 }
 

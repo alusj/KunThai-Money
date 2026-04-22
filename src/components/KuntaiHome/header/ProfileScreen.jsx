@@ -30,7 +30,7 @@ import { LEGAL_CONTENT } from "../../legal/legalContent";
 const HELP_CONTENT = {
   faqs: {
     title: "FAQs",
-    description: "Quick answers to the questions most customers ask while using KunThai Money.",
+    description: "Quick answers to the questions most customers ask while using KunTai Money.",
     icon: CircleHelp,
     sections: [
       {
@@ -41,7 +41,7 @@ const HELP_CONTENT = {
       {
         heading: "Transfers And Receipts",
         body:
-          "For normal wallet transfers, enter the recipient account number, verify the account, enter the amount, confirm the transfer, and approve with your transaction PIN. After a successful transfer, KunThai Money generates a receipt screen and also stores the transaction in history. Merchant, agent, school, hotel, restaurant, supermarket, pharmacy, insurance, donation, and event payments also keep receipts in transaction history, mainly under All Entries.",
+    "For normal wallet transfers, enter the recipient account number, verify the account, enter the amount, confirm the transfer, and approve with your transaction PIN. After a successful transfer, KunTai Money generates a receipt screen and also stores the transaction in history. Merchant, agent, school, hotel, restaurant, supermarket, pharmacy, insurance, donation, and event payments also keep receipts in transaction history, mainly under All Entries.",
       },
       {
         heading: "Other Accounts",
@@ -100,7 +100,7 @@ const HELP_CONTENT = {
       {
         heading: "Password And PIN Recovery",
         body:
-          "KunThai Money uses OTP mainly for password and identity recovery flows. Transaction PIN changes are handled from Security settings through Change PIN, while password recovery uses Forgot Password and OTP verification. If you are trying to fix the wrong problem, return to the correct recovery flow before requesting more codes.",
+    "KunTai Money uses OTP mainly for password and identity recovery flows. Transaction PIN changes are handled from Security settings through Change PIN, while password recovery uses Forgot Password and OTP verification. If you are trying to fix the wrong problem, return to the correct recovery flow before requesting more codes.",
       },
       {
         heading: "When To Contact Support",

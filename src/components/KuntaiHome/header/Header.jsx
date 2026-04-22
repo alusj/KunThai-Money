@@ -35,7 +35,7 @@ export default function Header({
     <header className={`sticky top-0 z-50 border-b backdrop-blur-xl ${isDarkMode ? "border-slate-800 bg-slate-950/95" : "border-slate-200/80 bg-slate-50/95"}`}>
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 md:px-8">
         <p className={`text-[0.62rem] font-semibold uppercase tracking-[0.24em] sm:text-[0.7rem] sm:tracking-[0.3em] ${isDarkMode ? "text-slate-200" : "text-slate-400"}`}>
-          KunThai Money
+            KunTai Money
         </p>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
