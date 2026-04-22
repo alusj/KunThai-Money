@@ -28,7 +28,7 @@ function resolveErrorMessage(error, fallback) {
   return message;
 }
 
-export default function ChangePinScreen({ user, onBack }) {
+export default function ChangePinScreen({ user, onBack, onSuccess, hideForgotLink = false }) {
   const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -82,7 +82,14 @@ export default function ChangePinScreen({ user, onBack }) {
       }
 
       setSuccess("PIN updated successfully.");
-      window.setTimeout(() => onBack?.(), 700);
+      window.setTimeout(() => {
+        if (onSuccess) {
+          onSuccess();
+          return;
+        }
+
+        onBack?.();
+      }, 700);
     } catch (err) {
       setError(resolveErrorMessage(err, "Unable to update your PIN."));
     } finally {
@@ -178,20 +185,22 @@ export default function ChangePinScreen({ user, onBack }) {
             {loading ? "Saving PIN..." : "Save PIN"}
           </button>
 
-          <button
-            type="button"
-            onClick={async () => {
-              if (user?.phone) {
-                setTransactionPinResetPhone(user.phone);
-              }
+          {!hideForgotLink ? (
+            <button
+              type="button"
+              onClick={async () => {
+                if (user?.phone) {
+                  setTransactionPinResetPhone(user.phone);
+                }
 
-              await supabase.auth.signOut();
-              navigate("/login?reason=pin-reset", { replace: true });
-            }}
-            className="mt-4 w-full text-sm font-semibold text-slate-600 transition hover:text-slate-900"
-          >
-            Forgot transaction PIN?
-          </button>
+                await supabase.auth.signOut();
+                navigate("/login?reason=pin-reset", { replace: true });
+              }}
+              className="mt-4 w-full text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+            >
+              Forgot transaction PIN?
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

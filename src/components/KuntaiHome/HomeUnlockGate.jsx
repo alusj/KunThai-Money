@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Fingerprint, KeyRound, Loader2, LogOut, ShieldCheck } from "lucide-react";
 
 import ActionBanner from "../feedback/ActionBanner";
@@ -8,13 +8,24 @@ export default function HomeUnlockGate({
   phone = "",
   biometricEnabled = false,
   biometricBusy = false,
+  notice = null,
   onVerifyBiometric,
   onVerifyPin,
+  onForgotPin,
   onSignOut,
 }) {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [biometricFailureCount, setBiometricFailureCount] = useState(0);
+  const [showPinEntry, setShowPinEntry] = useState(!biometricEnabled);
+
+  useEffect(() => {
+    setBiometricFailureCount(0);
+    setShowPinEntry(!biometricEnabled);
+    setPin("");
+    setError("");
+  }, [biometricEnabled, notice?.message, notice?.title]);
 
   const handlePinSubmit = async () => {
     setError("");
@@ -43,7 +54,9 @@ export default function HomeUnlockGate({
 
     try {
       await onVerifyBiometric?.();
+      setBiometricFailureCount(0);
     } catch (submitError) {
+      setBiometricFailureCount((current) => current + 1);
       setError(
         submitError instanceof Error
           ? submitError.message
@@ -51,6 +64,8 @@ export default function HomeUnlockGate({
       );
     }
   };
+
+  const canUsePinFallback = !biometricEnabled || biometricFailureCount >= 2;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.12),transparent_32%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_48%,#f8fafc_100%)] px-4 py-8">
@@ -69,6 +84,14 @@ export default function HomeUnlockGate({
             transaction PIN to continue into KunTai Money.
           </p>
           {phone ? <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{phone}</p> : null}
+
+          {notice?.message ? (
+            <div className="mt-6">
+              <ActionBanner tone={notice.tone || "info"} title={notice.title || "Security update"}>
+                {notice.message}
+              </ActionBanner>
+            </div>
+          ) : null}
 
           {error ? (
             <div className="mt-6">
@@ -99,39 +122,67 @@ export default function HomeUnlockGate({
               </span>
               <div>
                 <p className="text-sm font-semibold text-slate-950">Use transaction PIN</p>
-                <p className="text-sm text-slate-500">This protects returning access to your home screen.</p>
+                <p className="text-sm text-slate-500">
+                  {biometricEnabled && !canUsePinFallback
+                    ? "Biometrics stay first. PIN unlock appears after two failed biometric checks."
+                    : "This protects returning access to your home screen."}
+                </p>
               </div>
             </div>
 
-            <label className="mt-5 block">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                Transaction PIN
-              </span>
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength="6"
-                value={pin}
-                onChange={(event) => {
-                  setPin(event.target.value.replace(/\D/g, "").slice(0, 6));
+            {showPinEntry ? (
+              <>
+                <label className="mt-5 block">
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Transaction PIN
+                  </span>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength="6"
+                    value={pin}
+                    onChange={(event) => {
+                      setPin(event.target.value.replace(/\D/g, "").slice(0, 6));
+                      setError("");
+                    }}
+                    placeholder="Enter 6-digit PIN"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[16px] text-slate-900 outline-none transition focus:border-slate-300"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handlePinSubmit}
+                  disabled={loading || biometricBusy}
+                  className={`mt-5 inline-flex w-full items-center justify-center gap-3 rounded-[24px] px-5 py-4 text-sm font-semibold text-white transition ${
+                    loading || biometricBusy ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-500"
+                  }`}
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
+                  <span>{loading ? "Verifying PIN..." : "Unlock with PIN"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onForgotPin}
+                  className="mt-4 w-full text-sm font-semibold text-slate-600 transition hover:text-slate-950"
+                >
+                  Forget transaction PIN
+                </button>
+              </>
+            ) : canUsePinFallback ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPinEntry(true);
                   setError("");
                 }}
-                placeholder="Enter 6-digit PIN"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[16px] text-slate-900 outline-none transition focus:border-slate-300"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={handlePinSubmit}
-              disabled={loading || biometricBusy}
-              className={`mt-5 inline-flex w-full items-center justify-center gap-3 rounded-[24px] px-5 py-4 text-sm font-semibold text-white transition ${
-                loading || biometricBusy ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-500"
-              }`}
-            >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
-              <span>{loading ? "Verifying PIN..." : "Unlock with PIN"}</span>
-            </button>
+                className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+              >
+                <KeyRound size={18} />
+                <span>Enter Transaction Pin</span>
+              </button>
+            ) : null}
           </div>
 
           <button

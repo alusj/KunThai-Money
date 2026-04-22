@@ -47,7 +47,13 @@ import {
   persistHomeScreen,
   readStoredHomeScreen,
 } from "../../Backend/utils/homeScreenSession";
-import { clearHomeUnlocked, isHomeUnlocked, markHomeUnlocked } from "../../Backend/utils/homeUnlockSession";
+import {
+  clearHomeUnlocked,
+  isHomeUnlocked,
+  markHomeUnlocked,
+  preserveHomeUnlockForRefresh,
+  restoreHomeUnlockAfterRefresh,
+} from "../../Backend/utils/homeUnlockSession";
 import { buildFullName, resolveRegisteredName } from "../../Backend/utils/profileName";
 import { useAppearance } from "../AppearanceProvider";
 import { useTranslation } from "../useTranslation.jsx";
@@ -172,7 +178,11 @@ export default function KunTaiHome() {
   );
   const [actionFeedback, setActionFeedback] = useState(null);
   const [paymentRequestFeedback, setPaymentRequestFeedback] = useState(null);
-  const [isHomeAccessUnlocked, setIsHomeAccessUnlocked] = useState(() => isHomeUnlocked(user?.id));
+  const [isHomeAccessUnlocked, setIsHomeAccessUnlocked] = useState(() =>
+    restoreHomeUnlockAfterRefresh(user?.id)
+  );
+  const [unlockScreenMode, setUnlockScreenMode] = useState("unlock");
+  const [unlockNotice, setUnlockNotice] = useState(null);
   const [biometricState, setBiometricState] = useState({
     supported: false,
     enabled: false,
@@ -277,6 +287,18 @@ export default function KunTaiHome() {
 
     markHomeUnlocked(user.id);
     setIsHomeAccessUnlocked(true);
+    setUnlockScreenMode("unlock");
+    setUnlockNotice(null);
+  };
+
+  const lockHomeAccess = ({ notice = null, clearStoredUnlock = false } = {}) => {
+    if (clearStoredUnlock && user?.id) {
+      clearHomeUnlocked(user.id);
+    }
+
+    setIsHomeAccessUnlocked(false);
+    setUnlockScreenMode("unlock");
+    setUnlockNotice(notice);
   };
 
   const handleUnlockWithPin = async (pin) => {
@@ -705,7 +727,7 @@ export default function KunTaiHome() {
   }, [user?.id]);
 
   useEffect(() => {
-    setIsHomeAccessUnlocked(isHomeUnlocked(user?.id));
+    setIsHomeAccessUnlocked(restoreHomeUnlockAfterRefresh(user?.id));
   }, [user?.id]);
 
   useEffect(() => {
@@ -841,6 +863,7 @@ export default function KunTaiHome() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         markHomeScreenActiveNow();
+        lockHomeAccess();
         return;
       }
 
@@ -861,6 +884,8 @@ export default function KunTaiHome() {
 
     const handlePageHide = () => {
       markHomeScreenActiveNow();
+      preserveHomeUnlockForRefresh(user?.id, isHomeAccessUnlocked || isHomeUnlocked(user?.id));
+      clearHomeUnlocked(user?.id);
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -870,7 +895,7 @@ export default function KunTaiHome() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
     };
-  }, []);
+  }, [isHomeAccessUnlocked, user?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1097,14 +1122,40 @@ export default function KunTaiHome() {
   };
 
   if (!isHomeAccessUnlocked) {
+    if (unlockScreenMode === "change-pin") {
+      return (
+        <ChangePinScreen
+          user={user}
+          hideForgotLink
+          onBack={() => {
+            setUnlockScreenMode("unlock");
+            setUnlockNotice(null);
+          }}
+          onSuccess={() => {
+            setUnlockScreenMode("unlock");
+            setUnlockNotice({
+              title: "PIN changed successfully",
+              message: "Use your new transaction PIN or biometrics to unlock your home again.",
+              tone: "success",
+            });
+          }}
+        />
+      );
+    }
+
     return (
       <HomeUnlockGate
         profileName={profileName}
         phone={profile?.phone || user?.phone || ""}
         biometricEnabled={biometricState.enabled}
         biometricBusy={biometricState.busy}
+        notice={unlockNotice}
         onVerifyBiometric={handleUnlockWithBiometrics}
         onVerifyPin={handleUnlockWithPin}
+        onForgotPin={() => {
+          setUnlockScreenMode("change-pin");
+          setUnlockNotice(null);
+        }}
         onSignOut={() => handleSignOut()}
       />
     );

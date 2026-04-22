@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ChevronDown } from "lucide-react";
 
-import supabase from "../../Backend/lib/supabaseClient";
 import {
   buildInternationalPhone,
   ecowasCountries,
@@ -11,7 +10,12 @@ import {
   validateNationalPhone,
 } from "../utils/ecowasCountries";
 import { getPhoneAuthStatus } from "../services/authPhoneService";
-import { setOnboardingPhone } from "../utils/onboardingStorage";
+import { sendOtpCode } from "../services/authOtpService";
+import {
+  clearOtpVerificationSession,
+  setOnboardingPhone,
+  setPendingRegistration,
+} from "../utils/onboardingStorage";
 import PageTransition from "../../components/animations/PageTransition";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
@@ -97,18 +101,12 @@ export default function Register() {
         return;
       }
 
-      const { error: signUpError } = await supabase.auth.signUp({
+      setPendingRegistration({
         phone: fullPhone,
         password,
-        options: {
-          channel: "sms",
-        },
       });
-
-      if (signUpError) {
-        throw signUpError;
-      }
-
+      clearOtpVerificationSession();
+      await sendOtpCode({ phone: fullPhone });
       setOnboardingPhone(fullPhone);
       navigate("/verify", { state: { phone: fullPhone, intent: "register" } });
     } catch (err) {

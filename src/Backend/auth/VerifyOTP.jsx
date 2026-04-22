@@ -2,9 +2,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import supabase from "../../Backend/lib/supabaseClient";
-import { useAuth } from "../hooks/useAuth";
+import {
+  completePhoneRegistration,
+  sendOtpCode,
+  verifyOtpCode,
+} from "../services/authOtpService";
 import { maskPhoneNumber } from "../utils/maskPhoneNumber";
-import { getOnboardingPhone, setOnboardingPhone } from "../utils/onboardingStorage";
+import {
+  clearPendingRegistration,
+  clearOtpVerificationSession,
+  getOnboardingPhone,
+  getPendingRegistration,
+  setOnboardingPhone,
+  setOtpVerificationSession,
+} from "../utils/onboardingStorage";
 import PageTransition from "../../components/animations/PageTransition";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
@@ -12,7 +23,6 @@ import AuthShell from "../../components/auth/AuthShell";
 export default function VerifyOTP() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session } = useAuth();
   const phone = location.state?.phone || getOnboardingPhone();
   const intent = location.state?.intent || "register";
 
@@ -28,12 +38,12 @@ export default function VerifyOTP() {
 
   useEffect(() => {
     if (!phone) {
-      navigate(session ? "/welcome-loader" : "/register", { replace: true });
+      navigate(intent === "reset-password" ? "/forgot-password" : "/register", { replace: true });
       return;
     }
 
     setOnboardingPhone(phone);
-  }, [navigate, phone, session]);
+  }, [intent, navigate, phone]);
 
   useEffect(() => {
     inputs.current[0]?.focus();
@@ -109,27 +119,63 @@ export default function VerifyOTP() {
       setErrorMessage("");
 
       try {
-        const { error } = await supabase.auth.verifyOtp({
+        const { verificationToken } = await verifyOtpCode({
           phone,
-          token: code,
-          type: "sms",
+          code,
+          intent,
         });
 
-        if (error) {
-          throw error;
+        setOtpVerificationSession({
+          phone,
+          intent,
+          verificationToken,
+        });
+
+        if (intent === "reset-password") {
+          setSuccess(true);
+
+          window.setTimeout(() => {
+            navigate("/reset-password", {
+              replace: true,
+              state: {
+                phone,
+                verificationToken,
+              },
+            });
+          }, 800);
+          return;
         }
 
+        const pendingRegistration = getPendingRegistration();
+
+        if (
+          !pendingRegistration?.phone ||
+          pendingRegistration.phone !== phone ||
+          !pendingRegistration?.password
+        ) {
+          throw new Error("Your registration session expired. Start registration again.");
+        }
+
+        await completePhoneRegistration({
+          phone,
+          password: pendingRegistration.password,
+          verificationToken,
+        });
+
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          phone,
+          password: pendingRegistration.password,
+        });
+
+        if (signInError) {
+          throw signInError;
+        }
+
+        clearPendingRegistration();
+        clearOtpVerificationSession();
         setSuccess(true);
 
         window.setTimeout(() => {
-          if (intent === "reset-password") {
-            navigate("/reset-password", {
-              replace: true,
-              state: { phone },
-            });
-            return;
-          }
-
           navigate("/security-setup", {
             replace: true,
             state: { phone },
@@ -161,14 +207,9 @@ export default function VerifyOTP() {
 
   const resendOtp = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      await sendOtpCode({
         phone,
-        options: intent === "reset-password" ? { shouldCreateUser: false } : undefined,
       });
-
-      if (error) {
-        throw error;
-      }
 
       setTimerCycle((current) => current + 1);
       setErrorMessage("");
@@ -178,7 +219,7 @@ export default function VerifyOTP() {
       if (normalizedMessage.includes("rate limit")) {
         setErrorMessage("OTP sending is temporarily rate-limited. Please wait a moment before requesting another code.");
       } else if (normalizedMessage.includes("sms") || normalizedMessage.includes("twilio")) {
-        setErrorMessage("The OTP provider did not confirm SMS delivery. Check your Supabase phone auth provider and try again.");
+        setErrorMessage("The OTP provider did not confirm SMS delivery. Please try again.");
       } else {
         setErrorMessage(err.message || "Failed to resend OTP");
       }

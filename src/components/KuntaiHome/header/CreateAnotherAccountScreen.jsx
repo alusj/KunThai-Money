@@ -1118,30 +1118,20 @@ export default function CreateAnotherAccountScreen({
                       setPermissionState("prompt");
                       setLocationLookupError("");
                     }}
-                  className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                    !locationIsDevice ? primaryActionClass : toggleInactiveClass
-                  }`}
+                  className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${primaryActionClass}`}
                 >
                   Enter manually
                 </button>
                 <button
                   type="button"
                   onClick={handleOpenLocationPrompt}
-                  className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                    locationIsDevice ? primaryActionClass : toggleInactiveClass
-                  }`}
+                  className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${primaryActionClass}`}
                 >
                   <span className="flex flex-col items-center justify-center leading-tight">
                     <span>Use your current location</span>
                     <span
                       className={`mt-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] ${
-                        locationIsDevice
-                          ? isDarkMode
-                            ? "text-sky-300"
-                            : "text-sky-200"
-                          : isDarkMode
-                            ? "text-emerald-300"
-                            : "text-emerald-600"
+                        isDarkMode ? "text-sky-300" : "text-sky-200"
                       }`}
                     >
                       Recommended
