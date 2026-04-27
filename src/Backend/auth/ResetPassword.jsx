@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { resetPasswordWithOtp } from "../services/authOtpService";
+import supabase from "../../Backend/lib/supabaseClient";
 import { maskPhoneNumber } from "../utils/maskPhoneNumber";
-import {
-  clearOtpVerificationSession,
-  getOnboardingPhone,
-  getOtpVerificationSession,
-} from "../utils/onboardingStorage";
+import { getOnboardingPhone } from "../utils/onboardingStorage";
 import PageTransition from "../../components/animations/PageTransition";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
@@ -18,10 +14,6 @@ export default function ResetPassword() {
   const phone = useMemo(
     () => location.state?.phone || getOnboardingPhone() || "",
     [location.state?.phone]
-  );
-  const verificationToken = useMemo(
-    () => location.state?.verificationToken || getOtpVerificationSession()?.verificationToken || "",
-    [location.state?.verificationToken]
   );
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -47,20 +39,26 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      if (!verificationToken) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
         throw new Error("Your reset session expired. Request another OTP and try again.");
       }
 
-      await resetPasswordWithOtp({
-        phone,
+      const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
-        verificationToken,
       });
 
-      clearOtpVerificationSession();
+      if (updateError) {
+        throw updateError;
+      }
+
       setSuccess("Password updated successfully. Redirecting you to sign in...");
 
-      window.setTimeout(() => {
+      window.setTimeout(async () => {
+        await supabase.auth.signOut();
         navigate("/login", {
           replace: true,
           state: phone ? { phone } : undefined,

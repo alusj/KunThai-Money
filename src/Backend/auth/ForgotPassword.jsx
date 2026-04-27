@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 
+import supabase from "../../Backend/lib/supabaseClient";
 import {
   buildInternationalPhone,
   ecowasCountries,
@@ -10,11 +11,7 @@ import {
   validateNationalPhone,
 } from "../utils/ecowasCountries";
 import { getPhoneAuthStatus } from "../services/authPhoneService";
-import { sendOtpCode } from "../services/authOtpService";
-import {
-  clearOtpVerificationSession,
-  setOnboardingPhone,
-} from "../utils/onboardingStorage";
+import { setOnboardingPhone } from "../utils/onboardingStorage";
 import PageTransition from "../../components/animations/PageTransition";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
@@ -67,8 +64,17 @@ export default function ForgotPassword() {
         return;
       }
 
-      clearOtpVerificationSession();
-      await sendOtpCode({ phone: fullPhone });
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        phone: fullPhone,
+        options: {
+          shouldCreateUser: false,
+        },
+      });
+
+      if (otpError) {
+        throw otpError;
+      }
+
       setOnboardingPhone(fullPhone);
       navigate("/verify", {
         state: {

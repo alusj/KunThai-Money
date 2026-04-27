@@ -321,7 +321,7 @@ export default function CreateProfile() {
 
           <input
             type="text"
-            placeholder="Surname / Last Name"
+            placeholder="Last Name"
             value={lastName}
             onChange={(event) => setLastName(event.target.value)}
             className="w-full rounded-xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
@@ -329,7 +329,7 @@ export default function CreateProfile() {
 
           <input
             type="email"
-            placeholder="Email (optional)"
+            placeholder="Email Address (optional)"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="w-full rounded-xl border border-[#28456f] bg-[#10213f] px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
@@ -338,39 +338,40 @@ export default function CreateProfile() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full rounded-2xl py-3 font-semibold text-white ${
+            className={`w-full rounded-2xl py-3 font-semibold text-white transition ${
               loading ? "bg-[#31507f]" : "bg-[#2563eb] hover:bg-[#3b82f6]"
             }`}
           >
-            {loading ? "Creating..." : "Finish Setup"}
+            {loading ? "Creating profile..." : "Continue"}
           </button>
         </form>
-      </div>
 
-      {showCrop && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-[90%] max-w-md rounded-[24px] border border-[#28456f] bg-[#0d1b34] p-4 text-slate-100 shadow-2xl">
-            <div className="relative h-64 w-full">
-              <Cropper
-                image={avatarPreview}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-              />
+        {showCrop && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+            <div className="w-full max-w-md rounded-[24px] border border-[#28456f] bg-[#0d1b34] p-4 text-slate-100 shadow-2xl">
+              <div className="relative h-64 w-full">
+                <Cropper
+                  image={avatarPreview}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowCrop(false)}
+                className="mt-4 w-full rounded-lg bg-[#2563eb] py-2 text-white transition hover:bg-[#3b82f6]"
+              >
+                Done
+              </button>
             </div>
-
-            <button
-              onClick={() => setShowCrop(false)}
-              className="mt-4 w-full rounded-lg bg-[#2563eb] py-2 text-white transition hover:bg-[#3b82f6]"
-            >
-              Done
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </AuthShell>
   );
 }
