@@ -7,7 +7,7 @@ import { useAppearance } from "../../../AppearanceProvider";
 import { useTranslation } from "../../../useTranslation.jsx";
 
 import { FaStore, FaShieldAlt, FaHotel, FaUtensils, FaShoppingCart, FaCapsules, FaUserTie } from "react-icons/fa";
-import { MdElectricBolt, MdWifi, MdSchool, MdTv } from "react-icons/md";
+import { MdElectricBolt, MdWifi, MdSchool, MdTv, MdCurrencyExchange } from "react-icons/md";
 import { BsQrCodeScan } from "react-icons/bs";
 import { GiReceiveMoney } from "react-icons/gi";
 import { RiGovernmentLine } from "react-icons/ri";
@@ -20,6 +20,7 @@ export default function ServicesContainer({ setActiveService }) {
 
   const services = [
     { key: "agent", title: t("Agent Transfer"), icon: <FaUserTie size={22} /> },
+    { key: "foreign-convert", title: t("Foreign Convert"), icon: <MdCurrencyExchange size={22} /> },
     { key: "merchant", title: t("Pay Merchant"), icon: <FaStore size={22} /> },
     { key: "school", title: t("School Fees"), icon: <MdSchool size={22} /> },
     { key: "hotel", title: t("Hotel"), icon: <FaHotel size={22} /> },

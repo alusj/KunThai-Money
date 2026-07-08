@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 
 import Welcome from "../components/Welcome";
 import Login from "../Backend/auth/Login";
@@ -21,8 +22,11 @@ import PublicRoute from "../components/PublicRoute";
 import AuthSessionRoute from "../components/AuthSessionRoute";
 
 export default function AppRoutes() {
+  const location = useLocation();
+
   return (
-    <Routes>
+    <AnimatePresence mode="wait" initial={false}>
+      <Routes location={location} key={location.pathname}>
       <Route
         path="/"
         element={
@@ -130,6 +134,7 @@ export default function AppRoutes() {
           </AdminRoute>
         }
       />
-    </Routes>
+      </Routes>
+    </AnimatePresence>
   );
 }

@@ -14,6 +14,7 @@ import OtherAccountContainer from "./OtherAccountContainer/OtherAccountContainer
 import ServicesContainer from "./Services/ServicesContainer";
 import PayMerchant from "./Services/PayMerchant/PayMerchant";
 import AgentTransfer from "./Services/AgentTransfer/AgentTransfer";
+import ForeignConvert from "./Services/ForeignConvert/ForeignConvert";
 import ElectricityPay from "./Services/Electricity/ElectricityPay";
 import InternetPay from "./Services/InternetPay/InternetPay";
 import TVSubscription from "./Services/TVSubscription/TVSubscription";
@@ -139,6 +140,17 @@ export default function Dashboard({
           account={account}
           user={user}
           profile={profile}
+        />
+      )}
+
+      {activeService === "foreign-convert" && (
+        <ForeignConvert
+          onBack={() => setActiveService(null)}
+          refreshAccount={refreshAccount}
+          account={account}
+          user={user}
+          profile={profile}
+          otherAccounts={otherAccounts}
         />
       )}
 

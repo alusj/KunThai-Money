@@ -196,7 +196,9 @@ export default function AccountNumberReceipt({
             <ReceiptRow label="Payment Method" value={receipt.paymentMethod} />
           </div>
         </section>
+      </div>
 
+      <div className="mt-4 space-y-3">
         {sharePickerOpen ? (
           <div className="grid grid-cols-2 gap-3">
             <button

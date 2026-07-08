@@ -7,7 +7,10 @@ import {
   getTransactionSubject,
 } from "../../../../../Backend/utils/serviceTransactions";
 import { normalizeCurrencyCode } from "../../../../../Backend/utils/currency";
+import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useAppearance } from "../../../../AppearanceProvider";
+import SendMoneyAnimation from "../../../../animations/SendMoneyAnimation";
+import SheetStage from "../../../../animations/SheetStage";
 
 import {
   INITIAL_FORM,
@@ -118,6 +121,7 @@ export default function AccountNumber({
   const [receipt, setReceipt] = useState(null);
   const [successfulTransfer, setSuccessfulTransfer] = useState(null);
   const [showForgotPinModal, setShowForgotPinModal] = useState(false);
+  const [sendPhase, setSendPhase] = useState(null);
 
   const ownerName =
     profile?.first_name || profile?.last_name
@@ -272,10 +276,11 @@ export default function AccountNumber({
 
     setIsSubmitting(true);
     setError("");
+    setSendPhase("sending");
 
     try {
-      const transfer = isConversionFlow
-        ? await convertOwnAccounts({
+      const transferPromise = isConversionFlow
+        ? convertOwnAccounts({
             sourceAccountId: account?.id,
             targetAccountNumber: form.accountNumber.trim(),
             amount: numericAmount,
@@ -297,7 +302,7 @@ export default function AccountNumber({
               conversion_target_currency: targetCurrency,
             },
           })
-        : await createAccountTransfer({
+        : createAccountTransfer({
             sourceAccountId: account?.id,
             recipientAccountNumber: form.accountNumber.trim(),
             amount: numericAmount,
@@ -316,6 +321,12 @@ export default function AccountNumber({
               ...resolvedTransferMetadata,
             },
           });
+
+      // Let the sending animation play for a beat even when the API is fast.
+      const [transfer] = await Promise.all([
+        transferPromise,
+        new Promise((resolve) => window.setTimeout(resolve, 2400)),
+      ]);
 
       const nextReceipt = {
         status: transfer?.status || "completed",
@@ -362,11 +373,16 @@ export default function AccountNumber({
         ...resolvedReceiptOverrides,
       };
 
+      setSendPhase("success");
+      await new Promise((resolve) => window.setTimeout(resolve, 1400));
+
       setReceipt(nextReceipt);
       setSuccessfulTransfer(transfer);
       setPin("");
       setStep("receipt");
+      setSendPhase(null);
     } catch (submitError) {
+      setSendPhase(null);
       setError(resolveErrorMessage(submitError, "The transfer could not be completed."));
     } finally {
       setIsSubmitting(false);
@@ -394,8 +410,25 @@ export default function AccountNumber({
     setShowForgotPinModal(true);
   };
 
+  const sendOverlay = (
+    <SendMoneyAnimation
+      phase={sendPhase}
+      amountLabel={formatCurrency(numericAmount || 0, currency)}
+      senderName={ownerName}
+      senderImage={ownerProfileImage}
+      recipientName={
+        effectiveRecipientLookup?.recipient_name || form.accountNumber.trim() || "Recipient"
+      }
+      recipientImage={effectiveRecipientLookup?.recipient_profile_image || ""}
+      actionLabel={isConversionFlow ? "Converting" : "Sending"}
+      successLabel={isConversionFlow ? "Conversion complete" : "Sent successfully"}
+    />
+  );
+
+  let stepContent;
+
   if (step === "receipt" && receipt) {
-    return (
+    stepContent = (
       <AccountNumberReceipt
         receipt={receipt}
         currency={currency}
@@ -414,46 +447,25 @@ export default function AccountNumber({
         }}
       />
     );
-  }
-
-  if (step === "pin") {
-    return (
-      <>
-        <AccountNumberPin
-          isDarkMode={isDarkMode}
-          error={error}
-          pin={pin}
-          backLabel={backLabel}
-          isSubmitting={isSubmitting}
-          onBack={() => setStep("confirm")}
-          onChangePin={(value) => {
-            setPin(value.replace(/\D/g, "").slice(0, 6));
-            setError("");
-          }}
-          onForgotPin={handleForgotPin}
-          onSubmit={handlePinSubmit}
-        />
-
-        <ForgotPinModal
-          isOpen={showForgotPinModal}
-          onClose={() => setShowForgotPinModal(false)}
-          onOpenChangePin={() => {
-            setShowForgotPinModal(false);
-            onClose?.();
-            navigate("/home", {
-              replace: true,
-              state: {
-                openScreen: "change-pin",
-              },
-            });
-          }}
-        />
-      </>
+  } else if (step === "pin") {
+    stepContent = (
+      <AccountNumberPin
+        isDarkMode={isDarkMode}
+        error={error}
+        pin={pin}
+        backLabel={backLabel}
+        isSubmitting={isSubmitting}
+        onBack={() => setStep("confirm")}
+        onChangePin={(value) => {
+          setPin(value.replace(/\D/g, "").slice(0, 6));
+          setError("");
+        }}
+        onForgotPin={handleForgotPin}
+        onSubmit={handlePinSubmit}
+      />
     );
-  }
-
-  if (step === "confirm") {
-    return (
+  } else if (step === "confirm") {
+    stepContent = (
       <AccountNumberConfirm
         isDarkMode={isDarkMode}
         backLabel={backLabel}
@@ -476,10 +488,8 @@ export default function AccountNumber({
         fxState={fxState}
       />
     );
-  }
-
-  return (
-    <>
+  } else {
+    stepContent = (
       <AccountNumberForm
         isDarkMode={isDarkMode}
         error={error}
@@ -488,16 +498,24 @@ export default function AccountNumber({
         currency={currency}
         form={form}
         onChange={handleChange}
-      recipientStateIcon={recipientStateIcon}
-      recipientLookup={effectiveRecipientLookup}
-      isConversionFlow={isConversionFlow}
-      convertedAmount={convertedAmount}
+        recipientStateIcon={recipientStateIcon}
+        recipientLookup={effectiveRecipientLookup}
+        isConversionFlow={isConversionFlow}
+        convertedAmount={convertedAmount}
         targetCurrency={targetCurrency}
         fxState={fxState}
         canVerify={canVerify}
         onVerify={handleVerify}
         disableAccountNumber={isConversionFlow}
       />
+    );
+  }
+
+  return (
+    <>
+      {sendOverlay}
+
+      <SheetStage stageKey={step}>{stepContent}</SheetStage>
 
       <ForgotPinModal
         isOpen={showForgotPinModal}

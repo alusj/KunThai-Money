@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowUpDown } from "lucide-react";
 import { normalizeCurrencyCode } from "../../../../Backend/utils/currency";
 
 function maskAmount(amountText = "") {
@@ -157,6 +159,7 @@ export default function MainAccountStats({ account }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFxModal, setShowFxModal] = useState(false);
   const [fxAmountInput, setFxAmountInput] = useState("1");
+  const [fxSwapped, setFxSwapped] = useState(false);
   const [fxState, setFxState] = useState({
     loading: false,
     error: "",
@@ -164,20 +167,25 @@ export default function MainAccountStats({ account }) {
   });
   const menuRef = useRef(null);
 
-  if (!account) {
-    return (
-      <div className="space-y-3">
-        <div className="h-3 w-32 animate-pulse rounded bg-emerald-100" />
-        <div className="h-8 w-40 animate-pulse rounded bg-emerald-200" />
-      </div>
-    );
-  }
+  // Freeze the page while the exchange-rate card is open.
+  useEffect(() => {
+    if (!showFxModal) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showFxModal]);
 
   const formattedBalance = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(account.balance || 0);
-  const displayCurrency = normalizeCurrencyCode(account.currency) || "SLL";
+  }).format(account?.balance || 0);
+  const displayCurrency = normalizeCurrencyCode(account?.currency) || "SLL";
 
   const concealedBalance = useMemo(
     () => `${displayCurrency} ${maskAmount(formattedBalance)}`,
@@ -185,9 +193,17 @@ export default function MainAccountStats({ account }) {
   );
   const fxQuoteCurrency = displayCurrency === "USD" ? "SLL" : "USD";
   const fxAmountValue = Number(fxAmountInput);
+  // Swapping inverts the pair locally, so either currency can be the input.
+  const fxInputCurrency = fxSwapped ? fxState.data?.quote : fxState.data?.base;
+  const fxOutputCurrency = fxSwapped ? fxState.data?.base : fxState.data?.quote;
+  const fxEffectiveRate = fxState.data?.rate
+    ? fxSwapped
+      ? 1 / fxState.data.rate
+      : fxState.data.rate
+    : null;
   const fxConvertedValue =
-    fxState.data?.rate && Number.isFinite(fxAmountValue) && fxAmountValue >= 0
-      ? fxAmountValue * fxState.data.rate
+    fxEffectiveRate && Number.isFinite(fxAmountValue) && fxAmountValue >= 0
+      ? fxAmountValue * fxEffectiveRate
       : 0;
 
   useEffect(() => {
@@ -252,6 +268,15 @@ export default function MainAccountStats({ account }) {
     };
   }, [displayCurrency, fxQuoteCurrency, showFxModal]);
 
+  if (!account) {
+    return (
+      <div className="space-y-3">
+        <div className="h-3 w-32 animate-pulse rounded bg-emerald-100" />
+        <div className="h-8 w-40 animate-pulse rounded bg-emerald-200" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -282,6 +307,7 @@ export default function MainAccountStats({ account }) {
                 onClick={() => {
                   setShowFxModal(true);
                   setFxAmountInput("1");
+                  setFxSwapped(false);
                   setMenuOpen(false);
                 }}
                 className="accent-text flex w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50"
@@ -304,9 +330,26 @@ export default function MainAccountStats({ account }) {
       </button>
       <p className="accent-text mt-2 text-xs opacity-70">Tap the balance to {isVisible ? "hide" : "show"} it.</p>
 
-      {showFxModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 px-4 pb-6 pt-20 sm:items-center">
-          <div className="w-full max-w-md rounded-[28px] border border-emerald-200/60 bg-[#141d35] p-5 text-white shadow-2xl">
+      <AnimatePresence>
+        {showFxModal ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
+            onClick={() => setShowFxModal(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 16 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              onClick={(event) => event.stopPropagation()}
+              className="w-full max-w-md rounded-[28px] border border-emerald-200/60 bg-[#141d35] p-5 text-white shadow-2xl"
+            >
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent-400)]">
               Foreign Exchange Rate
             </p>
@@ -314,17 +357,33 @@ export default function MainAccountStats({ account }) {
             {fxState.error ? <p className="mt-4 text-sm text-rose-300">{fxState.error}</p> : null}
             {fxState.data ? (
               <>
-                <p className="mt-4 text-lg font-semibold text-white">
-                  1 {fxState.data.base} = {formatExchangeNumber(fxState.data.rate)} {fxState.data.quote}
-                </p>
-                <p className="mt-2 text-xs text-slate-300">Rate checked: {fxState.data.date}</p>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-white">
+                      1 {fxInputCurrency} = {formatExchangeNumber(fxEffectiveRate)} {fxOutputCurrency}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-300">Rate checked: {fxState.data.date}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFxSwapped((current) => !current);
+                      setFxAmountInput("1");
+                    }}
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-950/40 text-slate-100 transition hover:border-slate-400 hover:bg-slate-800/70"
+                    aria-label={`Switch to converting ${fxOutputCurrency} to ${fxInputCurrency}`}
+                    title="Swap currencies"
+                  >
+                    <ArrowUpDown size={18} />
+                  </button>
+                </div>
                 <label className="mt-5 block">
                   <span className="mb-2 block text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-300">
-                    Enter {fxState.data.base} amount
+                    Enter {fxInputCurrency} amount
                   </span>
                   <div className="rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-slate-300">{fxState.data.base}</span>
+                      <span className="text-sm font-semibold text-slate-300">{fxInputCurrency}</span>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -341,7 +400,7 @@ export default function MainAccountStats({ account }) {
                     Converted Amount
                   </p>
                   <p className="mt-2 text-xl font-semibold text-white">
-                    {formatCurrencyCodeAmount(fxConvertedValue, fxState.data.quote)}
+                    {formatCurrencyCodeAmount(fxConvertedValue, fxOutputCurrency)}
                   </p>
                 </div>
               </>
@@ -363,9 +422,10 @@ export default function MainAccountStats({ account }) {
                 Done
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

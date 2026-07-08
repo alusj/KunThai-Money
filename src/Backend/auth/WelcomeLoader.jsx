@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import FlagIcon from "../../components/FlagIcon";
+import PageTransition from "../../components/animations/PageTransition";
 import { fetchOnboardingStatus } from "../hooks/useOnboardingStatus";
 import { ecowasCountries } from "../utils/ecowasCountries";
 import {
@@ -128,6 +129,7 @@ export default function WelcomeLoader() {
   ];
 
   return (
+    <PageTransition variant="collapse">
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(110,231,255,0.16),transparent_28%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.18),transparent_24%),linear-gradient(180deg,#030712_0%,#071632_36%,#0b2152_68%,#041126_100%)] px-6 text-white">
       <style>
         {`
@@ -281,6 +283,7 @@ export default function WelcomeLoader() {
         </div>
       </div>
     </div>
+    </PageTransition>
   );
 }
 

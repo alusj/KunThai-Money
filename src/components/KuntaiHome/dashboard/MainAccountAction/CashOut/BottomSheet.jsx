@@ -1,7 +1,23 @@
 // ui/BottomSheet.jsx
 // Reusable half-screen modal (bank-grade UX)
 
+import { useEffect } from "react";
+
 export default function BottomSheet({ isOpen, onClose, title, children }) {
+  // Freeze the page behind the sheet so only the sheet responds.
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (

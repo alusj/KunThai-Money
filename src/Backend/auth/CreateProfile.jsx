@@ -9,6 +9,7 @@ import { maskPhoneNumber } from "../utils/maskPhoneNumber";
 import { buildFullName } from "../utils/profileName";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
+import PageTransition from "../../components/animations/PageTransition";
 
 export default function CreateProfile() {
   const navigate = useNavigate();
@@ -269,6 +270,7 @@ export default function CreateProfile() {
   };
 
   return (
+    <PageTransition>
     <AuthShell
       eyebrow="Profile Setup"
       title="Complete your profile"
@@ -373,5 +375,6 @@ export default function CreateProfile() {
         )}
       </div>
     </AuthShell>
+    </PageTransition>
   );
 }

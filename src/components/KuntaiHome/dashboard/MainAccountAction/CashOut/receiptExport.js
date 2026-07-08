@@ -1,6 +1,69 @@
+function inlineComputedStyles(sourceElement, cloneElement) {
+  const sourceNodes = [sourceElement, ...sourceElement.querySelectorAll("*")];
+  const cloneNodes = [cloneElement, ...cloneElement.querySelectorAll("*")];
+
+  sourceNodes.forEach((node, index) => {
+    const clone = cloneNodes[index];
+
+    if (!clone || !(node instanceof Element)) {
+      return;
+    }
+
+    const computed = window.getComputedStyle(node);
+    let cssText = "";
+
+    for (let i = 0; i < computed.length; i += 1) {
+      const property = computed[i];
+      cssText += `${property}:${computed.getPropertyValue(property)};`;
+    }
+
+    clone.style.cssText = cssText;
+  });
+}
+
+async function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Image could not be embedded."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// External images (e.g. profile avatars) are blocked inside SVG-as-image, so
+// embed them as data URLs; drop any that cannot be fetched.
+async function embedImages(cloneElement) {
+  const images = Array.from(cloneElement.querySelectorAll("img"));
+
+  await Promise.all(
+    images.map(async (img) => {
+      const src = img.getAttribute("src") || "";
+
+      if (!src || src.startsWith("data:")) {
+        return;
+      }
+
+      try {
+        const response = await fetch(src, { mode: "cors" });
+
+        if (!response.ok) {
+          throw new Error(`Image fetch failed: ${response.status}`);
+        }
+
+        img.setAttribute("src", await blobToDataUrl(await response.blob()));
+      } catch {
+        img.remove();
+      }
+    })
+  );
+}
+
 export async function renderReceiptImage(receiptElement) {
   const rect = receiptElement.getBoundingClientRect();
   const clone = receiptElement.cloneNode(true);
+
+  inlineComputedStyles(receiptElement, clone);
+  await embedImages(clone);
   clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
 
   const markup = new XMLSerializer().serializeToString(clone);
@@ -10,34 +73,33 @@ export async function renderReceiptImage(receiptElement) {
     </svg>
   `;
 
-  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
+  // A data URL keeps the canvas untainted; blob URLs with foreignObject
+  // taint it in Chromium and make toBlob throw a SecurityError.
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-  try {
-    const image = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = url;
-    });
+  const image = await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Receipt markup could not be rendered."));
+    img.src = url;
+  });
 
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(rect.width * 2);
-    canvas.height = Math.ceil(rect.height * 2);
-    const context = canvas.getContext("2d");
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(rect.width * 2);
+  canvas.height = Math.ceil(rect.height * 2);
+  const context = canvas.getContext("2d");
 
-    if (!context) throw new Error("Canvas is not supported.");
+  if (!context) throw new Error("Canvas is not supported.");
 
-    context.scale(2, 2);
-    context.drawImage(image, 0, 0, rect.width, rect.height);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.scale(2, 2);
+  context.drawImage(image, 0, 0, rect.width, rect.height);
 
-    const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (!pngBlob) throw new Error("Receipt image could not be generated.");
+  const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!pngBlob) throw new Error("Receipt image could not be generated.");
 
-    return pngBlob;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  return pngBlob;
 }
 
 async function imageBlobToJpegData(imageBlob) {

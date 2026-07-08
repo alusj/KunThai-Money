@@ -5,6 +5,7 @@ import Cropper from "react-easy-crop";
 import supabase from "../lib/supabaseClient";
 import AuthNotice from "../../components/auth/AuthNotice";
 import AuthShell from "../../components/auth/AuthShell";
+import PageTransition from "../../components/animations/PageTransition";
 
 function isMissingBucketError(error) {
   const message = error?.message?.toLowerCase?.() || "";
@@ -173,6 +174,7 @@ export default function KYC() {
   };
 
   return (
+    <PageTransition>
     <AuthShell
       eyebrow="Compliance"
       title="Verify your identity"
@@ -306,5 +308,6 @@ export default function KYC() {
         </div>
       )}
     </AuthShell>
+    </PageTransition>
   );
 }
